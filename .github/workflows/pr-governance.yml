@@ -1,0 +1,63 @@
+name: PR Governance
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  issue-link-check:
+    name: PR links an issue
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check PR description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s' "$PR_BODY" | grep -Eiq '(closes|fixes|resolves|part of|related to) #[0-9]+'; then
+            echo "Linked issue found."
+          else
+            echo "::error::Add an issue reference to the PR description."
+            echo "::error::Examples:"
+            echo "::error::Closes #12"
+            echo "::error::Fixes #34"
+            echo "::error::Part of #56"
+            exit 1
+          fi
+
+  branch-name-check:
+    name: Branch naming convention
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate branch name
+        run: |
+          BRANCH="${{ github.head_ref }}"
+
+          echo "Checking branch: $BRANCH"
+
+          if [[ "$BRANCH" =~ ^feature\/.+$ ]] || \
+             [[ "$BRANCH" =~ ^bugfix\/.+$ ]] || \
+             [[ "$BRANCH" =~ ^hotfix\/.+$ ]] || \
+             [[ "$BRANCH" =~ ^docs\/.+$ ]] || \
+             [[ "$BRANCH" =~ ^chore\/.+$ ]]; then
+            echo "Branch name valid."
+          else
+            echo "::error::Invalid branch name."
+            echo "::error::Use one of:"
+            echo "::error::feature/<name>"
+            echo "::error::bugfix/<name>"
+            echo "::error::hotfix/<name>"
+            echo "::error::docs/<name>"
+            echo "::error::chore/<name>"
+            exit 1
+          fi
