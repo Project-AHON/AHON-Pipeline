@@ -110,7 +110,7 @@ jobs:
       - name: Validate YAML files
         run: |
           pip install yamllint
-          yamllint .
+          yamllint -f parsable .
 
       # 6. Lint Python files
       - name: Lint Python files
