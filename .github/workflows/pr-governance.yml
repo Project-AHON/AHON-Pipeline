@@ -65,4 +65,3 @@ jobs:
             echo "::error::chore/<name>"
             exit 1
           fi
-
