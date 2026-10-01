@@ -28,6 +28,7 @@ concurrency:
     }}
   cancel-in-progress: true
 
+
 jobs:
   repository-checks:
     name: Repository checks
@@ -35,14 +36,53 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # 2. Validate PR Markdown file (ADD HERE)
+      - name: Validate PR Markdown file
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+
+          title = os.environ["PR_TITLE"]
+          base_sha = os.environ["BASE_SHA"]
+          head_sha = os.environ["HEAD_SHA"]
+
+          expected_file = f"{title}.md"
+
+          changed_files = subprocess.check_output(
+              [
+                  "git", "diff", "--name-only", "--diff-filter=AM",
+                  base_sha, head_sha, "--", "*.md"
+              ],
+              text=True,
+          ).splitlines()
+
+          if expected_file in changed_files:
+              print(f"Markdown file found: {expected_file}")
+          else:
+              print(f"ERROR: Missing required file: {expected_file}")
+              sys.exit(1)
+          PY
+
+      # 3. Setup Python
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      # 4. Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -55,16 +95,19 @@ jobs:
             pip install -r requirements-dev.txt
           fi
 
+      # 5. Validate YAML files
       - name: Validate YAML files
         run: |
           pip install yamllint
           yamllint .
 
+      # 6. Lint Python files
       - name: Lint Python files
         run: |
           pip install ruff
           ruff check .
 
+      # 7. Run tests
       - name: Run tests
         run: |
           pip install pytest
