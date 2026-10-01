@@ -1,6 +1,6 @@
 name: PR Governance
 
-on:
+"on":
   pull_request:
     types:
       - opened
@@ -23,7 +23,10 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if printf '%s' "$PR_BODY" | grep -Eiq '(closes|fixes|resolves|part of|related to) #[0-9]+'; then
+          if printf '%s' "$PR_BODY" |
+            grep -Eiq \
+              '(closes|fixes|resolves|part of|related to) #[0-9]+'
+          then
             echo "Linked issue found."
           else
             echo "::error::Add an issue reference to the PR description."
@@ -61,3 +64,4 @@ jobs:
             echo "::error::chore/<name>"
             exit 1
           fi
+          

@@ -1,6 +1,6 @@
 name: Auto Assign Reviewer
 
-on:
+"on":
   pull_request:
     types:
       - opened
@@ -48,3 +48,4 @@ jobs:
             });
 
             console.log(`Assigned reviewers: ${reviewers.join(", ")}`);
+            
