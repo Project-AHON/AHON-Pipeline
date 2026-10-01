@@ -1,3 +1,4 @@
+
 name: CI
 
 "on":
@@ -28,7 +29,6 @@ concurrency:
     }}
   cancel-in-progress: true
 
-
 jobs:
   repository-checks:
     name: Repository checks
@@ -42,7 +42,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2. Validate PR Markdown file (ADD HERE)
+      # 2. Validate PR Markdown file
       - name: Validate PR Markdown file
         if: github.event_name == 'pull_request'
         env:
@@ -64,15 +64,26 @@ jobs:
           changed_files = subprocess.check_output(
               [
                   "git", "diff", "--name-only", "--diff-filter=AM",
-                  base_sha, head_sha, "--", "*.md"
+                  base_sha, head_sha
               ],
               text=True,
           ).splitlines()
 
-          if expected_file in changed_files:
-              print(f"Markdown file found: {expected_file}")
+          # Match the filename regardless of its folder
+          matching_files = [
+              file for file in changed_files
+              if file.endswith(".md")
+              and file.rsplit("/", 1)[-1] == expected_file
+          ]
+
+          if matching_files:
+              print(f"Markdown file found: {matching_files[0]}")
           else:
               print(f"ERROR: Missing required file: {expected_file}")
+              print(
+                  "Please add or update a Markdown file "
+                  "matching your PR title."
+              )
               sys.exit(1)
           PY
 
@@ -117,4 +128,3 @@ jobs:
           else
             echo "No tests directory found. Skipping tests."
           fi
-          
