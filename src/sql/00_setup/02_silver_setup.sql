@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS ahon.silver.cmci_economic_dynamism (
     silver_processed_timestamp TIMESTAMP NOT NULL
 )
 USING DELTA
-COMMENT 'Selected CMCI Economic Dynamism indicators for Project AHON; one row per PSGC LGU and year';
+COMMENT 'CMCI Economic Dynamism indicators; one row per PSGC LGU and year';
 
 CREATE TABLE IF NOT EXISTS ahon.silver.cmci_government_efficiency (
     psgc_code STRING NOT NULL,
