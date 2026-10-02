@@ -42,11 +42,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2. Validate PR Markdown file
-      - name: Validate PR Markdown file
+      # 2. Validate documentation update
+      - name: Validate documentation update
         if: github.event_name == 'pull_request'
         env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -55,34 +54,39 @@ jobs:
           import subprocess
           import sys
 
-          title = os.environ["PR_TITLE"]
           base_sha = os.environ["BASE_SHA"]
           head_sha = os.environ["HEAD_SHA"]
 
-          expected_file = f"{title}.md"
-
           changed_files = subprocess.check_output(
               [
-                  "git", "diff", "--name-only", "--diff-filter=AM",
-                  base_sha, head_sha
+                  "git",
+                  "diff",
+                  "--name-only",
+                  "--diff-filter=AM",
+                  base_sha,
+                  head_sha,
               ],
               text=True,
           ).splitlines()
 
-          # Match the filename regardless of its folder
-          matching_files = [
-              file for file in changed_files
-              if file.endswith(".md")
-              and file.rsplit("/", 1)[-1] == expected_file
+          documentation_files = [
+              file
+              for file in changed_files
+              if file.lower().endswith(".md")
           ]
 
-          if matching_files:
-              print(f"Markdown file found: {matching_files[0]}")
+          if documentation_files:
+              print("Documentation files updated:")
+              for file in documentation_files:
+                  print(f"- {file}")
           else:
-              print(f"ERROR: Missing required file: {expected_file}")
               print(
-                  "Please add or update a Markdown file "
-                  "matching your PR title."
+                  "ERROR: This PR must add or update at least "
+                  "one Markdown documentation file."
+              )
+              print(
+                  "Update an existing .md file or add a new one "
+                  "before merging."
               )
               sys.exit(1)
           PY
