@@ -2,16 +2,16 @@
 CREATE CATALOG IF NOT EXISTS ahon;
 
 -- Create Bronze, Silver, Gold, and Quality  Schemas for NYC Mobility
-CREATE SCHEMA IF NOT EXISTS ahon.01_bronze;
+CREATE SCHEMA IF NOT EXISTS ahon.bronze;
 
-CREATE SCHEMA IF NOT EXISTS ahon.02_silver;
+CREATE SCHEMA IF NOT EXISTS ahon.silver;
 
-CREATE SCHEMA IF NOT EXISTS ahon.03_gold;
+CREATE SCHEMA IF NOT EXISTS ahon.gold;
 
-CREATE SCHEMA IF NOT EXISTS ahon.04_platinum;
+CREATE SCHEMA IF NOT EXISTS ahon.platinum;
 
-CREATE SCHEMA IF NOT EXISTS ahon.05_quality;
+CREATE SCHEMA IF NOT EXISTS ahon.quality;
 
-CREATE SCHEMA IF NOT EXISTS ahon.06_reference;
+CREATE SCHEMA IF NOT EXISTS ahon.reference;
 
 SHOW SCHEMAS IN ahon;
