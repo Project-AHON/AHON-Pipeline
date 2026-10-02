@@ -123,8 +123,10 @@ jobs:
         run: |
           pip install pytest
 
-          if [ -d tests ]; then
+          if find tests -type f -name 'test_*.py' -print -quit |
+            grep -q .
+          then
             pytest tests -q
           else
-            echo "No tests directory found. Skipping tests."
+            echo "No test files found. Skipping tests."
           fi
