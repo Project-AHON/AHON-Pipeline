@@ -1,3 +1,4 @@
+---
 name: Auto Assign Reviewer
 
 "on":
@@ -48,4 +49,3 @@ jobs:
             });
 
             console.log(`Assigned reviewers: ${reviewers.join(", ")}`);
-            
