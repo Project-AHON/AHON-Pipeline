@@ -1,8 +1,8 @@
 """Export Project NOAH Landslide Bronze GeoPackage to chunked Parquet."""
 
-from pathlib import Path
 import gc
 import subprocess
+from pathlib import Path
 
 import pyarrow.parquet as pq
 import pyogrio

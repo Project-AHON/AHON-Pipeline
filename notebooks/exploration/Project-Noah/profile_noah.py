@@ -1,9 +1,8 @@
-from pathlib import Path
 import json
 import subprocess
+from pathlib import Path
 
 import pandas as pd
-
 
 DATASET_DIR = Path("data/raw/noah/datasets")
 PROFILE_DIR = Path("data/profiling/noah")

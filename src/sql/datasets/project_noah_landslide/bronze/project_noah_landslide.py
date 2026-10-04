@@ -1,3 +1,4 @@
+# ruff: noqa: F821
 from pyspark.sql import functions as F
 
 # Configuration
