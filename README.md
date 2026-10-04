@@ -1,8 +1,3 @@
-# AHON-Pipeline
-Project AHON is a data-driven disaster and hazard monitoring platform designed to provide actionable insights that strengthen disaster preparedness and decision-making.
-
-
-
 ## Repository structure
 
 ```
@@ -18,7 +13,13 @@ ahon-pipeline/
 ├── src/                         # pipeline code; SQL and Python files sit together
 │   ├── setup/                   # shared: catalogs, schemas, volumes, control table
 │   ├── datasets/                # one folder per source dataset: its bronze and silver code
-│   │   └── DATASET_NAME/        # for example publisher_dataset1
+│   │   └── publisher_dataset/   # example: replace with the real dataset name
+│   │       ├── bronze/          # raw data loaded into bronze.publisher_dataset
+│   │       │   ├── load.sql         # example
+│   │       │   └── load_files.py    # example: Python only if the dataset needs it
+│   │       └── silver/          # cleaned data in silver.publisher_dataset_clean
+│   │           ├── clean.sql        # example
+│   │           └── clean_rules.py   # example: Python only if the dataset needs it
 │   ├── gold/                    # shared: combines datasets into dimensions and facts
 │   ├── platinum/                # shared: analytics tables built from gold
 │   ├── monitoring/              # shared: data quality rules, run log
@@ -43,7 +44,7 @@ ahon-pipeline/
 
 ### Where things go
 
-- **Code:** under `src/`. Each dataset has its own folder under `src/datasets/` with its bronze and silver code (`bronze.sql`, `silver.sql`, and a `.py` file if the dataset needs Python). Code that is shared or combines datasets goes in the shared folders.
+- **Code:** under `src/`. Each dataset has its own folder under `src/datasets/` with a `bronze/` and a `silver/` folder for its SQL, and Python where the dataset needs it. Code that is shared or combines datasets goes in the shared folders.
 - **Schemas:** folder names match the schema names in the naming standard, with no number prefixes. The `source` schema holds raw files in a Unity Catalog Volume, so it has no folder here.
 - **Setup scripts:** files in `src/setup/` have number prefixes (`01_`, `02_`) because they must run in order.
 - **Reusable Python:** in `src/common/`, imported by the layer code.
