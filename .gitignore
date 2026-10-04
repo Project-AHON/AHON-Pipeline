@@ -216,3 +216,25 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project NOAH - local data artifacts
+data/raw/noah/archives/
+data/raw/noah/datasets/
+data/bronze/noah/
+data/export/noah/
+data/profiling/noah/
+
+# GIS files
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.sbn
+*.sbx
+*.qix
+*.qpj
+*.gpkg
+
+# Local GIS environment
+.venv-gis/
