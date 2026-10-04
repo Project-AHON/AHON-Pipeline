@@ -16,7 +16,7 @@ ahon-pipeline/
 │   └── pull_request_template.md # PR template
 ├── src/                         # pipeline code; SQL and Python files sit together
 │   ├── setup/                   # shared: catalogs, schemas, volumes, control table
-│   ├── datasets/                # one folder per source dataset
+│   ├── datasets/                # one folder per source dataset: its bronze and silver code
 │   │   └── publisher_dataset/   # example: replace with the real dataset name
 │   │       ├── extract/         # optional: pulls data from the source and writes raw files
 │   │       │   └── extract.py       # example
@@ -39,7 +39,7 @@ ahon-pipeline/
 │   ├── platinum/
 │   └── common/
 └── docs/
-    ├── architecture/            # data model, source-to-target mapping
+    ├── architecture/            # data model, source-to-target mapping, data dictionary
     │   └── data-dictionary/     # what each table and column means: README.md is the index, one page per dataset
     ├── standards/               # naming standard
     ├── decisions/               # decision records, one per decision
