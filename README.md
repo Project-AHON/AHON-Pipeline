@@ -1,3 +1,7 @@
+# AHON-Pipeline
+
+Project AHON is a data-driven disaster and hazard monitoring platform designed to provide actionable insights that strengthen disaster preparedness and decision-making.
+
 ## Repository structure
 
 ```
@@ -12,8 +16,10 @@ ahon-pipeline/
 │   └── pull_request_template.md # PR template
 ├── src/                         # pipeline code; SQL and Python files sit together
 │   ├── setup/                   # shared: catalogs, schemas, volumes, control table
-│   ├── datasets/                # one folder per source dataset: its bronze and silver code
+│   ├── datasets/                # one folder per source dataset
 │   │   └── publisher_dataset/   # example: replace with the real dataset name
+│   │       ├── extract/         # optional: pulls data from the source and writes raw files
+│   │       │   └── extract.py       # example
 │   │       ├── bronze/          # raw data loaded into bronze.publisher_dataset
 │   │       │   ├── load.sql         # example
 │   │       │   └── load_files.py    # example: Python only if the dataset needs it
@@ -33,7 +39,8 @@ ahon-pipeline/
 │   ├── platinum/
 │   └── common/
 └── docs/
-    ├── architecture/            # data model, source-to-target mapping, data dictionary
+    ├── architecture/            # data model, source-to-target mapping
+    │   └── data-dictionary/     # what each table and column means: README.md is the index, one page per dataset
     ├── standards/               # naming standard
     ├── decisions/               # decision records, one per decision
     ├── governance/              # ownership
@@ -45,13 +52,34 @@ ahon-pipeline/
 ### Where things go
 
 - **Code:** under `src/`. Each dataset has its own folder under `src/datasets/` with a `bronze/` and a `silver/` folder for its SQL, and Python where the dataset needs it. Code that is shared or combines datasets goes in the shared folders.
-- **Schemas:** folder names match the schema names in the naming standard, with no number prefixes. The `source` schema holds raw files in a Unity Catalog Volume, so it has no folder here.
+- **Dataset subfolders:** `bronze/` and `silver/` are the standard ones. If a dataset needs more, its owner can add a subfolder, such as `extract/` for code that pulls data from the source and writes the raw files. Keep the subfolder inside that dataset's folder, and describe it with a comment in this tree or a short note in the dataset's folder.
+- **Source files:** files from file-based sources are uploaded to the team's Hugging Face dataset repository and copied, unchanged, into the `source` volume by the dataset's `extract/` code, in one folder named after the dataset. Bronze code reads from the volume only. See [docs/decisions/0004-source-file-landing-hugging-face.md](docs/decisions/0004-source-file-landing-hugging-face.md).
+- **Schemas:** folder names match the schema names in the naming standard, with no number prefixes.
 - **Setup scripts:** files in `src/setup/` have number prefixes (`01_`, `02_`) because they must run in order.
 - **Reusable Python:** in `src/common/`, imported by the layer code.
 - **Notebooks:** experiments only. Jobs run `.sql` and `.py` files from `src/`.
 - **Tests:** in `tests/`, in the same layout as `src/`.
 - **Docs:** in `docs/`. Decisions that shape the design are recorded in `docs/decisions/`.
+- **Data dictionary:** each dataset has one page in `docs/architecture/data-dictionary/`, named after the dataset, describing its tables and columns. Add or update the page in the same PR that adds or changes the table.
 
 The naming standard is in [docs/standards/naming.md](docs/standards/naming.md), and the team's way of working is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Catalog structure
 
+Two catalogs, one per environment, with the same schemas in each. Code moves between environments by changing only the catalog name.
+
+```
+CATALOG                    # ahon (production) or ahon_dev (development), with the same schemas in both
+├── source                 # raw files exactly as received, in volumes, never edited (final name still open)
+│   └── datasets/          # volume; one folder per dataset: blgf_ldrrmf_annual_lgu/
+├── bronze                 # raw data loaded into tables, plus provenance columns: blgf_ldrrmf_annual_lgu
+├── silver                 # cleaned, typed, deduplicated: blgf_ldrrmf_annual_lgu_clean
+├── gold                   # dimensions and facts: dim_location, fact_event
+├── platinum               # analytics tables built from gold
+├── reference              # lookup and code tables
+└── monitoring             # control table, run logs, data quality rules and results
+```
+
+- **Table names:** the bronze table is named after the dataset, and the silver table adds `_clean`, so `ahon.bronze.blgf_ldrrmf_annual_lgu` pairs with `ahon.silver.blgf_ldrrmf_annual_lgu_clean`. Gold tables start with `dim_` or `fact_`. The layer is never part of the name, because the schema already says it.
+- **Raw files:** the `source` schema holds volumes, not tables. The volume name `datasets` is a stand-in until the team agrees the final names.
+- **Full rules:** see the [naming standard](docs/standards/naming.md) and [decision 0001](docs/decisions/0001-naming-standard.md).
