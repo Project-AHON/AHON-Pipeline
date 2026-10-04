@@ -2,7 +2,6 @@ from pathlib import Path
 
 import geopandas as gpd
 
-
 RAW_DIR = Path("data/raw/noah/datasets")
 FLOOD_DIR = RAW_DIR / "NOAH-Flood-Hazard"
 
