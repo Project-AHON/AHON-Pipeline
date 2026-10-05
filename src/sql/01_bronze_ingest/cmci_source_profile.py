@@ -1,15 +1,18 @@
-import requests
 from bs4 import BeautifulSoup
 from pyspark.sql import functions as F
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
+from cmci_common import (
+    EXPECTED_INDICATOR_COUNT,
+    PORTAL_URL,
+    REQUEST_TIMEOUT_SECONDS,
+    SOURCE_NAME,
+    SOURCE_REF,
+    create_http_session,
+)
 
 # ------------------------------------------------------------------
 # Configuration
 # ------------------------------------------------------------------
-
-PORTAL_URL = "https://cmci.dti.gov.ph/data-portal.php"
 
 LGU_MASTER_TABLE = "ahon.reference.lgu_master"
 
@@ -30,7 +33,7 @@ SILVER_TABLES = [
 EXPECTED_YEARS = [
     "2014",
     "2015",
-       "2016",
+    "2016",
     "2017",
     "2018",
     "2019",
@@ -41,80 +44,7 @@ EXPECTED_YEARS = [
     "2024",
 ]
 
-EXPECTED_INDICATOR_COUNT = 35
-
 EXPECTED_BATCH_SIZE = 10
-
-REQUEST_TIMEOUT_SECONDS = 60
-
-
-# ------------------------------------------------------------------
-# HTTP session
-# ------------------------------------------------------------------
-
-def create_http_session():
-    """
-    Create a reusable HTTP session for source profiling.
-    """
-
-    retry_strategy = Retry(
-        total=3,
-        connect=3,
-        read=3,
-        status=3,
-        backoff_factor=2,
-        status_forcelist=(
-            429,
-            500,
-            502,
-            503,
-            504,
-        ),
-        allowed_methods=(
-            "GET",
-        ),
-        respect_retry_after_header=True,
-    )
-
-    adapter = HTTPAdapter(
-        max_retries=retry_strategy
-    )
-
-    session = requests.Session()
-
-    session.mount(
-        "https://",
-        adapter,
-    )
-
-    session.mount(
-        "http://",
-        adapter,
-    )
-
-    session.headers.update(
-        {
-            "User-Agent": (
-                "Mozilla/5.0 "
-                "(Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 "
-                "(KHTML, like Gecko) "
-                "Chrome/131.0 Safari/537.36"
-            ),
-            "Accept": (
-                "text/html,"
-                "application/xhtml+xml,"
-                "application/xml;q=0.9,"
-                "*/*;q=0.8"
-            ),
-            "Accept-Language": (
-                "en-US,en;q=0.9"
-            ),
-        }
-    )
-
-    return session
-
 
 # ------------------------------------------------------------------
 # Spark configuration
@@ -463,6 +393,12 @@ approved_missing_master_count = (
     .count()
 )
 
+if active_psgc_count == 0:
+    raise RuntimeError(
+        "No active PSGC LGUs were found in "
+        + LGU_MASTER_TABLE
+    )
+
 mapping_coverage_percentage = (
     approved_mapping_count
     / active_psgc_count
@@ -578,9 +514,121 @@ bronze_df = spark.table(
     BRONZE_TABLE
 )
 
+required_bronze_columns = {
+    "batch_id",
+    "requested_psgc_codes",
+    "requested_cmci_names",
+    "requested_years",
+    "requested_indicator_codes",
+    "expected_lgu_count",
+    "expected_year_count",
+    "expected_indicator_count",
+    "returned_value_count",
+    "response_html",
+    "response_hash",
+    "ingestion_timestamp",
+    "_source_name",
+    "_source_ref",
+    "_ingested_at",
+    "_batch_id",
+    "_row_hash",
+}
+
+missing_bronze_columns = (
+    required_bronze_columns
+    - set(bronze_df.columns)
+)
+
+if missing_bronze_columns:
+    raise RuntimeError(
+        "Bronze table is missing required columns: "
+        + str(
+            sorted(
+                missing_bronze_columns
+            )
+        )
+    )
+
+invalid_provenance_count = (
+    bronze_df
+    .where(
+        F.col("_source_name").isNull()
+        | (F.trim(F.col("_source_name")) == "")
+        | F.col("_source_ref").isNull()
+        | (F.trim(F.col("_source_ref")) == "")
+        | F.col("_ingested_at").isNull()
+        | F.col("_batch_id").isNull()
+        | (F.trim(F.col("_batch_id")) == "")
+        | F.col("_row_hash").isNull()
+        | (
+            F.length(
+                F.trim(
+                    F.col("_row_hash")
+                )
+            )
+            != 64
+        )
+    )
+    .count()
+)
+
+unexpected_source_name_count = (
+    bronze_df
+    .where(
+        F.col("_source_name")
+        != SOURCE_NAME
+    )
+    .count()
+)
+
+unexpected_source_ref_count = (
+    bronze_df
+    .where(
+        F.col("_source_ref")
+        != SOURCE_REF
+    )
+    .count()
+)
+
+if invalid_provenance_count > 0:
+    raise RuntimeError(
+        "Bronze contains "
+        + str(invalid_provenance_count)
+        + " rows with incomplete provenance"
+    )
+
+if unexpected_source_name_count > 0:
+    raise RuntimeError(
+        "Bronze contains "
+        + str(unexpected_source_name_count)
+        + " rows with an unexpected _source_name"
+    )
+
+if unexpected_source_ref_count > 0:
+    raise RuntimeError(
+        "Bronze contains "
+        + str(unexpected_source_ref_count)
+        + " rows with an unexpected _source_ref"
+    )
+
+
 bronze_total_rows = (
     bronze_df.count()
 )
+
+expected_final_batch_size = (
+    approved_mapping_count
+    % EXPECTED_BATCH_SIZE
+)
+
+allowed_batch_sizes = [
+    EXPECTED_BATCH_SIZE
+]
+
+if expected_final_batch_size > 0:
+    allowed_batch_sizes.append(
+        expected_final_batch_size
+    )
 
 production_bronze_df = (
     bronze_df
@@ -594,8 +642,7 @@ production_bronze_df = (
     )
     .where(
         F.col("expected_lgu_count").isin(
-            EXPECTED_BATCH_SIZE,
-            2,
+            allowed_batch_sizes
         )
     )
 )
@@ -631,6 +678,93 @@ production_value_count = (
     or 0
 )
 
+expected_production_value_count = (
+    production_lgu_slots
+    * len(EXPECTED_YEARS)
+    * EXPECTED_INDICATOR_COUNT
+)
+
+invalid_returned_value_batch_count = (
+    production_bronze_df
+    .where(
+        F.col("returned_value_count")
+        != (
+            F.col("expected_lgu_count")
+            * F.col("expected_year_count")
+            * F.col("expected_indicator_count")
+        )
+    )
+    .count()
+)
+
+bronze_psgc_df = (
+    production_bronze_df
+    .select(
+        F.explode(
+            "requested_psgc_codes"
+        ).alias(
+            "psgc_code"
+        )
+    )
+    .select(
+        F.trim(
+            F.col("psgc_code")
+        ).alias(
+            "psgc_code"
+        )
+    )
+    .where(
+        F.col("psgc_code").isNotNull()
+    )
+    .where(
+        F.col("psgc_code") != ""
+    )
+)
+
+distinct_bronze_psgc_count = (
+    bronze_psgc_df
+    .dropDuplicates()
+    .count()
+)
+
+duplicate_bronze_psgc_count = (
+    bronze_psgc_df
+    .groupBy(
+        "psgc_code"
+    )
+    .count()
+    .where(
+        F.col("count") > 1
+    )
+    .count()
+)
+
+unauthorized_bronze_psgc_count = (
+    bronze_psgc_df
+    .dropDuplicates()
+    .join(
+        approved_mapping_df.select(
+            "psgc_code"
+        ),
+        on="psgc_code",
+        how="left_anti",
+    )
+    .count()
+)
+
+missing_bronze_psgc_count = (
+    approved_mapping_df
+    .select(
+        "psgc_code"
+    )
+    .join(
+        bronze_psgc_df.dropDuplicates(),
+        on="psgc_code",
+        how="left_anti",
+    )
+    .count()
+)
+
 print()
 print("BRONZE COVERAGE PROFILE")
 
@@ -654,6 +788,45 @@ print(
     + str(production_value_count)
 )
 
+print(
+    "Expected valid batch sizes: "
+    + str(allowed_batch_sizes)
+)
+
+print(
+    "Distinct Bronze PSGC codes: "
+    + str(distinct_bronze_psgc_count)
+)
+
+print(
+    "Duplicate Bronze PSGC assignments: "
+    + str(duplicate_bronze_psgc_count)
+)
+
+print(
+    "Unauthorized Bronze PSGC codes: "
+    + str(unauthorized_bronze_psgc_count)
+)
+
+print(
+    "Approved PSGC codes missing from Bronze: "
+    + str(missing_bronze_psgc_count)
+)
+
+print(
+    "Expected production values: "
+    + str(expected_production_value_count)
+)
+
+print(
+    "Batches with invalid returned-value counts: "
+    + str(invalid_returned_value_batch_count)
+)
+
+print(
+    "Rows with incomplete provenance: "
+    + str(invalid_provenance_count)
+)
 
 # ------------------------------------------------------------------
 # Profile Silver coverage

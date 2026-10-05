@@ -3,6 +3,8 @@ import hashlib
 import math
 import time
 from datetime import datetime, timezone
+import json
+import uuid
 
 from bs4 import BeautifulSoup
 from pyspark.sql import functions as F
@@ -22,6 +24,8 @@ from cmci_common import (
     PROCESS_URL,
     REQUESTED_INDICATOR_CODES,
     REQUEST_TIMEOUT_SECONDS,
+    SOURCE_NAME,
+    SOURCE_REF,
     create_http_session,
 )
 
@@ -120,6 +124,12 @@ if len(REQUESTED_INDICATOR_CODES) != 35:
         "Expected 35 indicator codes"
     )
 
+if REFRESH_EXISTING:
+    raise RuntimeError(
+        "refresh-existing is not currently supported because "
+        + "it can create duplicate PSGC coverage in Bronze"
+    )
+
 # ------------------------------------------------------------------
 # BRONZE SCHEMA
 # ------------------------------------------------------------------
@@ -198,7 +208,7 @@ BRONZE_SCHEMA = StructType(
             TimestampType(),
             nullable=False,
         ),
-                StructField(
+        StructField(
             "_source_name",
             StringType(),
             nullable=False,
@@ -262,6 +272,37 @@ for table_name in required_tables:
             + " | "
             + str(error)
         ) from error
+
+# ------------------------------------------------------------------
+# VALIDATE BRONZE TARGET SCHEMA
+# ------------------------------------------------------------------
+
+required_target_columns = {
+    field.name
+    for field in BRONZE_SCHEMA.fields
+}
+
+actual_target_columns = set(
+    spark.table(
+        TARGET_TABLE
+    ).columns
+)
+
+missing_target_columns = (
+    required_target_columns
+    - actual_target_columns
+)
+
+if missing_target_columns:
+    raise RuntimeError(
+        "Bronze target table is missing required columns: "
+        + str(
+            sorted(
+                missing_target_columns
+            )
+        )
+        + ". Update the Delta table schema before ingestion."
+    )
 
 # ------------------------------------------------------------------
 # LOAD APPROVED MAPPINGS
@@ -335,19 +376,124 @@ approved_mapping_count = (
     approved_mapping_df.count()
 )
 
-if approved_mapping_count == 0:
+EXPECTED_APPROVED_MAPPING_COUNT = 1634
+
+if (
+    approved_mapping_count
+    != EXPECTED_APPROVED_MAPPING_COUNT
+):
     raise RuntimeError(
-        "No approved active CMCI mappings were found"
+        "Expected "
+        + str(EXPECTED_APPROVED_MAPPING_COUNT)
+        + " approved active CMCI mappings, found "
+        + str(approved_mapping_count)
     )
+
+existing_bronze_psgc_df = (
+    spark.table(
+        TARGET_TABLE
+    )
+    .select(
+        F.explode(
+            "requested_psgc_codes"
+        ).alias(
+            "psgc_code"
+        )
+    )
+    .select(
+        F.trim(
+            F.col("psgc_code")
+        ).alias(
+            "psgc_code"
+        )
+    )
+    .where(
+        F.col("psgc_code").isNotNull()
+    )
+    .where(
+        F.col("psgc_code") != ""
+    )
+    .dropDuplicates()
+)
+
+existing_bronze_psgc_count = (
+    existing_bronze_psgc_df.count()
+)
+
+unauthorized_bronze_psgc_count = (
+    existing_bronze_psgc_df
+    .join(
+        approved_mapping_df.select(
+            "psgc_code"
+        ),
+        on="psgc_code",
+        how="left_anti",
+    )
+    .count()
+)
+
+if unauthorized_bronze_psgc_count > 0:
+    raise RuntimeError(
+        "Bronze contains "
+        + str(unauthorized_bronze_psgc_count)
+        + " PSGC codes outside the approved CMCI scope"
+    )
+
+pending_mapping_df = (
+    approved_mapping_df
+    .join(
+        existing_bronze_psgc_df,
+        on="psgc_code",
+        how="left_anti",
+    )
+    .orderBy(
+        "psgc_code"
+    )
+)
+
+pending_mapping_count = (
+    pending_mapping_df.count()
+)
+
+print(
+    "Approved CMCI mappings: "
+    + str(approved_mapping_count)
+)
+
+print(
+    "LGUs already represented in Bronze: "
+    + str(existing_bronze_psgc_count)
+)
+
+print(
+    "Approved LGUs pending ingestion: "
+    + str(pending_mapping_count)
+)
+
+def main():
+    # executable workflow
+
+    if pending_mapping_count == 0:
+        print(
+            "No pending approved CMCI LGUs. "
+            + "No Bronze rows were written."
+        )
+        return
+
+
+if __name__ == "__main__":
+    main()
 
 if RUN_MODE == "test":
     selected_mapping_df = (
-        approved_mapping_df.limit(
+        pending_mapping_df.limit(
             TEST_LGU_LIMIT
         )
     )
 else:
-    selected_mapping_df = approved_mapping_df
+    selected_mapping_df = (
+        pending_mapping_df
+    )
 
 LGU_MAPPINGS = [
     {
@@ -572,9 +718,9 @@ def parse_batch_response(
         header = rows[0]
 
         if header[0] != "Province / LGU":
-                raise ValueError(
-                    "Unexpected first header for "
-                    + indicator_label
+            raise ValueError(
+                "Unexpected first header for "
+                + indicator_label
             )
 
         returned_years = header[1:]
@@ -806,6 +952,15 @@ print(
     + str(len(LGU_BATCHES))
 )
 
+INGESTION_RUN_ID = str(
+    uuid.uuid4()
+)
+
+print(
+    "Ingestion run ID: "
+    + INGESTION_RUN_ID
+)
+
 # ------------------------------------------------------------------
 # EXECUTE BATCHES
 # ------------------------------------------------------------------
@@ -904,7 +1059,11 @@ try:
                 unchanged_batch_count += 1
                 continue
 
-            batch_record = {
+            ingested_at = datetime.now(
+                timezone.utc
+            )
+
+            raw_source_values = {
                 "batch_id": batch_id,
                 "requested_psgc_codes": [
                     mapping["psgc_code"]
@@ -934,9 +1093,32 @@ try:
                 ),
                 "response_html": response_html,
                 "response_hash": response_hash,
-                "ingestion_timestamp": datetime.now(
-                    timezone.utc
+            }
+
+            row_hash_input = json.dumps(
+                raw_source_values,
+                sort_keys=True,
+                ensure_ascii=False,
+                separators=(
+                    ",",
+                    ":",
                 ),
+            )
+
+            row_hash = hashlib.sha256(
+                row_hash_input.encode(
+                    "utf-8"
+                )
+            ).hexdigest()
+
+            batch_record = {
+                **raw_source_values,
+                "ingestion_timestamp": ingested_at,
+                "_source_name": SOURCE_NAME,
+                "_source_ref": SOURCE_REF,
+                "_ingested_at": ingested_at,
+                "_batch_id": INGESTION_RUN_ID,
+                "_row_hash": row_hash,
             }
 
             batch_df = spark.createDataFrame(
@@ -989,6 +1171,13 @@ try:
                 + str(error)
             )
 
+            print(
+                "Stopping after the first failed batch "
+                + "to preserve stable pending-batch boundaries"
+            )
+
+            break
+
         time.sleep(
             REQUEST_DELAY_SECONDS
         )
@@ -1005,12 +1194,18 @@ processed_batch_count = (
     + len(failed_batches)
 )
 
-if processed_batch_count != len(LGU_BATCHES):
-    raise RuntimeError(
-        "Batch-count validation failed. Expected "
-        + str(len(LGU_BATCHES))
-        + ", processed "
-        + str(processed_batch_count)
+if not failed_batches:
+    if processed_batch_count != len(LGU_BATCHES):
+        raise RuntimeError(
+            "Batch-count validation failed. Expected "
+            + str(len(LGU_BATCHES))
+            + ", processed "
+            + str(processed_batch_count)
+        )
+else:
+    print(
+        "Batch loop stopped after the first failure. "
+        + "Completed batches were preserved."
     )
 
 # ------------------------------------------------------------------
