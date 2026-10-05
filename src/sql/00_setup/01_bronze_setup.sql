@@ -1,0 +1,20 @@
+CREATE SCHEMA IF NOT EXISTS ahon.bronze;
+
+CREATE TABLE IF NOT EXISTS ahon.bronze.cmci_raw_indicator_batch_html (
+    batch_id STRING NOT NULL,
+    requested_psgc_codes ARRAY<STRING> NOT NULL,
+    requested_cmci_names ARRAY<STRING> NOT NULL,
+    requested_years ARRAY<STRING> NOT NULL,
+    requested_indicator_codes ARRAY<STRING> NOT NULL,
+
+    expected_lgu_count INT NOT NULL,
+    expected_year_count INT NOT NULL,
+    expected_indicator_count INT NOT NULL,
+    returned_value_count INT NOT NULL,
+
+    response_html STRING NOT NULL,
+    response_hash STRING NOT NULL,
+    ingestion_timestamp TIMESTAMP NOT NULL
+)
+USING DELTA
+COMMENT 'Raw CMCI responses containing multiple LGUs, years, and indicators; one row per request batch';
