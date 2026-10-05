@@ -15,6 +15,13 @@ CREATE TABLE IF NOT EXISTS ahon.bronze.cmci_raw_indicator_batch_html (
     response_html STRING NOT NULL,
     response_hash STRING NOT NULL,
     ingestion_timestamp TIMESTAMP NOT NULL
+
+    -- Bronze provenance
+    _source_name STRING NOT NULL,
+    _source_ref STRING NOT NULL,
+    _ingested_at TIMESTAMP NOT NULL,
+    _batch_id STRING NOT NULL,
+    _row_hash STRING NOT NULL
 )
 USING DELTA
 COMMENT 'Raw CMCI responses containing multiple LGUs, years, and indicators; one row per request batch';
