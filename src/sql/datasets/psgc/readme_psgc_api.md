@@ -51,4 +51,3 @@ Rows are matched on `_row_hash`, so re-running the notebook with unchanged data 
 ## Notes
 
 - The load cell requires `all_records` from the extract step; it raises an error if it is missing or empty.
-- The parameters cell defines `BRONZE_TABLE = ahon.bronze.psgc_api_raw`, but the load cell overrides it with `ahon.bronze.psgc`. Align the two to avoid confusion.
