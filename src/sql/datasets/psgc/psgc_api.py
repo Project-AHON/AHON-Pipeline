@@ -142,7 +142,7 @@ row_count = source_df.count()
 
 merge_result = spark.sql(f"""
 MERGE INTO {BRONZE_TABLE} AS t
-USING source_view AS s
+JOIN source_view AS s
 ON t._row_hash = s._row_hash
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
