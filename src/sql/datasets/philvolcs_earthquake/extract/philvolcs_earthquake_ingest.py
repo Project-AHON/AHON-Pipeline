@@ -174,3 +174,169 @@ def scrape_phivolcs_data_from_html(year, month_name):
     except requests.RequestException as e:
         print(f"✗ Error: {e}")
         return None
+
+
+
+def scrape_year_data(year, output_dir="data"):
+    """
+    Scrapes earthquake data for all months in a given year.
+    Returns the combined DataFrame for that year.
+    """
+    print(f"\n{'─'*70}")
+    print(f"📅 Scraping Year: {year}")
+    print(f"{'─'*70}")
+    
+    all_data = []
+    successful_months = []
+    failed_months = []
+    current_month_found = False
+    
+    for month_name in MONTH_NAMES:
+        # Skip future months if we've already found the current month
+        if current_month_found:
+            print(f"  Skipping: {month_name} {year} (future month)")
+            failed_months.append(month_name)
+            continue
+            
+        df = scrape_phivolcs_data_from_html(year, month_name)
+        
+        if df is not None and not df.empty:
+            all_data.append(df)
+            successful_months.append(month_name)
+            
+            # Check if this data came from the main page (current month indicator)
+            if year == datetime.now().year and month_name == datetime.now().strftime("%B"):
+                current_month_found = True
+                print(f"  ℹ️  Current month detected: {month_name} {year}")
+        else:
+            failed_months.append(month_name)
+            # If we get a failure on the current year, it might be the current month
+            if year == datetime.now().year and not current_month_found:
+                current_month_found = True
+        
+        # Be polite to the server
+        time.sleep(0.5)
+    
+    # Combine and save data for this year
+    if all_data:
+        combined_df = pd.concat(all_data, ignore_index=True)
+        
+        # Create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Save to separate file for this year
+        output_filename = os.path.join(output_dir, f"phivolcs_earthquake_{year}.csv")
+        combined_df.to_csv(output_filename, index=False, encoding='utf-8-sig')
+        
+        print(f"\n✓ Year {year} Complete:")
+        print(f"  • Total records: {len(combined_df)}")
+        print(f"  • Successful months: {len(successful_months)}")
+        print(f"  • File saved: {output_filename}")
+        
+        return combined_df
+    else:
+        print(f"\n✗ No data retrieved for {year}")
+        return None
+
+
+def scrape_multiple_years(years_back=3, output_dir="data"):
+    """
+    Scrapes earthquake data for the last N years.
+    Each year is saved as a separate CSV file.
+    """
+    current_year = datetime.now().year
+    start_year = current_year - years_back + 1
+    
+    print(f"\n{'='*70}")
+    print("🌏 PHIVOLCS EARTHQUAKE DATA SCRAPER")
+    print(f"{'='*70}")
+    print(f"📊 Scraping Range: {start_year} - {current_year}")
+    print(f"📁 Output Directory: {output_dir}/")
+    print(f"{'='*70}")
+    
+    all_years_data = []
+    scrape_summary = {}
+    
+    # Scrape each year
+    for year in range(start_year, current_year + 1):
+        df = scrape_year_data(year, output_dir)
+        
+        if df is not None:
+            all_years_data.append(df)
+            scrape_summary[year] = len(df)
+        else:
+            scrape_summary[year] = 0
+    
+    # Create a combined file with all years
+    if all_years_data:
+        combined_all = pd.concat(all_years_data, ignore_index=True)
+        combined_filename = os.path.join(output_dir, "phivolcs_earthquake_all_years.csv")
+        combined_all.to_csv(combined_filename, index=False, encoding='utf-8-sig')
+        
+        # Print final summary
+        print(f"\n{'='*70}")
+        print("✅ SCRAPING COMPLETE!")
+        print(f"{'='*70}")
+        print("\n📊 Summary by Year:")
+        for year, count in scrape_summary.items():
+            print(f"  • {year}: {count:,} earthquakes")
+        print(f"\n📈 Total Records: {len(combined_all):,}")
+        print("\n📁 Files Created:")
+        for year in range(start_year, current_year + 1):
+            if scrape_summary.get(year, 0) > 0:
+                print(f"  • {output_dir}/phivolcs_earthquake_{year}.csv")
+        print(f"  • {output_dir}/phivolcs_earthquake_all_years.csv (combined)")
+        print(f"\n{'='*70}\n")
+        
+        return combined_all, scrape_summary
+    else:
+        print("\n✗ No data was retrieved for any year.")
+        return None, {}
+
+# Summary statistics ng equake
+def display_statistics(df):
+    """
+    Display basic statistics about the scraped data.
+    """
+    if df is None or df.empty:
+        return
+    
+    print(f"{'='*70}")
+    print("📈 DATA STATISTICS")
+    print(f"{'='*70}\n")
+    
+    # Magnitude statistics
+    print("🔢 Magnitude Statistics:")
+    print(df['Magnitude'].describe())
+    
+    # Yearly breakdown
+    print("\n📅 Earthquakes by Year:")
+    yearly_counts = df.groupby('Year').size().sort_index()
+    for year, count in yearly_counts.items():
+        print(f"  • {year}: {count:,} earthquakes")
+    
+    # Top 10 strongest earthquakes based on the ingested file
+    print("\n💥 Top 10 Strongest Earthquakes:")
+    top_10 = df.nlargest(10, 'Magnitude')[['Date-Time', 'Magnitude', 'Location', 'Year']]
+    for idx, row in top_10.iterrows():
+        print(f"  • Mag {row['Magnitude']} - {row['Location'][:50]} ({row['Year']})")
+    
+    print(f"\n{'='*70}\n")
+
+
+if __name__ == "__main__":
+    # Configuration
+    YEARS_TO_SCRAPE = 8 # From 2019 data (including current year:2026)
+
+    #guys, change this if u want to reflect this on your catalog 
+    OUTPUT_DIR = "/Volumes/ahon/philvolcs/ingest"
+    
+    # Run the scraper
+    combined_df, summary = scrape_multiple_years(
+        years_back=YEARS_TO_SCRAPE,
+        output_dir=OUTPUT_DIR
+    )
+    
+    # Display statistics
+    if combined_df is not None:
+        display_statistics(combined_df)
