@@ -241,3 +241,6 @@ data/profiling/noah/
 
 # CHIRPS raw data
 src/sql/datasets/chc_chirps/raw/
+
+# Exploration notebooks
+notebooks/exploration/
