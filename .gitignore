@@ -238,3 +238,6 @@ data/profiling/noah/
 
 # Local GIS environment
 .venv-gis/
+
+# CHIRPS raw data
+src/sql/datasets/chc_chirps/raw/
