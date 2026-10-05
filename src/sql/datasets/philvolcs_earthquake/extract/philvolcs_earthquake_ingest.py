@@ -1,10 +1,8 @@
 from datetime import datetime, timezone
-import requests
-import pandas as pd
-from datetime import datetime
 from io import StringIO
-import time
-import os
+
+import pandas as pd
+import requests
 
 try:
     import urllib3
@@ -27,7 +25,7 @@ def scrape_current_month_from_main_page():
     url = "https://earthquake.phivolcs.dost.gov.ph/"
 
     try:
-        print(f"  Fetching from main page (current month)...", end=" ")
+        print("  Fetching from main page (current month)...", end=" ")
 
         session = requests.Session()
         session.verify = False
@@ -44,7 +42,7 @@ def scrape_current_month_from_main_page():
                 break
 
         if df is None or df.empty:
-            print(f"✗ No data found")
+            print("✗ No data found")
             return None
 
         expected_columns = [
@@ -123,7 +121,7 @@ def scrape_phivolcs_data_from_html(year, month_name):
                 break
 
         if df is None or df.empty:
-            print(f"✗ No data")
+            print("✗ No data")
             return None
 
         expected_columns = [
@@ -168,7 +166,7 @@ def scrape_phivolcs_data_from_html(year, month_name):
 
     except requests.exceptions.HTTPError as errh:
         if errh.response.status_code == 404:
-            print(f"✗ HTTP 404 (trying main page)")
+            print("✗ HTTP 404 (trying main page)")
             return scrape_current_month_from_main_page()
         else:
             print(f"✗ HTTP {errh.response.status_code}")
