@@ -6,7 +6,6 @@ from urllib.request import Request, urlopen
 import pandas as pd
 import rasterio
 
-
 # ============================================================
 # CONFIGURATION
 # ============================================================
@@ -231,16 +230,14 @@ def ingest_chirps_month(
         with urlopen(
             source_url,
             timeout=120
-        ) as response:
+        ) as response, open(
+            output_file,
+            "wb"
+        ) as file:
 
-            with open(
-                output_file,
-                "wb"
-            ) as file:
-
-                file.write(
-                    response.read()
-                )
+            file.write(
+                response.read()
+            )
 
     except HTTPError as error:
 

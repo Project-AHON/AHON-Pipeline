@@ -2,7 +2,6 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-
 CHIRPS_BASE_URL = (
     "https://data.chc.ucsb.edu/products/"
     "CHIRPS/v3.0/monthly/global/tifs"
@@ -62,9 +61,11 @@ def download_file(url: str, output_path: Path) -> bool:
     )
 
     try:
-        with urlopen(request, timeout=60) as response:
-            with output_path.open("wb") as file:
-                file.write(response.read())
+        with (
+            urlopen(request, timeout=60) as response,
+            output_path.open("wb") as file,
+        ):
+            file.write(response.read())
 
         return True
 
