@@ -36,4 +36,5 @@ if it changes, write a new record and mark the old one
 | --- | --- | --- |
 | [0001](0001-naming-standard.md) | Naming standard | Accepted, except where marked open |
 | [0002](0002-team-workflow.md) | Team workflow | Accepted |
-| [0003](0003-repository-structure.md) | Repository structure | Accepted |
+| [0003](0003-repository-structure-initial.md) | Repository structure | Accepted |
+| [0004](0004-source-file-landing-hugging-face.md) | Land source files through Hugging Face | Accepted |
