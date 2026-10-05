@@ -198,6 +198,31 @@ BRONZE_SCHEMA = StructType(
             TimestampType(),
             nullable=False,
         ),
+                StructField(
+            "_source_name",
+            StringType(),
+            nullable=False,
+        ),
+        StructField(
+            "_source_ref",
+            StringType(),
+            nullable=False,
+        ),
+        StructField(
+            "_ingested_at",
+            TimestampType(),
+            nullable=False,
+        ),
+        StructField(
+            "_batch_id",
+            StringType(),
+            nullable=False,
+        ),
+        StructField(
+            "_row_hash",
+            StringType(),
+            nullable=False,
+        ),
     ]
 )
 
