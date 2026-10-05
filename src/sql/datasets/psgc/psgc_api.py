@@ -1,30 +1,36 @@
+# ruff: noqa
 # Generated from: psgc_api.ipynb
 # Converted at: 2026-10-05T20:17:10.840Z
-# Next step (optional): refactor into modules & generate tests with RunCell
-# Quick start: pip install runcell
+# It uses dbutils and spark which are only available in Databricks environments.
 
 # --- Parameters ---
 # Create a widget for the PSGC API token so the credential is never
-# hardcoded in the notebook.  Paste your token into the widget above.
+# hardcoded in the notebook. Paste your token into the widget above.
 dbutils.widgets.text("psgc_api_token", "", "PSGC API Token")
 
-API_BASE  = "https://classification.psa.gov.ph/psgc"
-PERIODS   = ["Q2_2024", "April_2024", "Q4_2023", "Q2_2021"]
-BRONZE_TABLE = "ahon.bronze.psgc_api_raw"
+import time
+import uuid
+
+import requests
+from pyspark.sql.functions import col, concat_ws, current_timestamp, lit, sha2, to_json
+
+API_BASE = "https://classification.psa.gov.ph/psgc"
+PERIODS = ["Q2_2024", "April_2024", "Q4_2023", "Q2_2021"]
+BRONZE_TABLE = "ahon.bronze.psgc"
 
 api_token = dbutils.widgets.get("psgc_api_token").strip()
 
 if not api_token:
-    print("⚠️  Please paste your PSGC API token into the 'PSGC API Token' widget above, then re-run this cell.")
+    print(
+        "⚠️  Please paste your PSGC API token into the 'PSGC API Token' "
+        "widget above, then re-run this cell."
+    )
 else:
     print(f"Periods     : {', '.join(PERIODS)}")
     print(f"Bronze table: {BRONZE_TABLE}")
-    print(f"Token       : {'✓ set'}")
+    print("Token       : ✓ set")
 
 # --- Fetch all records from the PSGC API ---
-import requests
-import time
-
 all_records = []
 
 for period in PERIODS:
@@ -36,7 +42,10 @@ for period in PERIODS:
         data = response.json()
         results = data.get("results", [])
         all_records.extend(results)
-        print(f"  {period:<12} page {page:>3}  got {len(results):>5} records  (total: {len(all_records)})")
+        print(
+            f"  {period:<12} page {page:>3}  got {len(results):>5} records  "
+            f"(total: {len(all_records)})"
+        )
         url = data.get("next")
         page += 1
         time.sleep(0.2)  # gentle rate-limit between pages
@@ -45,13 +54,10 @@ print(f"\nTotal records fetched across all periods: {len(all_records)}")
 
 # --- Create bronze table and write PSGC raw records ---
 # Expects all_records and API_BASE from ../extract/psgc_parameters (run first).
-from pyspark.sql.functions import col, to_json, sha2, concat_ws, lit, current_timestamp
-import uuid
 
-BRONZE_TABLE = "ahon.bronze.psgc"
-
-# 1. Ensure the bronze table exists 
-spark.sql(f"""
+# 1. Ensure the bronze table exists
+spark.sql(
+    f"""
 CREATE TABLE IF NOT EXISTS {BRONZE_TABLE} (
     psgc_code             STRING,
     area_name             STRING,
@@ -79,17 +85,11 @@ COMMENT 'Raw PSGC API records fetched across multiple periods.\n'
         'populations_json holds the nested populations array as a JSON string.\n'
         '_source_name/_source_ref identify the API origin; _ingested_at and _batch_id\n'
         'tag the ingestion run; _row_hash is a SHA-256 of all raw source columns.'
-""")
+"""
+)
 print(f"  ✓ Table ensured: {BRONZE_TABLE}")
 
 # 2. Build a Spark DataFrame from the fetched Python dicts.
-try:
-    all_records
-except NameError:
-    raise RuntimeError(
-        "all_records is not defined. Run ../extract/psgc_parameters first "
-        "to fetch data from the PSGC API."
-    )
 if not all_records:
     raise RuntimeError(
         "all_records is empty. Check that the PSGC API token is set and "
@@ -100,17 +100,28 @@ raw_df = spark.createDataFrame(all_records)
 
 # 3. Transform API column names to the bronze schema and add provenance.
 raw_cols = [
-    "psgc_code", "area_name", "correspondence_code", "geographic_level",
-    "region_code", "province_code", "municipality_code", "barangay_code",
-    "old_name", "city_class", "income_classification", "urban_rural",
-    "island_region", "status", "version", "populations_json",
+    "psgc_code",
+    "area_name",
+    "correspondence_code",
+    "geographic_level",
+    "region_code",
+    "province_code",
+    "municipality_code",
+    "barangay_code",
+    "old_name",
+    "city_class",
+    "income_classification",
+    "urban_rural",
+    "island_region",
+    "status",
+    "version",
+    "populations_json",
 ]
 
 batch_id = str(uuid.uuid4())
 
 source_df = (
-    raw_df
-    .withColumn("populations_json", to_json(col("populations")))
+    raw_df.withColumn("populations_json", to_json(col("populations")))
     .select(
         col("code").alias("psgc_code"),
         col("area_name"),
@@ -140,14 +151,15 @@ source_df = (
 source_df.createOrReplaceTempView("source_view")
 row_count = source_df.count()
 
-merge_result = spark.sql(f"""
+merge_sql = f"""
 MERGE INTO {BRONZE_TABLE} AS t
-JOIN source_view AS s
+USING source_view AS s
 ON t._row_hash = s._row_hash
 WHEN MATCHED THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *
-""")
+"""
+
+spark.sql(merge_sql)
 
 print(f"Rows to write : {row_count}")
 print(f"Batch ID      : {batch_id}")
-print(f"Merge metrics : {merge_result.collect()[0].asDict()}")
