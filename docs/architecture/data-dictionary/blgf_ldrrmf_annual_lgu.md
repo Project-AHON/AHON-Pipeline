@@ -1,6 +1,6 @@
 # blgf_ldrrmf_annual_lgu
 
-- **Source:** Bureau of Local Government Finance (BLGF), LGU time series data (https://blgf.gov.ph/lgu-timeseries-data/). One Excel file per fiscal year, `FY2018-LDRRMF-by-LGU.xlsx` to `FY2024-LDRRMF-by-LGU.xlsx`, landed in the `source` volume through Hugging Face (see [0004](../../decisions/0004-source-file-landing-hugging-face.md)).
+- **Source:** Bureau of Local Government Finance (BLGF), LGU time series data (https://blgf.gov.ph/lgu-timeseries-data/). One Excel file per fiscal year, `FY2018-LDRRMF-by-LGU.xlsx` to `FY2024-LDRRMF-by-LGU.xlsx`, landed in the `source` volume (`ahon.reference.source`) through Hugging Face (see [0004](../../decisions/0004-source-file-landing-hugging-face.md)).
 - **Coverage:** fiscal years 2018 to 2024, one file per year. One line per province, city and municipality. No barangay level.
 - **Owner:** to be filled in (see [ownership](../../governance/ownership.md)).
 
@@ -26,7 +26,7 @@ What it measures: each LGU's yearly budget (appropriation) and actual spending (
 | `total_budget_appropriation` | double | Total budget appropriation of the fund | Pesos. `TOTAL` / `Budget Appropriation`. Equals the sum of the two parts in every row |
 | `total_expenditures` | double | Total amount spent | Pesos. `TOTAL` / `Expenditures`. Equals the sum of the two parts in every row |
 | `_source_name` | string | The dataset the row came from | Always `blgf_ldrrmf_annual_lgu` |
-| `_source_ref` | string | Where the row was loaded from: the path of the Excel file in the volume | For example `/Volumes/ahon_dev/source/datasets/blgf_ldrrmf_annual_lgu/FY2018-LDRRMF-by-LGU.xlsx` |
+| `_source_ref` | string | Where the row was loaded from: the path of the Excel file in the volume | For example `/Volumes/ahon_dev/reference/source/blgf_ldrrmf_annual_lgu/FY2018-LDRRMF-by-LGU.xlsx` |
 | `_ingested_at` | timestamp (UTC) | When the row was loaded into bronze | |
 | `_batch_id` | string | The load run that wrote the row | A random id for each run, the same on every row of that run |
 | `_row_hash` | string | SHA-256 of the raw source columns as received | Covers the ten source columns above, not the provenance columns |

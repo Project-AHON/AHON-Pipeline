@@ -5,7 +5,7 @@
 
 ## Context
 
-Several source datasets reach the team as files, for example the BLGF Excel files, and later shapefiles, JSON or CSV. The pipeline needs one agreed way to get those files from a team member's computer into the Databricks workspace, into the `source` volume (raw files exactly as received, see 0001). Without one, each dataset would be loaded by hand in a different way.
+Several source datasets reach the team as files, for example the BLGF Excel files, and later shapefiles, JSON or CSV. The pipeline needs one agreed way to get those files from a team member's computer into the Databricks workspace, into the `source` volume in the `reference` schema, `ahon.reference.source` (raw files exactly as received, see 0001). Without one, each dataset would be loaded by hand in a different way.
 
 ## Decision
 
@@ -41,4 +41,5 @@ Several source datasets reach the team as files, for example the BLGF Excel file
 - Who owns the Hugging Face repository. It is currently under one member's account, and it should move to an organization or shared account so it does not depend on one person.
 - Whether the repository is public or private. Private needs an access token stored as a secret, never in code. Public data must be allowed to be shared publicly, so licences need checking per dataset.
 - Size and file-type limits on Hugging Face for the largest files, such as shapefiles.
-- The final catalog, schema and volume names for `source`, and whether the extract step runs as a scheduled job.
+- The `source` schema is still listed as pending in the naming standard. The volume now lives in `reference`, so the schema's final name, or dropping it, is to be settled in a later change.
+- Whether the extract step runs as a scheduled job.

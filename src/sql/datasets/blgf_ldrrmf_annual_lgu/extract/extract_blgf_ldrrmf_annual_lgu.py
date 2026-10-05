@@ -21,7 +21,7 @@ HF_FOLDER = "data/ldrrmf"
 
 # Destination: the source volume, one folder per dataset, named after the dataset
 # (naming standard). The volume name is a stand-in and may change.
-VOLUME_ROOT = "/Volumes/ahon_dev/source/datasets"
+VOLUME_ROOT = "/Volumes/ahon_dev/reference/source"
 DATASET_NAME = "blgf_ldrrmf_annual_lgu"
 TARGET_DIR = Path(VOLUME_ROOT) / DATASET_NAME
 

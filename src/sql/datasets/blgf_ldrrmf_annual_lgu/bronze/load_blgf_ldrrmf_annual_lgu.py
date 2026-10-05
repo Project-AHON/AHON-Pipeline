@@ -22,7 +22,7 @@ spark = SparkSession.builder.getOrCreate()
 # Settings: change here if the team renames anything
 CATALOG = "ahon_dev"
 SOURCE_NAME = "blgf_ldrrmf_annual_lgu"
-SOURCE_DIR = Path(f"/Volumes/{CATALOG}/source/datasets/{SOURCE_NAME}")
+SOURCE_DIR = Path(f"/Volumes/{CATALOG}/reference/source/{SOURCE_NAME}")
 TARGET_TABLE = f"{CATALOG}.bronze.{SOURCE_NAME}"
 
 # LGU rows per year from the bronze profile, used to check each file after reading
