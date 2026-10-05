@@ -120,7 +120,7 @@ jobs:
       - name: Lint Python files
         run: |
           pip install ruff
-          ruff check .
+          ruff check . --fix
 
       # 7. Run tests
       - name: Run tests
