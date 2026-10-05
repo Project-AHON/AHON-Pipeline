@@ -1,4 +1,4 @@
-
+from datetime import datetime, timezone
 import requests
 import pandas as pd
 from datetime import datetime
@@ -86,8 +86,8 @@ def scrape_current_month_from_main_page():
         df = df.dropna(how='all').reset_index(drop=True)
         
         # Determine the current month from the data
-        current_month = datetime.now().strftime("%B")
-        current_year = datetime.now().year
+        current_month = datetime.now(timezone.utc).strftime("%B")
+        current_year = datetime.now(timezone.utc).year
         
         # Add metadata columns
         df['Month'] = current_month
@@ -97,9 +97,9 @@ def scrape_current_month_from_main_page():
         
         return df
         
-    except Exception as e:
-        print(f"✗ Error: {e}")
-        return None
+        except (requests.RequestException, pd.errors.ParserError) as e:
+            print(f"✗ Error: {e}")
+            return None
 
 
 def scrape_phivolcs_data_from_html(year, month_name):
@@ -188,9 +188,9 @@ def scrape_phivolcs_data_from_html(year, month_name):
         else:
             print(f"✗ HTTP {errh.response.status_code}")
             return None
-    except Exception as e:
-        print(f"✗ Error: {e}")
-        return None
+        except requests.RequestException as e:
+            print(f"✗ Error: {e}")
+            return None
 
 
 def scrape_year_data(year, output_dir="data"):
