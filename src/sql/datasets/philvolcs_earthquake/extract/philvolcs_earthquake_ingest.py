@@ -1,3 +1,5 @@
+import os
+import time
 from datetime import datetime, timezone
 from io import StringIO
 
@@ -205,13 +207,13 @@ def scrape_year_data(year, output_dir="data"):
             successful_months.append(month_name)
             
             # Check if this data came from the main page (current month indicator)
-            if year == datetime.now().year and month_name == datetime.now().strftime("%B"):
+            if year == datetime.now(timezone.utc).year and month_name == datetime.now(timezone.utc).strftime("%B"):
                 current_month_found = True
                 print(f"  ℹ️  Current month detected: {month_name} {year}")
         else:
             failed_months.append(month_name)
             # If we get a failure on the current year, it might be the current month
-            if year == datetime.now().year and not current_month_found:
+            if year == datetime.now(timezone.utc).year and not current_month_found:
                 current_month_found = True
         
         # Be polite to the server
@@ -244,7 +246,7 @@ def scrape_multiple_years(years_back=3, output_dir="data"):
     Scrapes earthquake data for the last N years.
     Each year is saved as a separate CSV file.
     """
-    current_year = datetime.now().year
+    current_year = datetime.now(timezone.utc).year
     start_year = current_year - years_back + 1
     
     print(f"\n{'='*70}")
