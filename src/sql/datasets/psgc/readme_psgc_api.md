@@ -4,7 +4,7 @@ Loads Philippine Standard Geographic Code (PSGC) data from the PSA API into a br
 
 ## Source Choice: API
 
-We pull from the PSGC API rather than downloading publication files.
+Pull from the PSGC API rather than downloading publication files (csv).
 
 - **Programmatic and repeatable**: no manual download or upload step.
 - **Multi-period in one run**: each publication period is a single URL parameter.
