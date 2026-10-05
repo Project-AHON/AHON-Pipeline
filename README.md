@@ -16,7 +16,7 @@ ahon-pipeline/
 │   └── pull_request_template.md # PR template
 ├── src/                         # pipeline code; SQL and Python files sit together
 │   └── sql/                     # for now, all pipeline code sits under src/sql/ (may move up to src/ later)
-│       ├── setup/                                  # shared: catalogs, schemas, volumes, control table
+│       ├── 00_setup/                               # shared: catalogs, schemas, volumes, control table
 │       ├── datasets/                               # one folder per source dataset
 │       │   └── publisher_dataset/                  # example: replace with the real dataset name
 │       │       ├── extract/                        # optional: pulls data from the source and writes raw files
