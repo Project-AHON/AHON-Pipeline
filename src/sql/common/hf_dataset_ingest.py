@@ -48,7 +48,7 @@ def mass_ingest_to_delta(base_path, target_schema="default"):
                     df = spark.read.option("header", "true").option("inferSchema", "true").csv(
                         f"file:{file_path}"
                     )
-                elif file.endswith(".json") or file.endswith(".geojson"):
+                elif file.endswith((".json", ".geojson")):
                     df = spark.read.option("multiline", "true").json(f"file:{file_path}")
                 if file.endswith((".parquet", ".csv", ".json", ".other_extension")):
                     # handle all formats
