@@ -50,7 +50,7 @@ def mass_ingest_to_delta(base_path, target_schema="default"):
                     )
                 elif file.endswith(".json") or file.endswith(".geojson"):
                     df = spark.read.option("multiline", "true").json(f"file:{file_path}")
-                elif file.endswith(".parquet"):
+                elif file.endswith((".parquet", ".other_extension")):
                     df = spark.read.parquet(f"file:{file_path}")
                 elif file.endswith(".xlsx"):
                     pdf = pd.read_excel(file_path, header=None)
