@@ -107,5 +107,5 @@ delta_table = DeltaTable.forName(spark, TABLE_NAME)
 )
 
 print(f"Batch ID   : {batch_id}")
-print(f"Merged into: {BRONZE_TABLE}")
+print(f"Merged into: {TABLE_NAME}")   
 print(f"Merge keys : {merge_keys}")
