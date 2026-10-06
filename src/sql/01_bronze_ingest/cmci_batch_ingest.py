@@ -265,7 +265,7 @@ for table_name in required_tables:
             + table_name
         )
 
-    except Exception as error:
+    except RuntimeError as error:
         raise RuntimeError(
             "Required table cannot be accessed: "
             + table_name
@@ -1153,7 +1153,7 @@ try:
                 + str(len(parsed_values))
             )
 
-        except Exception as error:
+        except (ValueError, RuntimeError) as error:
             failed_batches.append(
                 {
                     "batch_number": batch_number,
