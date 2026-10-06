@@ -3,8 +3,8 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-import pandas as pd
 import rasterio
+
 
 # ============================================================
 # CONFIGURATION
@@ -15,8 +15,16 @@ CHIRPS_BASE_URL = (
     "monthly/global/tifs"
 )
 
-CHIRPS_START_YEAR = 1981
+# Databricks Volume
+OUTPUT_DIR = Path(
+    "/Volumes/ahon/reference/source/chc_chirps"
+)
 
+# AHON historical coverage
+CHIRPS_START_YEAR = 2018
+CHIRPS_START_MONTH = 1
+
+# Expected CHIRPS raster structure
 EXPECTED_WIDTH = 7200
 EXPECTED_HEIGHT = 2400
 EXPECTED_BANDS = 1
@@ -25,24 +33,36 @@ EXPECTED_CRS = "EPSG:4326"
 
 
 # ============================================================
-# LATEST AVAILABLE MONTH
+# 1. BUILD CHIRPS URL
+# ============================================================
+
+def build_chirps_url(year: int, month: int) -> str:
+    """
+    Build the URL for a CHIRPS v3 monthly GeoTIFF.
+    """
+
+    filename = (
+        f"chirps-v3.0.{year}.{month:02d}.tif"
+    )
+
+    return f"{CHIRPS_BASE_URL}/{filename}"
+
+
+# ============================================================
+# 2. FIND LATEST AVAILABLE CHIRPS MONTH
 # ============================================================
 
 def get_latest_available_chirps_month():
     """
-    Find the latest available CHIRPS v3 monthly GeoTIFF.
+    Find the latest available CHIRPS monthly GeoTIFF.
 
-    The function starts from the current UTC year/month and
-    checks backwards until it finds an available dataset.
+    Starts from the current UTC year/month and checks
+    backwards until an available dataset is found.
 
     Returns
     -------
     tuple
         (year, month)
-
-    Example
-    -------
-    (2026, 7)
     """
 
     current_date = datetime.now(timezone.utc)
@@ -56,8 +76,9 @@ def get_latest_available_chirps_month():
             f"chirps-v3.0.{year}.{month:02d}.tif"
         )
 
-        source_url = (
-            f"{CHIRPS_BASE_URL}/{filename}"
+        source_url = build_chirps_url(
+            year,
+            month,
         )
 
         print(
@@ -67,18 +88,19 @@ def get_latest_available_chirps_month():
 
         request = Request(
             source_url,
-            method="HEAD"
+            method="HEAD",
+            headers={
+                "User-Agent": "AHON-Pipeline/1.0"
+            },
         )
 
         try:
-
             with urlopen(
                 request,
-                timeout=30
+                timeout=30,
             ) as response:
 
                 if response.status == 200:
-
                     print(
                         f"Latest available CHIRPS month: "
                         f"{year}-{month:02d}"
@@ -91,18 +113,18 @@ def get_latest_available_chirps_month():
             if error.code != 404:
                 raise
 
-        except URLError:
-
+        except URLError as error:
+            print(
+                f"Connection error while checking "
+                f"{filename}: {error}"
+            )
             raise
 
         # Move backwards one month
         if month == 1:
-
             year -= 1
             month = 12
-
         else:
-
             month -= 1
 
     raise RuntimeError(
@@ -112,110 +134,128 @@ def get_latest_available_chirps_month():
 
 
 # ============================================================
-# INGEST ONE MONTH
+# 3. FIND EXISTING FILES IN VOLUME
 # ============================================================
 
-def ingest_chirps_month(
-    year,
-    month,
-    output_dir
+def get_existing_chirps_months(
+    output_dir: Path,
 ):
     """
-    Download and validate one monthly CHIRPS v3 GeoTIFF.
-
-    Existing files are skipped.
-
-    Parameters
-    ----------
-    year : int
-        CHIRPS year, e.g. 2018.
-
-    month : int
-        CHIRPS month, from 1 to 12.
-
-    output_dir : Path
-        Directory where the downloaded file will be stored.
+    Find CHIRPS year/month files that already exist
+    in the Databricks Volume.
 
     Returns
     -------
-    dict
-        Metadata describing the ingestion result.
+    set
+        Set of (year, month) tuples.
     """
 
-    # --------------------------------------------------------
-    # Validate month
-    # --------------------------------------------------------
+    output_dir = Path(output_dir)
 
-    if month < 1 or month > 12:
+    existing_months = set()
 
-        raise ValueError(
-            f"Month must be between 1 and 12. "
-            f"Received: {month}"
-        )
+    if not output_dir.exists():
+        return existing_months
 
-    # --------------------------------------------------------
-    # Build filename and URL
-    # --------------------------------------------------------
+    for file in output_dir.glob(
+        "chirps-v3.0.*.tif"
+    ):
+
+        parts = file.stem.split(".")
+
+        # Expected:
+        # chirps-v3.0.2026.08
+        if len(parts) != 4:
+            continue
+
+        try:
+            year = int(parts[2])
+            month = int(parts[3])
+
+        except ValueError:
+            continue
+
+        if 1 <= month <= 12:
+            existing_months.add(
+                (year, month)
+            )
+
+    return existing_months
+
+
+# ============================================================
+# 4. GENERATE MONTH RANGE
+# ============================================================
+
+def get_month_range(
+    start_year: int,
+    start_month: int,
+    end_year: int,
+    end_month: int,
+):
+    """
+    Generate every year/month combination
+    between start and end dates.
+    """
+
+    current_year = start_year
+    current_month = start_month
+
+    while True:
+
+        yield current_year, current_month
+
+        if (
+            current_year == end_year
+            and current_month == end_month
+        ):
+            break
+
+        if current_month == 12:
+            current_year += 1
+            current_month = 1
+
+        else:
+            current_month += 1
+
+
+# ============================================================
+# 5. DOWNLOAD ONE CHIRPS MONTH
+# ============================================================
+
+def download_chirps_month(
+    year: int,
+    month: int,
+    output_dir: Path,
+):
+    """
+    Download one CHIRPS monthly GeoTIFF.
+
+    Returns
+    -------
+    Path
+        Path to the downloaded file.
+    """
 
     filename = (
         f"chirps-v3.0.{year}.{month:02d}.tif"
     )
 
-    source_url = (
-        f"{CHIRPS_BASE_URL}/{filename}"
+    source_url = build_chirps_url(
+        year,
+        month,
     )
 
-    # --------------------------------------------------------
-    # Prepare output directory
-    # --------------------------------------------------------
-
-    output_dir = Path(output_dir)
-
-    output_dir.mkdir(
-        parents=True,
-        exist_ok=True
+    output_path = (
+        Path(output_dir) / filename
     )
 
-    output_file = (
-        output_dir / filename
+    request = Request(
+        source_url,
+        headers={
+            "User-Agent": "AHON-Pipeline/1.0"
+        },
     )
-
-    # --------------------------------------------------------
-    # Timestamp
-    # --------------------------------------------------------
-
-    ingestion_timestamp = (
-        datetime.now(timezone.utc).isoformat()
-    )
-
-    # --------------------------------------------------------
-    # Idempotency check
-    # --------------------------------------------------------
-
-    if output_file.exists():
-
-        file_size = (
-            output_file.stat().st_size
-        )
-
-        print(
-            f"SKIP: {filename} already exists."
-        )
-
-        return {
-            "year": year,
-            "month": month,
-            "filename": filename,
-            "status": "skipped",
-            "source_url": source_url,
-            "path": output_file,
-            "file_size": file_size,
-            "ingestion_timestamp": ingestion_timestamp,
-        }
-
-    # --------------------------------------------------------
-    # Download
-    # --------------------------------------------------------
 
     print(
         f"Downloading: {filename}"
@@ -226,67 +266,84 @@ def ingest_chirps_month(
     )
 
     try:
-
-        with urlopen(
-            source_url,
-            timeout=120
-        ) as response, open(
-            output_file,
-            "wb"
-        ) as file:
-
+        with (
+            urlopen(
+                request,
+                timeout=120,
+            ) as response,
+            output_path.open(
+                "wb"
+            ) as file,
+        ):
             file.write(
                 response.read()
             )
 
     except HTTPError as error:
 
-        # Remove incomplete file if one was created
-        output_file.unlink(
+        # Remove incomplete file
+        output_path.unlink(
             missing_ok=True
         )
 
         if error.code == 404:
-
             print(
                 f"NOT AVAILABLE: {filename}"
             )
 
-            return {
-                "year": year,
-                "month": month,
-                "filename": filename,
-                "status": "not_available",
-                "source_url": source_url,
-                "path": output_file,
-                "file_size": None,
-                "ingestion_timestamp": ingestion_timestamp,
-            }
+        else:
+            print(
+                f"HTTP error while downloading "
+                f"{filename}: {error}"
+            )
 
         raise
 
-    except URLError:
+    except URLError as error:
 
         # Remove incomplete file
-        output_file.unlink(
+        output_path.unlink(
             missing_ok=True
+        )
+
+        print(
+            f"Connection error while downloading "
+            f"{filename}: {error}"
         )
 
         raise
 
-    # --------------------------------------------------------
-    # Validate downloaded GeoTIFF
-    # --------------------------------------------------------
+    return output_path
+
+
+# ============================================================
+# 6. VALIDATE CHIRPS TIFF
+# ============================================================
+
+def validate_chirps_raster(
+    file_path: Path,
+):
+    """
+    Validate a downloaded CHIRPS GeoTIFF.
+
+    Checks:
+    - CRS
+    - width
+    - height
+    - number of bands
+    - data type
+    """
+
+    print(
+        f"Validating: {file_path.name}"
+    )
 
     try:
 
-        with rasterio.open(
-            output_file
-        ) as src:
+        with rasterio.open(file_path) as src:
 
-            # CRS
+            # CRS exists
             if src.crs is None:
-
                 raise ValueError(
                     "Missing CRS"
                 )
@@ -296,7 +353,6 @@ def ingest_chirps_month(
                 src.width != EXPECTED_WIDTH
                 or src.height != EXPECTED_HEIGHT
             ):
-
                 raise ValueError(
                     "Unexpected raster size: "
                     f"{src.width} x {src.height}"
@@ -304,7 +360,6 @@ def ingest_chirps_month(
 
             # Number of bands
             if src.count != EXPECTED_BANDS:
-
                 raise ValueError(
                     "Unexpected number of bands: "
                     f"{src.count}"
@@ -312,7 +367,6 @@ def ingest_chirps_month(
 
             # Data type
             if src.dtypes[0] != EXPECTED_DTYPE:
-
                 raise ValueError(
                     "Unexpected data type: "
                     f"{src.dtypes[0]}"
@@ -320,7 +374,6 @@ def ingest_chirps_month(
 
             # CRS
             if str(src.crs) != EXPECTED_CRS:
-
                 raise ValueError(
                     "Unexpected CRS: "
                     f"{src.crs}"
@@ -328,237 +381,217 @@ def ingest_chirps_month(
 
     except Exception:
 
-        # Remove invalid/incomplete file
-        output_file.unlink(
+        # Delete invalid file
+        file_path.unlink(
             missing_ok=True
         )
 
         raise
 
-    # --------------------------------------------------------
-    # File metadata
-    # --------------------------------------------------------
-
-    file_size = (
-        output_file.stat().st_size
-    )
-
     print(
-        f"SUCCESS: {filename}"
+        f"Validation passed: {file_path.name}"
     )
-
-    print(
-        f"Size: {file_size:,} bytes"
-    )
-
-    # --------------------------------------------------------
-    # Return ingestion metadata
-    # --------------------------------------------------------
-
-    return {
-        "year": year,
-        "month": month,
-        "filename": filename,
-        "status": "downloaded",
-        "source_url": source_url,
-        "path": output_file,
-        "file_size": file_size,
-        "ingestion_timestamp": ingestion_timestamp,
-    }
 
 
 # ============================================================
-# INGEST DATE RANGE
+# 7. INCREMENTAL INGESTION PIPELINE
 # ============================================================
 
-def ingest_chirps_range(
-    start_year,
-    start_month,
-    end_year,
-    end_month,
-    output_dir,
+def ingest_chirps_incremental(
+    output_dir: Path = OUTPUT_DIR,
 ):
     """
-    Ingest CHIRPS v3 monthly GeoTIFFs within
-    a specified date range.
+    Incrementally ingest available CHIRPS monthly files.
+
+    The pipeline:
+
+    1. Finds the latest available CHIRPS month.
+    2. Finds existing files in the Volume.
+    3. Determines which months are missing.
+    4. Downloads missing months.
+    5. Validates each downloaded TIFF.
+    6. Saves validated files directly to the Volume.
 
     Existing files are skipped.
-
-    Parameters
-    ----------
-    start_year : int
-        Starting year.
-
-    start_month : int
-        Starting month.
-
-    end_year : int
-        Ending year.
-
-    end_month : int
-        Ending month.
-
-    output_dir : Path
-        Directory for downloaded files.
-
-    Returns
-    -------
-    list
-        List of ingestion result dictionaries.
     """
 
-    # --------------------------------------------------------
-    # Validate start month
-    # --------------------------------------------------------
+    output_dir = Path(output_dir)
 
-    if start_month < 1 or start_month > 12:
+    
+    # Prepare Volume directory
+    
 
-        raise ValueError(
-            "start_month must be between 1 and 12."
-        )
-
-    # --------------------------------------------------------
-    # Validate end month
-    # --------------------------------------------------------
-
-    if end_month < 1 or end_month > 12:
-
-        raise ValueError(
-            "end_month must be between 1 and 12."
-        )
-
-    # --------------------------------------------------------
-    # Convert dates to comparable indexes
-    # --------------------------------------------------------
-
-    start_index = (
-        start_year * 12
-        + start_month
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
     )
 
-    end_index = (
-        end_year * 12
-        + end_month
+    print(
+        "\n============================================"
+    )
+    print(
+        "AHON CHIRPS INCREMENTAL INGESTION"
+    )
+    print(
+        "============================================"
     )
 
-    if start_index > end_index:
+    print(
+        f"Output directory: {output_dir}"
+    )
 
-        raise ValueError(
-            "Start date must be before "
-            "or equal to end date."
+    
+    # Find latest available month
+    
+
+    latest_year, latest_month = (
+        get_latest_available_chirps_month()
+    )
+
+    
+    # Find existing files
+    
+
+    existing_months = (
+        get_existing_chirps_months(
+            output_dir
         )
+    )
 
-    # --------------------------------------------------------
-    # Initialize current date
-    # --------------------------------------------------------
+    print(
+        f"\nExisting CHIRPS files: "
+        f"{len(existing_months)}"
+    )
 
-    current_year = start_year
-    current_month = start_month
+    print(
+        f"Latest available month: "
+        f"{latest_year}-{latest_month:02d}"
+    )
 
-    results = []
+    
+    # Determine missing months
+    
 
-    # --------------------------------------------------------
-    # Process each month
-    # --------------------------------------------------------
+    missing_months = []
 
-    while True:
+    for year, month in get_month_range(
+        start_year=CHIRPS_START_YEAR,
+        start_month=CHIRPS_START_MONTH,
+        end_year=latest_year,
+        end_month=latest_month,
+    ):
+
+        if (year, month) not in existing_months:
+
+            missing_months.append(
+                (year, month)
+            )
+
+    print(
+        f"Missing CHIRPS files: "
+        f"{len(missing_months)}"
+    )
+
+    
+    # Nothing to ingest
+    
+
+    if not missing_months:
 
         print(
-            f"\nProcessing "
-            f"{current_year}-{current_month:02d}"
+            "\nNo new CHIRPS files to ingest."
         )
 
-        result = ingest_chirps_month(
-            year=current_year,
-            month=current_month,
-            output_dir=output_dir,
+        print(
+            "Pipeline completed successfully."
         )
 
-        results.append(
-            result
+        return
+
+    
+    # Download and validate missing months
+    
+
+    successful_ingestions = 0
+
+    for year, month in missing_months:
+
+        filename = (
+            f"chirps-v3.0."
+            f"{year}.{month:02d}.tif"
         )
 
-        # ----------------------------------------------------
-        # Stop at requested end date
-        # ----------------------------------------------------
+        print(
+            f"\n--------------------------------------------"
+        )
 
-        if (
-            current_year == end_year
-            and current_month == end_month
-        ):
+        print(
+            f"Processing: {year}-{month:02d}"
+        )
 
-            break
+        try:
 
-        # ----------------------------------------------------
-        # Move to next month
-        # ----------------------------------------------------
+            # Download
+            file_path = download_chirps_month(
+                year=year,
+                month=month,
+                output_dir=output_dir,
+            )
 
-        if current_month == 12:
+            # Validate
+            validate_chirps_raster(
+                file_path
+            )
 
-            current_year += 1
-            current_month = 1
+            successful_ingestions += 1
 
-        else:
+            print(
+                f"SUCCESS: {filename}"
+            )
 
-            current_month += 1
+        except Exception as error:
 
-    return results
+            print(
+                f"FAILED: {filename}"
+            )
 
+            print(
+                f"Error: {error}"
+            )
 
-# ============================================================
-# CREATE INGESTION MANIFEST
-# ============================================================
+            # Continue with the next month
+            continue
+        
+    # Final summary
 
-def create_ingestion_manifest(
-    results
-):
-    """
-    Convert ingestion results into a pandas DataFrame.
-
-    The manifest provides an audit-friendly summary
-    of the ingestion execution.
-
-    Parameters
-    ----------
-    results : list
-        Results returned by the ingestion functions.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Ingestion manifest.
-    """
-
-    manifest = pd.DataFrame(
-        results
+    print(
+        "INGESTION SUMMARY"
     )
 
-    if manifest.empty:
-
-        return manifest
-
-    # --------------------------------------------------------
-    # Convert Path objects to strings
-    # --------------------------------------------------------
-
-    if "path" in manifest.columns:
-
-        manifest["path"] = (
-            manifest["path"].astype(str)
-        )
-
-    # --------------------------------------------------------
-    # Sort chronologically
-    # --------------------------------------------------------
-
-    manifest = (
-        manifest
-        .sort_values(
-            ["year", "month"]
-        )
-        .reset_index(
-            drop=True
-        )
+    print(
+        f"Latest available: "
+        f"{latest_year}-{latest_month:02d}"
     )
 
-    return manifest
+    print(
+        f"Existing before run: "
+        f"{len(existing_months)}"
+    )
+
+    print(
+        f"Missing before run: "
+        f"{len(missing_months)}"
+    )
+
+    print(
+        f"Successfully ingested: "
+        f"{successful_ingestions}"
+    )
+
+
+
+# PIPELINE ENTRY POINT
+
+if __name__ == "__main__":
+
+    ingest_chirps_incremental()
