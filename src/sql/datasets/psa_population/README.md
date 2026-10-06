@@ -33,6 +33,5 @@ All data columns are `STRING` (raw, no casting). Cleaning and typing belong in t
 
 ## Notes
 
-- The table is created with `CREATE OR REPLACE`, so it is rebuilt on every run and the merge acts as a plain insert. Switch to `CREATE TABLE IF NOT EXISTS` if you want incremental upserts.
 - `geographic_location` must be unique per `census_year` in the source. Duplicate names (for example, the same barangay name in different municipalities) will make the merge fail.
 - `row_hash` is stored but not used as a merge key.
