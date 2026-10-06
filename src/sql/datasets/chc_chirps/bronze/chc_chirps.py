@@ -3,10 +3,10 @@ from pyspark.sql import functions as F
 
 # Configuration
 
-CATALOG = "ahon_dev"
+CATALOG = "ahon"
 BRONZE_SCHEMA = "bronze"
 
-BASE_PATH = "/Volumes/ahon_dev/reference/source/chc_chirps"
+BASE_PATH = "/Volumes/ahon/reference/source/chc_chirps"
 
 SOURCE_NAME = "chc_chirps"
 SOURCE_REF = "https://data.chc.ucsb.edu/products/CHIRPS/v3.0/monthly/global/tifs"
@@ -59,7 +59,6 @@ chirps_df = (
 
 
 # Write to Bronze Delta table
-
 (
     chirps_df.write
     .format("delta")

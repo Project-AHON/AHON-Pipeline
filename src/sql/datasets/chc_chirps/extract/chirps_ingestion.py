@@ -549,7 +549,13 @@ def ingest_chirps_incremental(
                 f"SUCCESS: {filename}"
             )
 
-        except Exception as error:
+        except (
+            HTTPError,
+            URLError,
+            ValueError,
+            OSError,
+            rasterio.errors.RasterioError,
+        ) as error:
 
             print(
                 f"FAILED: {filename}"
