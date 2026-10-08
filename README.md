@@ -64,22 +64,3 @@ ahon-pipeline/
 - **Data dictionary:** each dataset has one page in `docs/architecture/data-dictionary/`, named after the dataset, describing its tables and columns. Add or update the page in the same PR that adds or changes the table.
 
 The naming standard is in [docs/standards/naming.md](docs/standards/naming.md), and the team's way of working is in [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Catalog structure
-
-Two catalogs, one per environment, with the same schemas in each. Code moves between environments by changing only the catalog name.
-
-```
-CATALOG                    # ahon (production) or ahon_dev (development), with the same schemas in both
-├── bronze                 # raw data loaded into tables, plus provenance columns: blgf_ldrrmf_annual_lgu
-├── silver                 # cleaned, typed, deduplicated: blgf_ldrrmf_annual_lgu_clean
-├── gold                   # dimensions and facts: dim_location, fact_event
-├── platinum               # analytics tables built from gold
-├── source                 # pending: schema name still open, no volumes here for now (see below)
-├── reference              # lookup and code tables, plus the `source` volume for raw files
-└── monitoring             # control table, run logs, data quality rules and results
-```
-
-- **Table names:** the bronze table is named after the dataset, and the silver table adds `_clean`, so `ahon.bronze.blgf_ldrrmf_annual_lgu` pairs with `ahon.silver.blgf_ldrrmf_annual_lgu_clean`. Gold tables start with `dim_` or `fact_`. The layer is never part of the name, because the schema already says it.
-- **Raw files:** raw files live in the `source` volume, which is now in the `reference` schema (`ahon.reference.source`), one folder per dataset. The volume holds files, not tables. The separate `source` schema stays listed as pending until the team decides its final name or drops it.
-- **Full rules:** see the [naming standard](docs/standards/naming.md) and [decision 0001](docs/decisions/0001-naming-standard.md).
