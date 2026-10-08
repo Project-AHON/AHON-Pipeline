@@ -1,10 +1,10 @@
 from pyspark.sql import functions as F
 from pyspark.sql.types import (
     ArrayType,
-    StructType,
-    StructField,
     LongType,
     StringType,
+    StructField,
+    StructType,
 )
 
 # Configuration

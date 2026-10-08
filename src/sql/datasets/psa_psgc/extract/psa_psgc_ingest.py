@@ -4,7 +4,6 @@ from pathlib import Path
 
 import requests
 
-
 # ============================================================
 # Configuration
 # ============================================================
@@ -139,7 +138,7 @@ if __name__ == "__main__":
 
     try:
         periods_input = dbutils.widgets.get("psgc_periods")
-    except Exception:
+    except Exception:  # noqa: BLE001
         periods_input = ",".join(DEFAULT_PERIODS)
 
     periods = [

@@ -1,10 +1,7 @@
 from delta.tables import DeltaTable
 from pyspark.sql import functions as F
 
-
-# ============================================================
 # Configuration
-# ============================================================
 
 RAW_PATH = "/Volumes/ahon/reference/source/psa_psgc"
 
@@ -12,10 +9,7 @@ BRONZE_TABLE = "ahon.bronze.psa_psgc"
 
 SOURCE_REF = "https://classification.psa.gov.ph/psgc"
 
-
-# ============================================================
 # Read raw PSA PSGC data
-# ============================================================
 
 raw_df = (
     spark.read
@@ -32,27 +26,6 @@ if raw_count == 0:
 
 print(f"Raw PSA PSGC records: {raw_count:,}")
 
-
-# ============================================================
-# Transform source fields
-# ============================================================
-#
-# Actual fields returned by the PSA PSGC API:
-#
-#   code
-#   area_name
-#   correspondence_code
-#   geographic_level
-#   reg
-#   prv
-#   mun
-#   bgy
-#   populations
-#   version
-#   ...
-#
-# We standardize the geographic code names for Bronze.
-# ============================================================
 
 bronze_df = raw_df.select(
     F.col("code")
@@ -128,10 +101,6 @@ bronze_df = raw_df.select(
 )
 
 
-# ============================================================
-# Add ingestion metadata
-# ============================================================
-
 bronze_df = (
     bronze_df
     .withColumn(
@@ -156,22 +125,6 @@ bronze_df = (
 )
 
 
-# ============================================================
-# Generate SHA-256 row hash
-# ============================================================
-#
-# _api_period is intentionally included.
-#
-# This means the same PSGC code from two different
-# PSA snapshots produces two different hashes.
-#
-# Example:
-#
-#   PSGC 0102800000 + Q2_2024
-#   PSGC 0102800000 + Q4_2023
-#
-# are treated as different source records.
-# ============================================================
 
 hash_columns = [
     "psgc_code",
@@ -210,10 +163,6 @@ bronze_df = bronze_df.withColumn(
 )
 
 
-# ============================================================
-# Remove duplicate records within the current batch
-# ============================================================
-
 bronze_df = bronze_df.dropDuplicates(
     ["_row_hash"]
 )
@@ -225,10 +174,6 @@ print(
     f"{unique_count:,}"
 )
 
-
-# ============================================================
-# Create Bronze Delta table
-# ============================================================
 
 spark.sql(
     f"""
@@ -260,11 +205,6 @@ spark.sql(
     """
 )
 
-
-# ============================================================
-# Merge into Bronze Delta table
-# ============================================================
-
 delta_table = DeltaTable.forName(
     spark,
     BRONZE_TABLE,
@@ -279,11 +219,6 @@ delta_table = DeltaTable.forName(
     .whenNotMatchedInsertAll()
     .execute()
 )
-
-
-# ============================================================
-# Validation
-# ============================================================
 
 final_count = spark.table(
     BRONZE_TABLE
