@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 import pandas as pd
 from pyspark.sql import functions as F
 from pyspark.sql.types import (
@@ -10,10 +8,27 @@ from pyspark.sql.types import (
     StructType,
 )
 
-if TYPE_CHECKING:
-    from pyspark.sql import SparkSession
+# =====================================================
+# CONFIG
+# =====================================================
 
-    spark: SparkSession
+SOURCE_PATH = (
+    "/Volumes/ahon/reference/source/"
+    "PSGC-2Q-2026-Publication-Datafile.xlsx"
+)
+
+SOURCE_FILE = "PSGC-2Q-2026-Publication-Datafile.xlsx"
+SOURCE_SHEET = "PSGC"
+SOURCE_PUBLICATION_DATE = "2026-06-30"
+
+TARGET_TABLE = "ahon.reference.lgu_master"
+
+EXPECTED_CITY_COUNT = 149
+EXPECTED_MUNICIPALITY_COUNT = 1493
+EXPECTED_TOTAL_COUNT = 1642
+EXPECTED_PROVINCE_LINKED_COUNT = 1599
+EXPECTED_NO_PROVINCE_COUNT = 43
+``
 
 
 # =====================================================
