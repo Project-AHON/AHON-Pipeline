@@ -242,6 +242,8 @@ BRONZE_SCHEMA = StructType(
 # SPARK CONFIG
 # ------------------------------------------------------------------
 
+spark = SparkSession.builder.getOrCreate()
+
 spark.conf.set(
     "spark.sql.session.timeZone",
     "UTC",
