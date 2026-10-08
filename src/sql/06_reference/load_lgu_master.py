@@ -1,5 +1,6 @@
-import pandas as pd
+from typing import TYPE_CHECKING
 
+import pandas as pd
 from pyspark.sql import functions as F
 from pyspark.sql.types import (
     BooleanType,
@@ -8,6 +9,11 @@ from pyspark.sql.types import (
     StructField,
     StructType,
 )
+
+if TYPE_CHECKING:
+    from pyspark.sql import SparkSession
+
+    spark: SparkSession
 
 
 # =====================================================
