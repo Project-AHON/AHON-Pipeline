@@ -7,7 +7,6 @@ from pyspark.sql.types import (
     StringType,
     StructField,
     StructType,
-    TimestampType,
 )
 
 
@@ -146,6 +145,7 @@ if not spark.catalog.tableExists(TARGET_TABLE):
         "Target table does not exist: "
         + TARGET_TABLE
     )
+
 
 target_df = spark.table(
     TARGET_TABLE
@@ -331,7 +331,6 @@ lgu_pdf = (
     .copy()
 )
 
-
 lgu_pdf["province_prefix"] = (
     lgu_pdf[
         PSGC_CODE_COLUMN
@@ -381,9 +380,7 @@ preview_municipality_count = int(
     .sum()
 )
 
-preview_total_count = len(
-        lgu_pdf
-    )
+preview_total_count = len(lgu_pdf)
 
 print(
     "Cities extracted: "
