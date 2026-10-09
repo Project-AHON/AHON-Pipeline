@@ -1,7 +1,7 @@
 
 -- CREATE SILVER TABLE
 
-CREATE TABLE IF NOT EXISTS ahon.silver.psa_psgc (
+CREATE TABLE IF NOT EXISTS ahon_dev.silver.psa_psgc (
 
     -- Geographic identity
     psgc_code STRING NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS ahon.silver.psa_psgc (
 )
 USING DELTA;
 
-MERGE INTO ahon.silver.psa_psgc AS target
+MERGE INTO ahon_dev.silver.psa_psgc AS target
 
 USING (
 
@@ -141,7 +141,7 @@ USING (
 
             _row_hash
 
-        FROM ahon.bronze.psa_psgc
+        FROM ahon_dev.bronze.psa_psgc
 
         -- ----------------------------------------------------
         -- Required-field validation
