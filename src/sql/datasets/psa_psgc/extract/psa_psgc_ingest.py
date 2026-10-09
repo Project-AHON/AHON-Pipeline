@@ -10,7 +10,7 @@ import requests
 
 API_BASE_URL = "https://classification.psa.gov.ph/psgc"
 
-RAW_PATH = "/Volumes/ahon/reference/source/psa_psgc"
+RAW_PATH = "/Volumes/ahon_dev/reference/source/psa_psgc"
 
 DEFAULT_PERIODS = [
     "Q2_2024",
