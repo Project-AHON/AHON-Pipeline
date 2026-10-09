@@ -265,7 +265,7 @@ for table_name in required_tables:
             + str(column_count)
         )
 
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         raise RuntimeError(
             "Required table cannot be accessed: "
             + table_name
