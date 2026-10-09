@@ -9,8 +9,8 @@ from pyspark.sql.types import (
 
 # Configuration
 
-BRONZE_TABLE = "ahon.bronze.psa_psgc"
-MASTER_TABLE = "ahon.reference.lgu_master"
+BRONZE_TABLE = "ahon_dev.bronze.psa_psgc"
+MASTER_TABLE = "ahon_dev.reference.lgu_master"
 
 SOURCE_PERIOD = "Q2_2024"
 SOURCE_NAME = "PSA PSGC API"
@@ -136,7 +136,7 @@ final_lgu_master_df = (
 # 6. Create Reference Schema and Table
 
 spark.sql("""
-CREATE SCHEMA IF NOT EXISTS ahon.reference
+CREATE SCHEMA IF NOT EXISTS ahon_dev.reference
 """)
 
 spark.sql(f"""
