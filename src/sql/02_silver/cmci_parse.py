@@ -953,7 +953,7 @@ for bronze_row in latest_batch_df.toLocalIterator():
 
         processed_batch_count += 1
 
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         batch_parse_failures.append(
             {
                 "batch_id": batch_id,
