@@ -32,27 +32,13 @@ The raw file in the current profile has 129,792 rows, of which 129,711 pass the 
 
 - **One row is:** one valid earthquake event after parsing and validating the raw PHIVOLCS rows, with non-event banner rows removed and impossible values filtered out.
 - **Key:** `id`
+- **Deduplication rule:** Silver identifies the same event by `event_time`, `latitude`, `longitude`, `depth`, and `magnitude`. The surrogate key is computed as `xxhash64(event_time, latitude, longitude, depth, magnitude)`.
 - **Built from bronze by:** `src/sql/datasets/philvolcs_earthquake/silver/philvolcs_earthquake_clean.sql`.
-
-| Column | Type | Description | Notes |
-| --- | --- | --- | --- |
-| `id` | bigint | Stable surrogate key computed from `event_time`, `latitude`, `longitude`, `depth`, and `magnitude` | Derived via `xxhash64(...)` |
-| `event_time` | timestamp | Parsed `Date-Time` value converted to a timestamp | Local PHIVOLCS time as shown in the source page; no timezone is attached in the source |
-| `latitude` | double | Validated latitude in decimal degrees | Kept only when between -90 and 90 |
-| `longitude` | double | Validated longitude in decimal degrees | Kept only when between -180 and 180 |
-| `depth` | double | Event depth in kilometers | Kept only when depth is non-negative |
-| `magnitude` | double | Event magnitude | Kept only when magnitude is non-negative |
-| `location_description` | string | Cleaned free-text location description | `NULL` if blank after trimming |
-| `month` | int | Numeric month extracted from `event_time` | Derived using `EXTRACT(MONTH FROM event_time)` |
-| `year` | int | Numeric year extracted from `event_time` | Derived using `EXTRACT(YEAR FROM event_time)` |
 
 ## Known issues
 
-- Bronze keeps every source row, including non-event banner rows and invalid values. Silver is the filtered analytic table; it does not delete or rewrite bronze and does not deduplicate rows unless a future business rule explicitly defines a unique-event key.
-- The raw `Date-Time` field is a free-form string, and some values use lowercase `am`/`pm`; a small number of rows still fail parsing and are excluded in the clean layer.
-- In the current source extract: 24 latitude values are missing or invalid, 24 longitude values are missing or invalid, 45 depth values are missing or invalid, and 3 magnitude values are missing. The silver validation rejects rows outside valid coordinate or non-negative-depth/magnitude limits.
--  Monthly PHIVOLCS HTML pages are scraped into a single combined CSV, so source formatting and raw row quality depend on the website layout and the scraper's parsing logic.
--  The silver layer filters invalid records and preserves all valid earthquake observations. If duplicate rows are later found, they should be handled with an explicit business rule rather than automatic deduplication in this pipeline step.
+- Bronze keeps every source row, including non-event banner rows and invalid values. Silver is the filtered analytic table and deduplicates repeated observations of the same event using the event signature `(event_time, latitude, longitude, depth, magnitude)`.
+- The raw `Date-Time` field is a free-form string...
 
 ## Open
 
