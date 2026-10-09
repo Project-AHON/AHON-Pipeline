@@ -23,7 +23,7 @@ SELECT
     -- row_count_matches_bronze
     count(*) = (SELECT count(*) FROM bronze.blgf_ldrrmf_annual_lgu)
     -- unique_lgu_year
-    AND count(*) = count(DISTINCT fiscal_year, region, province, lgu_name, lgu_type)
+    AND count(*) = (SELECT count(*) FROM (SELECT DISTINCT fiscal_year, region, province, lgu_name, lgu_type FROM silver.blgf_ldrrmf_annual_lgu_clean))
     -- fiscal_year_valid (update the year range here and in clean_blgf_ldrrmf_annual_lgu.sql when a new fiscal year is loaded)
     AND count_if(fiscal_year NOT BETWEEN 2018 AND 2024 OR fiscal_year IS NULL) = 0
     -- lgu_type_valid
@@ -62,6 +62,7 @@ SELECT coalesce(s.fiscal_year, b.fiscal_year) AS fiscal_year,
 FROM s
 FULL OUTER JOIN b ON s.fiscal_year = b.fiscal_year AND s.lgu_type = b.lgu_type
 ORDER BY fiscal_year, lgu_type;
+
 -- COMMAND ----------
 
 -- Check every silver row traces back to exactly one bronze row (row_count_matches_bronze, unique_lgu_year)
