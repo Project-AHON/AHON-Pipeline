@@ -1,6 +1,6 @@
 # 0005: Silver keeps provenance columns and marks data quality problems in one column
 
-- **Status:** Accepted
+- **Status:** Proposed
 - **Date:** 2026-10-09
 
 ## Context

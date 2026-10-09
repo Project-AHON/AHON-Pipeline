@@ -82,6 +82,8 @@ Draft rules for this dataset. The shared DQ tables (`dq_ruleset`, `dq_results`, 
 | 13 | `lgu_present_every_year` | An LGU is present in every year between its first and last year | report | 92 LGUs with a gap, many of them renamed (see Known issues) |
 | 14 | `lgu_type_consistent` | An LGU keeps the same type across years | report | 1 LGU: Pateros (Municipality and City) |
 | 15 | `amounts_two_decimals` | Amounts have at most 2 decimals (so `DECIMAL(18,2)` rounds nothing) | report | 0 rows (checked once on bronze) |
+| 16 | `repeated_amounts` | An LGU's total budget and total spent are not both identical to the previous year | report | 3 rows (checked once, no action) |
+| 17 | `province_row_name` | A Province row has the same name as its province | report | 0 rows (checked once) |
 
 The check names are the same as in the data quality checks doc. To see which check a flagged row breaks, run the finder query in `check_blgf_ldrrmf_annual_lgu_clean.sql`. It joins back to silver on `_source_ref` + `_row_hash`.
 
@@ -100,17 +102,11 @@ The check names are the same as in the data quality checks doc. To see which che
 - **The 30% share varies.** About 76% of rows (8,673) have a 30% part of 29 to 31% of the total budget; 2,574 do not. Not flagged.
 - **Negative expenditures.** 3 rows have a negative amount (Romblon FY2020, Albay FY2021, Leon FY2022), possibly refunds or reversals. Kept and flagged.
 - **Maguindanao** is one province in FY2018 to FY2022 and Maguindanao Del Norte and Del Sur from FY2023 (the 2022 split).
+- **Only the data sheet is loaded.** Each Excel file also has a `Metadata` sheet (originator, extraction date, disclaimer), which is not loaded.
 
 ## Open
 
 - What the 70% and 30% parts mean in BLGF's own notes (by law the 70% covers mitigation and preparedness and the 30% is the Quick Response Fund, not yet checked against BLGF), and whether "expenditures" means cash paid out or obligations.
 - Final catalog, schema and volume names. The dev workspace uses `ahon_dev`.
 - Column naming rules are still open in the [naming standard](../../standards/naming.md), so these are the names as they exist in the table.
-- **No PSGC code.** Silver does not add one. Matching to other datasets (and to the correct region) is done in gold; municipality names repeat across provinces, so match on province and name together.
-- **Region differs by year.** In FY2018 and FY2021 the BARMM provinces (Basilan, Maguindanao, Sulu, Tawi-Tawi) are listed under Region IX or XII, in other years under BARMM. Isabela City is under Region IX in every year. Silver keeps the region as received.
-- **LGU names change between years.** 92 LGUs are missing in some years, and many of those are renames: "Naga City (Cebu)" until FY2021 and "Naga City" from FY2020, "Talisay City (Cebu)" likewise, "Santo Niño (Faire)", "Mendez (Mendez-Nuñez)" and "Mapun (Cagayan De Tawi-Tawi)" in FY2018 to FY2020, and "Western Samar (Samar)" in FY2018 to FY2020. The same LGU can therefore look like two LGUs, which also affects year-over-year comparisons. Silver keeps the names as received; gold matches them through PSGC.
-- **Pateros is labelled Municipality in some years and City in others.** PSGC lists it as a municipality (checked in the PSGC 2Q 2026 file).
-- **Part-level overspending is common.** 295 rows have a 70% or 30% part spent above its own budget while the total is within budget. Not flagged; it may be money moved between the two parts (not checked with BLGF).
-- **The 30% share varies.** About 76% of rows (8,673) have a 30% part of 29 to 31% of the total budget; 2,574 do not. Not flagged.
-- **Negative expenditures.** 3 rows have a negative amount (Romblon FY2020, Albay FY2021, Leon FY2022), possibly refunds or reversals. Kept and flagged.
-- **Maguindanao** is one province in FY2018 to FY2022 and Maguindanao Del Norte and Del Sur from FY2023 (the 2022 split).
+- Shared DQ tables (`dq_ruleset`, `dq_results`, `dq_audit`) are not defined yet; the pilot rules above move there once they are.

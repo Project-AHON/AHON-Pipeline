@@ -3,6 +3,7 @@
 -- Run after clean_blgf_ldrrmf_annual_lgu.sql. Import as a notebook: each query becomes its own cell.
 -- Check names in the comments are the ones in the data quality checks doc for this dataset.
 
+-- Settings: one line to change between ahon_dev and ahon (clean_blgf_ldrrmf_annual_lgu.sql has its own)
 USE CATALOG ahon_dev;
 
 -- COMMAND ----------
@@ -23,7 +24,7 @@ SELECT
     count(*) = (SELECT count(*) FROM bronze.blgf_ldrrmf_annual_lgu)
     -- unique_lgu_year
     AND count(*) = count(DISTINCT fiscal_year, region, province, lgu_name, lgu_type)
-    -- fiscal_year_valid
+    -- fiscal_year_valid (update the year range here and in clean_blgf_ldrrmf_annual_lgu.sql when a new fiscal year is loaded)
     AND count_if(fiscal_year NOT BETWEEN 2018 AND 2024 OR fiscal_year IS NULL) = 0
     -- lgu_type_valid
     AND count_if(lgu_type NOT IN ('Province', 'City', 'Municipality') OR lgu_type IS NULL) = 0
@@ -39,17 +40,28 @@ FROM silver.blgf_ldrrmf_annual_lgu_clean;
 
 -- COMMAND ----------
 
--- Check the rows by fiscal year and LGU type (row_count_matches_bronze, lgu_type_valid)
--- What it does: counts rows by year and LGU type.
--- What to expect: the same counts per year and type as in bronze, and only the types Province, City and Municipality.
-SELECT fiscal_year,
-       count_if(lgu_type = 'City') AS city,
-       count_if(lgu_type = 'Municipality') AS municipality,
-       count_if(lgu_type = 'Province') AS province,
-       count(*) AS total
-FROM silver.blgf_ldrrmf_annual_lgu_clean
-GROUP BY fiscal_year ORDER BY fiscal_year;
-
+-- Check the rows by fiscal year and LGU type against bronze (row_count_matches_bronze, lgu_type_valid)
+-- What it does: counts rows by year and LGU type in bronze and in silver, and shows the difference.
+-- What to expect: difference = 0 on every line, and only the types Province, City and Municipality.
+WITH b AS (
+  SELECT try_cast(regexp_extract(_source_ref, 'FY(\\d{4})', 1) AS INT) AS fiscal_year,
+         trim(lgu_type) AS lgu_type, count(*) AS n
+  FROM bronze.blgf_ldrrmf_annual_lgu
+  GROUP BY 1, 2
+),
+s AS (
+  SELECT fiscal_year, lgu_type, count(*) AS n
+  FROM silver.blgf_ldrrmf_annual_lgu_clean
+  GROUP BY 1, 2
+)
+SELECT coalesce(s.fiscal_year, b.fiscal_year) AS fiscal_year,
+       coalesce(s.lgu_type, b.lgu_type) AS lgu_type,
+       b.n AS bronze_rows,
+       s.n AS silver_rows,
+       coalesce(s.n, 0) - coalesce(b.n, 0) AS difference
+FROM s
+FULL OUTER JOIN b ON s.fiscal_year = b.fiscal_year AND s.lgu_type = b.lgu_type
+ORDER BY fiscal_year, lgu_type;
 -- COMMAND ----------
 
 -- Check every silver row traces back to exactly one bronze row (row_count_matches_bronze, unique_lgu_year)
@@ -63,6 +75,7 @@ SELECT
 -- COMMAND ----------
 
 -- Find the specific data quality issue for each flagged row
+-- Keep these three rules in sync with the has_dq_issues expression in clean_blgf_ldrrmf_annual_lgu.sql.
 -- What it does: re-applies each flag check to the silver table and returns one line per row per check it fails.
 --   rule_code is the check name from the data quality checks doc.
 --   Join key back to silver: _source_ref + _row_hash.
