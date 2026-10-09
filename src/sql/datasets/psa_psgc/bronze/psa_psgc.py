@@ -3,9 +3,9 @@ from pyspark.sql import functions as F
 
 # Configuration
 
-RAW_PATH = "/Volumes/ahon/reference/source/psa_psgc"
+RAW_PATH = "/Volumes/ahon_dev/reference/source/psa_psgc"
 
-BRONZE_TABLE = "ahon.bronze.psa_psgc"
+BRONZE_TABLE = "ahon_dev.bronze.psa_psgc"
 
 SOURCE_REF = "https://classification.psa.gov.ph/psgc"
 
