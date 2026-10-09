@@ -66,7 +66,7 @@ The scraper waits briefly between monthly requests. A failed month is reported i
 
 After confirming the combined CSV was created at the expected volume path, run the bronze SQL to load source rows into `ahon.bronze.philvolcs_earthquake_data`, then run the silver SQL to build `ahon.silver.philvolcs_earthquake_data_clean`.
 
-Bronze retains source rows. Silver parses timestamps, casts numeric values, filters invalid event rows, and carries the bronze provenance columns forward. Silver does not deduplicate observations.
+Bronze retains source rows. Silver parses timestamps, casts numeric values, filters invalid event rows, carries the bronze provenance columns forward, and deduplicates identical earthquake events using `event_time`, `latitude`, `longitude`, `depth`, and `magnitude` as the event key.
 
 ## Troubleshooting
 
