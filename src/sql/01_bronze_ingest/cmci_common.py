@@ -21,7 +21,7 @@ REQUEST_TIMEOUT_SECONDS = 60
 # SOURCE PROVENANCE
 # ------------------------------------------------------------------
 
-SOURCE_NAME = "cmci_indicator_batch_html"
+SOURCE_NAME = "cmci_data_portal"
 
 # PROCESS_URL currently contains no query parameters, keys, or tokens.
 # This reference can safely be stored in Bronze provenance metadata.
