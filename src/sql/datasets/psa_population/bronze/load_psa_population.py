@@ -141,7 +141,7 @@ def add_provenance(frame: DataFrame, batch_id: str) -> DataFrame:
             "source_ref": lit(str(SOURCE_PATH)),
             "ingested_at": current_timestamp(),
             "batch_id": lit(batch_id),
-            # concat_ws hashes census_year as text, so the hash input is "2024"
+            # census_year as text, so the hash input is "2024"
             "row_hash": sha2(
                 concat_ws("|", *[col(c) for c in RAW_COLS]),
                 256,
