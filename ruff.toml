@@ -2,3 +2,8 @@
 "src/sql/datasets/psa_psgc/bronze/psa_psgc.py" = ["F821"]
 "src/sql/datasets/psa_psgc/extract/psa_psgc_ingest.py" = ["F821"]
 "src/sql/datasets/psa_psgc/lgu_master.py" = ["F821"]
+"src/sql/datasets/psa_population/extract/extract_psa_population.py" = ["EXE002"]
+"src/sql/datasets/psa_population/bronze/load_psa_population.py" = ["EXE002"]
+"src/sql/datasets/psa_population/silver/clean_psa_population.ipynb" = ["EXE002"]
+"src/sql/monitoring/psa_population/bronze_dq_checks.ipynb" = ["EXE002"]
+"src/sql/monitoring/psa_population/silver_dq_checks.ipynb" = ["EXE002"]
