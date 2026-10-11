@@ -8,4 +8,4 @@ dependencies = [
 ]
 
 [tool.ruff]
-builtins = ["spark"]
+builtins = ["spark", "dbutils"]
