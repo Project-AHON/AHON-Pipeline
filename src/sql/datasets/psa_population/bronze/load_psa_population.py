@@ -3,11 +3,11 @@
 # [tool.databricks.environment]
 # environment_version = "6"
 # ///
-# /// script
-# [tool.databricks.environment]
-# environment_version = "6"
-# ///
-"""Load the PSA census population CSV into the bronze Delta table."""
+"""Load the PSA census population CSV into the bronze Delta table.
+
+The table is created by src/sql/00_setup/bronze_psa.sql, which must run first.
+This notebook only checks that the table exists and merges rows into it.
+"""
 
 import csv
 import sys
@@ -16,8 +16,7 @@ from pathlib import Path
 
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, concat_ws, current_timestamp, expr, lit, sha2
-from pyspark.sql.types import IntegerType, StringType, StructField, StructType
+from pyspark.sql.functions import col, concat_ws, current_timestamp, lit, sha2
 
 # COMMAND ----------
 
@@ -26,6 +25,7 @@ VOLUME_ROOT = Path("/Volumes/ahon/reference/source")
 DATASET_NAME = "psa_population"
 SOURCE_PATH = VOLUME_ROOT / DATASET_NAME / "2024_population_urban.csv"
 TABLE_NAME = "ahon.bronze.psa_population_raw"
+DDL_PATH = "src/sql/00_setup/bronze_psa.sql"  # creates TABLE_NAME
 CENSUS_YEAR = 2024
 MERGE_KEYS = ["geographic_location", "census_year"]
 RAW_COLS = [
@@ -35,46 +35,37 @@ RAW_COLS = [
     "percent_urban",
     "census_year",
 ]
-INT_COLS = {"census_year"}  # every other raw column is kept as published (STRING)
-# CSV columns that must be non-empty in every row before anything reaches bronze
+# CSV columns that must be non-empty in every row before bronze is written
 REQUIRED_SOURCE_COLS = (
     "Geographic Location",
     "Total Population",
     "Urban Population",
     "Percent Urban",
 )
-PROVENANCE_COLS = ["source_name", "source_ref", "ingested_at", "batch_id", "row_hash"]
-TABLE_COLS = RAW_COLS + PROVENANCE_COLS  # exact column list and order of the table
-SCHEMA = StructType(
-    [
-        StructField(c, IntegerType() if c in INT_COLS else StringType(), True)
-        for c in RAW_COLS
-    ]
-)
+PROVENANCE_COLS = [
+    "source_name",
+    "source_ref",
+    "ingested_at",
+    "batch_id",
+    "row_hash",
+]
+# The columns of the table, as in DDL_PATH
+TABLE_COLS = RAW_COLS + PROVENANCE_COLS
+# Column types the table must have, as DESCRIBE TABLE reports them
+EXPECTED_TYPES = dict.fromkeys(TABLE_COLS, "string")
+EXPECTED_TYPES.update({"census_year": "int", "ingested_at": "timestamp"})
+# Schema of the rows read from the CSV, as a DDL string
+SCHEMA = ", ".join(f"{c} {EXPECTED_TYPES[c]}" for c in RAW_COLS)
+SourceRow = tuple[str, str, str, str, int]  # one parsed CSV row
 
 # Matched rows are updated only when the content hash differs (null-safe)
 UPDATE_CONDITION = "NOT (target.row_hash <=> source.row_hash)"
-
-CREATE_TABLE_SQL = f"""
-    CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
-        geographic_location     STRING,
-        total_population        STRING,
-        urban_population        STRING,
-        percent_urban           STRING,
-        census_year             INT,
-        source_name             STRING,
-        source_ref              STRING,
-        ingested_at             TIMESTAMP,
-        batch_id                STRING,
-        row_hash                STRING
-    ) USING DELTA
-"""
 
 # COMMAND ----------
 
 
 class SourceValidationError(ValueError):
-    """Raised when the source CSV has rows with empty required values."""
+    """Raised when the source CSV has a row with an empty required value."""
 
 
 def report(message: str) -> None:
@@ -83,34 +74,29 @@ def report(message: str) -> None:
 
 
 def is_blank(value: str) -> bool:
-    """Return True for an empty or whitespace-only value.
-
-    PXWeb marks missing values, and indents place names, with leading dots, so
-    a value made only of dots counts as blank too.
-    """
+    """Return True for an empty, whitespace-only, or dots-only value."""
     return not value.strip().lstrip(".").strip()
 
 
-def read_source_rows(
-    path: Path, census_year: int
-) -> list[tuple[str, str, str, str, int]]:
-    """Read the extract CSV and build full hierarchical geographic paths.
+def read_source_rows(path: Path, census_year: int) -> list[SourceRow]:
+    """Read the CSV into rows with full paths (region > province > city).
 
-    The PXWeb CSV uses dot-indentation for hierarchy (2 dots per level). Leaf
-    names like "San Isidro" appear in multiple provinces, so the full path is
-    needed for unique merge keys. Raises SourceValidationError, before anything
-    is written to bronze, if any row has an empty required value.
+    Raises SourceValidationError on an empty required value, before anything
+    reaches bronze.
     """
-    rows: list[tuple[str, str, str, str, int]] = []
+    rows: list[SourceRow] = []
     parents: list[tuple[int, str]] = []
-    incomplete: list[int] = []
     with path.open(encoding="utf-8-sig", newline="") as csv_file:
         for line_no, row in enumerate(csv.DictReader(csv_file), start=1):
             if any(is_blank(row.get(c) or "") for c in REQUIRED_SOURCE_COLS):
-                incomplete.append(line_no)
-                continue
+                msg = (
+                    f"Data row {line_no} in {path} "
+                    "has an empty required value"
+                )
+                raise SourceValidationError(msg)
             loc = row["Geographic Location"]
             name = loc.lstrip(".")
+            # 2 dots per level; the full path is the key (leaf names repeat)
             level = (len(loc) - len(name)) // 2
             while parents and parents[-1][0] >= level:
                 parents.pop()
@@ -124,12 +110,6 @@ def read_source_rows(
                     census_year,
                 )
             )
-    if incomplete:
-        msg = (
-            f"{len(incomplete)} data rows in {path} have an empty required value, "
-            f"first at data row {incomplete[0]}"
-        )
-        raise SourceValidationError(msg)
     return rows
 
 
@@ -141,62 +121,33 @@ def add_provenance(frame: DataFrame, batch_id: str) -> DataFrame:
             "source_ref": lit(str(SOURCE_PATH)),
             "ingested_at": current_timestamp(),
             "batch_id": lit(batch_id),
-            # census_year as text, so the hash input is "2024"
-            "row_hash": sha2(
-                concat_ws("|", *[col(c) for c in RAW_COLS]),
-                256,
-            ),
+            # census_year is hashed as text, so the hash input is "2024"
+            "row_hash": sha2(concat_ws("|", *[col(c) for c in RAW_COLS]), 256),
         }
     )
 
 
-def conform_table_schema(spark: SparkSession) -> bool:
-    """Rebuild the table in place if its columns differ from the expected ones.
-
-    Fixes tables from earlier versions: census_year stored as STRING, or extra
-    columns left behind by a manual migration. The rebuild is one atomic
-    create-or-replace, so a failure leaves the table as it was and the table
-    history is kept. Does nothing, and returns False, when the table already
-    matches, so it is safe to run on every load.
-    """
-    table = spark.table(TABLE_NAME)
-    # DESCRIBE TABLE avoids the .schema Analyze RPC (SCPAP001 on Spark Connect)
-    desc = spark.sql(f"DESCRIBE TABLE {TABLE_NAME}").collect()
-    col_types: dict[str, str] = {}
-    for row in desc:
-        name = row["col_name"]
-        if name and not name.startswith("#"):
-            col_types[name] = row["data_type"]
-    col_names = list(col_types.keys())
-
-    year_type_str = col_types.get("census_year", "")
-    if year_type_str == "int" and col_names == TABLE_COLS:
-        return False
-    if year_type_str not in ("int", "string"):
-        msg = f"{TABLE_NAME}.census_year has unexpected type {year_type_str}"
+def check_table_ready(spark: SparkSession) -> None:
+    """Fail fast if the bronze table is missing or differs from its DDL."""
+    if not spark.catalog.tableExists(TABLE_NAME):
+        msg = f"{TABLE_NAME} does not exist; run {DDL_PATH} first"
         raise RuntimeError(msg)
-
-    # try_cast gives NULL instead of failing, so bad values can be counted first
-    int_year = expr("try_cast(census_year AS INT)")
-    bad_rows = table.filter(col("census_year").isNotNull() & int_year.isNull()).count()
-    if bad_rows:
-        msg = f"{bad_rows} rows in {TABLE_NAME} have a census_year that is not an int"
+    actual: dict[str, str] = {}
+    # DESCRIBE TABLE instead of .schema, which Spark Connect restricts
+    for row in spark.sql(f"DESCRIBE TABLE {TABLE_NAME}").collect():
+        if not row["col_name"] or row["col_name"].startswith("#"):
+            break  # the column list ends at the first blank or '#' line
+        actual[row["col_name"]] = row["data_type"]
+    if actual != EXPECTED_TYPES:
+        msg = f"{TABLE_NAME} differs from {DDL_PATH}; found {actual}"
         raise RuntimeError(msg)
-
-    columns = [int_year.alias(c) if c == "census_year" else col(c) for c in TABLE_COLS]
-    table.select(*columns).writeTo(TABLE_NAME).using("delta").createOrReplace()
-    return True
 
 
 def merge_into_bronze(spark: SparkSession, frame: DataFrame) -> None:
-    """Create the bronze table if missing, then upsert on the merge keys.
+    """Upsert the rows into the bronze table on the merge keys.
 
-    Matched rows are only updated when their content hash has changed, so
-    unchanged rows keep their original provenance columns.
+    Matched rows are only updated when their content hash has changed.
     """
-    spark.sql(CREATE_TABLE_SQL)
-    if conform_table_schema(spark):
-        report(f"Rebuilt {TABLE_NAME} to match the expected columns (census_year INT)")
     condition = " AND ".join(
         f"target.{key} <=> source.{key}" for key in MERGE_KEYS
     )
@@ -211,8 +162,9 @@ def merge_into_bronze(spark: SparkSession, frame: DataFrame) -> None:
 
 
 def main() -> None:
-    """Read the extracted CSV, add provenance, and merge into bronze."""
+    """Check the bronze table, then merge the extracted CSV into it."""
     spark = SparkSession.builder.getOrCreate()
+    check_table_ready(spark)
 
     rows = read_source_rows(SOURCE_PATH, CENSUS_YEAR)
     batch_id = str(uuid.uuid4())
@@ -222,7 +174,6 @@ def main() -> None:
     report(f"Batch ID   : {batch_id}")
     report(f"Read {len(rows)} rows from {SOURCE_PATH}")
     report(f"Merge keys : {MERGE_KEYS}")
-    report(f"Columns    : {TABLE_COLS}")
 
 
 # COMMAND ----------
