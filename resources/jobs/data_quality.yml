@@ -1,4 +1,5 @@
-# Export the main job code here.
+---
+# Export the quality tests code here.
 # Procedure: Jobs & Pipelines -> Jobs -> Hamburger button in upper-right ->
 # Edit as YAML -> Copy and paste code into this file
 
