@@ -30,6 +30,13 @@ RAW_COLS = [
     "census_year",
 ]
 INT_COLS = {"census_year"}  # every other raw column is kept as published (STRING)
+# CSV columns that must be non-empty in every row before anything reaches bronze
+REQUIRED_SOURCE_COLS = (
+    "Geographic Location",
+    "Total Population",
+    "Urban Population",
+    "Percent Urban",
+)
 PROVENANCE_COLS = ["source_name", "source_ref", "ingested_at", "batch_id", "row_hash"]
 TABLE_COLS = RAW_COLS + PROVENANCE_COLS  # exact column list and order of the table
 SCHEMA = StructType(
@@ -60,9 +67,22 @@ CREATE_TABLE_SQL = f"""
 # COMMAND ----------
 
 
+class SourceValidationError(ValueError):
+    """Raised when the source CSV has rows with empty required values."""
+
+
 def report(message: str) -> None:
     """Write a line to stdout, which Databricks shows as cell output."""
     sys.stdout.write(f"{message}\n")
+
+
+def is_blank(value: str) -> bool:
+    """Return True for an empty or whitespace-only value.
+
+    PXWeb marks missing values, and indents place names, with leading dots, so
+    a value made only of dots counts as blank too.
+    """
+    return not value.strip().lstrip(".").strip()
 
 
 def read_source_rows(
@@ -72,12 +92,17 @@ def read_source_rows(
 
     The PXWeb CSV uses dot-indentation for hierarchy (2 dots per level). Leaf
     names like "San Isidro" appear in multiple provinces, so the full path is
-    needed for unique merge keys.
+    needed for unique merge keys. Raises SourceValidationError, before anything
+    is written to bronze, if any row has an empty required value.
     """
     rows: list[tuple[str, str, str, str, int]] = []
     parents: list[tuple[int, str]] = []
+    incomplete: list[int] = []
     with path.open(encoding="utf-8-sig", newline="") as csv_file:
-        for row in csv.DictReader(csv_file):
+        for line_no, row in enumerate(csv.DictReader(csv_file), start=1):
+            if any(is_blank(row.get(c) or "") for c in REQUIRED_SOURCE_COLS):
+                incomplete.append(line_no)
+                continue
             loc = row["Geographic Location"]
             name = loc.lstrip(".")
             level = (len(loc) - len(name)) // 2
@@ -93,6 +118,12 @@ def read_source_rows(
                     census_year,
                 )
             )
+    if incomplete:
+        msg = (
+            f"{len(incomplete)} data rows in {path} have an empty required value, "
+            f"first at data row {incomplete[0]}"
+        )
+        raise SourceValidationError(msg)
     return rows
 
 
