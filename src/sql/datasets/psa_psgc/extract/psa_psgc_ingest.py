@@ -101,7 +101,7 @@ def fetch_psgc_snapshot(period):
             if not isinstance(payload, dict):
                 raise ValueError(
                     f"Unexpected response format for {period}, "
-                    f"page {page_number}."
+                    f"page {page_number}: expected a dictionary."
                 )
 
             if "results" not in payload:
@@ -116,7 +116,7 @@ def fetch_psgc_snapshot(period):
             if not isinstance(results, list):
                 raise ValueError(
                     f"'results' is not a list for {period}, "
-                    f"page {page_number}."
+                    f"page {page_number}: expected a list."
                 )
 
             # Capture the API's reported total record count.
