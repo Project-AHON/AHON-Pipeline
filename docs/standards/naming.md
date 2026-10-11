@@ -84,6 +84,7 @@ Values in the example column are illustrative.
 | `_ingested_at` | timestamp (UTC) | bronze | When the row was loaded into bronze | `2026-10-04 03:51:33` |
 | `_batch_id` | string | bronze | The load run that wrote the row; links to the run log in `monitoring` | `publisher_dataset_20261004_035133` |
 | `_row_hash` | string | bronze | SHA-256 of the raw source columns as received (provenance columns excluded) | `9f86d081884c7d65...` (64 hex characters, shortened here) |
+| `_processed_at` | timestamp (UTC) | silver | When the silver table was built | `2026-10-09 04:12:00` |
 
 Notes:
 
