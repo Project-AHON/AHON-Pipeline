@@ -1,0 +1,5 @@
+[tool.ruff.lint]
+# Databricks notebooks use `# Databricks notebook source` as the first
+# line instead of a shebang. The workspace sets execute permission on all
+# files, which triggers EXE002. These are notebooks, not standalone scripts.
+ignore = ["EXE002"]
