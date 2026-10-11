@@ -99,7 +99,7 @@ def fetch_psgc_snapshot(period):
             payload = response.json()
 
             if not isinstance(payload, dict):
-                raise ValueError(
+                raise TypeError(
                     f"Unexpected response format for {period}, "
                     f"page {page_number}: expected a dictionary."
                 )
@@ -114,7 +114,7 @@ def fetch_psgc_snapshot(period):
             results = payload["results"]
 
             if not isinstance(results, list):
-                raise ValueError(
+                raise TypeError(
                     f"'results' is not a list for {period}, "
                     f"page {page_number}: expected a list."
                 )
