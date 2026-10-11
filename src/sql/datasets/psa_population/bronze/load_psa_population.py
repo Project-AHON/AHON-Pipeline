@@ -3,6 +3,11 @@
 # [tool.databricks.environment]
 # environment_version = "6"
 # ///
+# Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 """Load the PSA census population CSV into the bronze Delta table.
 
 The table is created by src/sql/00_setup/bronze_psa.sql, which must run first.
