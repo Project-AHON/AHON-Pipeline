@@ -3,6 +3,11 @@ import unicodedata
 from datetime import datetime, timezone
 
 from bs4 import BeautifulSoup
+from cmci_common import (
+    PORTAL_URL,
+    REQUEST_TIMEOUT_SECONDS,
+    create_http_session,
+)
 from pyspark.sql import functions as F
 from pyspark.sql.types import (
     BooleanType,
@@ -10,12 +15,6 @@ from pyspark.sql.types import (
     StructField,
     StructType,
     TimestampType,
-)
-
-from cmci_common import (
-    PORTAL_URL,
-    REQUEST_TIMEOUT_SECONDS,
-    create_http_session,
 )
 
 # ------------------------------------------------------------------

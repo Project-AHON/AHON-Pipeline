@@ -1,12 +1,23 @@
 import argparse
 import hashlib
+import json
 import math
 import time
-from datetime import datetime, timezone
-import json
 import uuid
+from datetime import datetime, timezone
 
 from bs4 import BeautifulSoup
+from cmci_common import (
+    EXPECTED_INDICATOR_COUNT,
+    EXPECTED_INDICATOR_LABELS,
+    PORTAL_URL,
+    PROCESS_URL,
+    REQUEST_TIMEOUT_SECONDS,
+    REQUESTED_INDICATOR_CODES,
+    SOURCE_NAME,
+    SOURCE_REF,
+    create_http_session,
+)
 from pyspark.sql import functions as F
 from pyspark.sql.types import (
     ArrayType,
@@ -15,18 +26,6 @@ from pyspark.sql.types import (
     StructField,
     StructType,
     TimestampType,
-)
-
-from cmci_common import (
-    EXPECTED_INDICATOR_COUNT,
-    EXPECTED_INDICATOR_LABELS,
-    PORTAL_URL,
-    PROCESS_URL,
-    REQUESTED_INDICATOR_CODES,
-    REQUEST_TIMEOUT_SECONDS,
-    SOURCE_NAME,
-    SOURCE_REF,
-    create_http_session,
 )
 
 # ------------------------------------------------------------------
