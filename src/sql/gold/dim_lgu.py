@@ -1,4 +1,3 @@
-%python
 """
 AHON Gold dim_lgu transformation.
 
