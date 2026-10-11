@@ -1,3 +1,12 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blgf_ldrrmf_annual_lgu"
+version = "0.1.0"
+description = "BLGF LDRRMF annual LGU dataset pipeline"
+
 [tool.ruff.lint]
 # Databricks notebooks use `# Databricks notebook source` as the first
 # line instead of a shebang. The workspace sets execute permission on all
