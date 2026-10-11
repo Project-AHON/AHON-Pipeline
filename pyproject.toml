@@ -1,3 +1,15 @@
+[project]
+name = "project-ahon"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+dependencies = [
+    "openpyxl==3.1.5",
+]
+
+[tool.ruff]
+builtins = ["spark"]
+
 [tool.ruff.lint]
 # Databricks notebooks use `# Databricks notebook source` as the first
 # line instead of a shebang. The workspace sets execute permission on all
