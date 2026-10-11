@@ -182,7 +182,7 @@ source_name = F.regexp_replace(
     " ",
 )
 
-geographic_name_expr = F.trim(
+area_name_expr = F.trim(
     F.regexp_replace(
         F.trim(source_name),
         r"(\s+\d+/)+\s*$",
@@ -193,7 +193,7 @@ geographic_name_expr = F.trim(
 cleaned = bronze.select(
     psgc_code_expr.alias("psgc_code"),
 
-    geographic_name_expr.alias("geographic_name"),
+    area_name_expr.alias("area_name"),
 
     F.upper(
         clean_string("geographic_level")
@@ -242,7 +242,7 @@ invalid_standardized = cleaned.filter(
 if invalid_standardized.limit(1).count() > 0:
     invalid_standardized.select(
         "psgc_code",
-        "geographic_name",
+        "area_name",
         "geographic_level",
         "_api_period",
     ).show(20, truncate=False)
@@ -262,8 +262,8 @@ print("PSGC codes standardized to 10 digits in Silver.")
 # and geographic interpretation.
 valid = cleaned.filter(
     F.col("psgc_code").isNotNull()
-    & F.col("geographic_name").isNotNull()
-    & (F.col("geographic_name") != "")
+    & F.col("area_name").isNotNull()
+    & (F.col("area_name") != "")
     & F.col("geographic_level").isNotNull()
     & F.col("_api_period").isNotNull()
 )
@@ -353,7 +353,7 @@ province_lookup = (
     .select(
         F.col("psgc_code").alias("_province_psgc"),
         F.col("_api_period").alias("_province_period"),
-        F.col("geographic_name").alias("_province_name"),
+        F.col("area_name").alias("_province_name"),
     )
 )
 
@@ -365,7 +365,7 @@ parent_lookup = assert_unique(
         .select(
             F.col("psgc_code").alias("_parent_psgc"),
             F.col("_api_period").alias("_parent_period"),
-            F.col("geographic_name").alias("_parent_name"),
+            F.col("area_name").alias("_parent_name"),
         )
     ),
     ["_parent_psgc", "_parent_period"],
@@ -388,13 +388,13 @@ independent_city_lookup = (
     .select(
         F.col("psgc_code").alias("_city_psgc"),
         F.col("_api_period").alias("_city_period"),
-        F.col("geographic_name").alias("_independent_city_name"),
+        F.col("area_name").alias("_independent_city_name"),
     )
 )
 
 # Normalize names for the City of Isabela and Basilan exception.
 normalized_name = F.regexp_replace(
-    F.lower(F.trim(F.col("geographic_name"))),
+    F.lower(F.trim(F.col("area_name"))),
     r"\s*\(capital\)\s*$",
     "",
 )
@@ -420,7 +420,7 @@ basilan_lookup = assert_unique(
         .filter(normalized_name == BASILAN_NAME)
         .select(
             F.col("_api_period").alias("_basilan_period"),
-            F.col("geographic_name").alias("_basilan_name"),
+            F.col("area_name").alias("_basilan_name"),
         )
     ),
     ["_basilan_period"],
@@ -574,14 +574,14 @@ province_name_expr = (
 province_city_expr = (
     F.when(
         src_level.isin("REG", "PROV"),
-        F.col("src.geographic_name"),
+        F.col("src.area_name"),
     )
     .when(
         independent_city_name.isNotNull()
         & src_level.isin("BGY", "SUBMUN"),
         F.concat_ws(
             ", ",
-            F.col("src.geographic_name"),
+            F.col("src.area_name"),
             independent_city_name,
         ),
     )
@@ -589,7 +589,7 @@ province_city_expr = (
         province_name_expr.isNotNull(),
         F.concat_ws(
             ", ",
-            F.col("src.geographic_name"),
+            F.col("src.area_name"),
             province_name_expr,
         ),
     )
@@ -598,16 +598,16 @@ province_city_expr = (
         & src_level.isin("BGY", "SUBMUN"),
         F.concat_ws(
             ", ",
-            F.col("src.geographic_name"),
+            F.col("src.area_name"),
             parent_name,
         ),
     )
-    .otherwise(F.col("src.geographic_name"))
+    .otherwise(F.col("src.area_name"))
 )
 
 silver = joined.select(
     F.col("src.psgc_code").alias("psgc_code"),
-    F.col("src.geographic_name").alias("geographic_name"),
+    F.col("src.area_name").alias("area_name"),
     F.col("src.geographic_level").alias("geographic_level"),
 
     F.col("src.region_psgc").alias("region_psgc"),
@@ -877,7 +877,7 @@ remaining_bad_codes = final_silver.filter(
 if remaining_bad_codes.limit(1).count() > 0:
     remaining_bad_codes.select(
         "psgc_code",
-        "geographic_name",
+        "area_name",
         "geographic_level",
         "_api_period",
     ).show(20, truncate=False)
@@ -893,7 +893,7 @@ display(
     final_silver
     .select(
         "psgc_code",
-        "geographic_name",
+        "area_name",
         "geographic_level",
         "region_psgc",
         "province_psgc",
