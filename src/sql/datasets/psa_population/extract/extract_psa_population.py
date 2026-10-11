@@ -3,6 +3,7 @@
 # [tool.databricks.environment]
 # environment_version = "6"
 # ///
+# Databricks notebook source
 """Extract PSA 2024 census population data from the PXWeb API.
 
 The raw CSV is saved to a Unity Catalog volume, but only after the response
@@ -12,7 +13,6 @@ passes basic validation, so a bad response never replaces a good extract.
 import csv
 import io
 import sys
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -87,8 +87,10 @@ def fetch_csv() -> requests.Response:
 def to_utf8(content: bytes) -> bytes:
     """Return the content as UTF-8 bytes, converting from Latin-1 if needed.
 
-    PXWeb may send Latin-1 (accented place names) and the bronze loader reads
-    UTF-8 only. Latin-1 decoding never fails; validate_csv checks the result.
+    PXWeb may return Latin-1 instead of UTF-8 (for example, accented letters in
+    place names), and the bronze loader reads UTF-8 only. Latin-1 maps every
+    byte to a character, so the conversion never fails; validate_csv still
+    checks the structure afterwards.
     """
     try:
         content.decode("utf-8-sig")
@@ -97,31 +99,13 @@ def to_utf8(content: bytes) -> bytes:
     return content
 
 
-def check_rows(reader: Iterable[dict[str, str]]) -> int:
-    """Return the data row count; raise on a malformed or incomplete row.
-
-    PXWeb marks missing values with dots, which count as empty here.
-    """
-    row_count = 0
-    for row_count, row in enumerate(reader, start=1):
-        # DictReader gives short rows None values and long rows a None key
-        if None in row or None in row.values():
-            msg = f"Malformed CSV row {row_count}"
-            raise ExtractValidationError(msg)
-        if any(is_blank(row[c]) for c in REQUIRED_COLUMNS):
-            msg = f"Data row {row_count} has an empty required value"
-            raise ExtractValidationError(msg)
-    if row_count == 0:
-        msg = "Response has a header but no data rows"
-        raise ExtractValidationError(msg)
-    return row_count
-
-
 def validate_csv(content: bytes) -> tuple[list[str], int]:
-    """Check that the response is a complete CSV with the expected structure.
+    """Check that the response is a non-empty CSV with the expected structure.
 
-    Raises ExtractValidationError, before anything is written, if it is not
-    valid UTF-8, is empty, lacks a column, or fails check_rows.
+    Raises ExtractValidationError, before anything is written, if the response
+    is not valid UTF-8, is empty, lacks a required column, has a malformed row,
+    has an empty required value (PXWeb marks missing values with dots), or has
+    no data rows. Returns the header columns and the data row count.
     """
     try:
         text = content.decode("utf-8-sig")
@@ -138,7 +122,20 @@ def validate_csv(content: bytes) -> tuple[list[str], int]:
     if missing:
         msg = f"Response is missing expected columns: {missing}"
         raise ExtractValidationError(msg)
-    return fieldnames, check_rows(reader)
+
+    row_count = 0
+    for row_count, row in enumerate(reader, start=1):
+        # DictReader gives short rows None values and long rows a None key
+        if None in row or None in row.values():
+            msg = f"Malformed CSV row {row_count}"
+            raise ExtractValidationError(msg)
+        if any(is_blank(row[c]) for c in REQUIRED_COLUMNS):
+            msg = f"Data row {row_count} has an empty required value"
+            raise ExtractValidationError(msg)
+    if row_count == 0:
+        msg = "Response has a header but no data rows"
+        raise ExtractValidationError(msg)
+    return fieldnames, row_count
 
 
 def save_csv(content: bytes, target: Path) -> None:
