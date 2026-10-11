@@ -1,4 +1,9 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
+# Databricks notebook source
 """Load the PSA census population CSV into the bronze Delta table."""
 
 from __future__ import annotations
@@ -10,14 +15,7 @@ from pathlib import Path
 
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import (
-    col,
-    concat_ws,
-    current_timestamp,
-    expr,
-    lit,
-    sha2,
-)
+from pyspark.sql.functions import col, concat_ws, current_timestamp, expr, lit, sha2
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
 # COMMAND ----------
@@ -44,13 +42,7 @@ REQUIRED_SOURCE_COLS = (
     "Urban Population",
     "Percent Urban",
 )
-PROVENANCE_COLS = [
-    "source_name",
-    "source_ref",
-    "ingested_at",
-    "batch_id",
-    "row_hash",
-]
+PROVENANCE_COLS = ["source_name", "source_ref", "ingested_at", "batch_id", "row_hash"]
 TABLE_COLS = RAW_COLS + PROVENANCE_COLS  # exact column list and order of the table
 SCHEMA = StructType(
     [
@@ -99,8 +91,7 @@ def is_blank(value: str) -> bool:
 
 
 def read_source_rows(
-    path: Path,
-    census_year: int,
+    path: Path, census_year: int
 ) -> list[tuple[str, str, str, str, int]]:
     """Read the extract CSV and build full hierarchical geographic paths.
 
@@ -174,16 +165,12 @@ def conform_table_schema(spark: SparkSession) -> bool:
 
     # try_cast gives NULL instead of failing, so bad values can be counted first
     int_year = expr("try_cast(census_year AS INT)")
-    bad_rows = (
-        table.filter(col("census_year").isNotNull() & int_year.isNull()).count()
-    )
+    bad_rows = table.filter(col("census_year").isNotNull() & int_year.isNull()).count()
     if bad_rows:
         msg = f"{bad_rows} rows in {TABLE_NAME} have a census_year that is not an int"
         raise RuntimeError(msg)
 
-    columns = [
-        int_year.alias(c) if c == "census_year" else col(c) for c in TABLE_COLS
-    ]
+    columns = [int_year.alias(c) if c == "census_year" else col(c) for c in TABLE_COLS]
     table.select(*columns).writeTo(TABLE_NAME).using("delta").createOrReplace()
     return True
 

@@ -1,4 +1,9 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
+# Databricks notebook source
 """Extract PSA 2024 census population data from the PXWeb API.
 
 The raw CSV is saved to a Unity Catalog volume, but only after the response
@@ -64,6 +69,11 @@ def report(message: str) -> None:
     sys.stdout.write(f"{message}\n")
 
 
+def is_blank(value: str) -> bool:
+    """Return True for an empty, whitespace-only, or dots-only value."""
+    return not value.strip().lstrip(".").strip()
+
+
 def fetch_csv() -> requests.Response:
     """POST the PXWeb query and return the HTTP-validated response."""
     resp = requests.post(
@@ -96,7 +106,8 @@ def validate_csv(content: bytes) -> tuple[list[str], int]:
 
     Raises ExtractValidationError, before anything is written, if the response
     is not valid UTF-8, is empty, lacks a required column, has a malformed row,
-    or has no data rows. Returns the header columns and the data row count.
+    has an empty required value (PXWeb marks missing values with dots), or has
+    no data rows. Returns the header columns and the data row count.
     """
     try:
         text = content.decode("utf-8-sig")
@@ -119,6 +130,9 @@ def validate_csv(content: bytes) -> tuple[list[str], int]:
         # DictReader gives short rows None values and long rows a None key
         if None in row or None in row.values():
             msg = f"Malformed CSV row {row_count}"
+            raise ExtractValidationError(msg)
+        if any(is_blank(row[c]) for c in REQUIRED_COLUMNS):
+            msg = f"Data row {row_count} has an empty required value"
             raise ExtractValidationError(msg)
     if row_count == 0:
         msg = "Response has a header but no data rows"
