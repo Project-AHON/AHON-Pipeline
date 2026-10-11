@@ -3,7 +3,10 @@
 # [tool.databricks.environment]
 # environment_version = "6"
 # ///
-# Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 """Extract PSA 2024 census population data from the PXWeb API.
 
 The raw CSV is saved to a Unity Catalog volume, but only after the response

@@ -3,7 +3,10 @@
 # [tool.databricks.environment]
 # environment_version = "6"
 # ///
-# Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 """Load the PSA census population CSV into the bronze Delta table."""
 
 import csv
@@ -139,7 +142,10 @@ def add_provenance(frame: DataFrame, batch_id: str) -> DataFrame:
             "ingested_at": current_timestamp(),
             "batch_id": lit(batch_id),
             # concat_ws hashes census_year as text, so the hash input is "2024"
-            "row_hash": sha2(concat_ws("|", *[col(c) for c in RAW_COLS]), 256),
+            "row_hash": sha2(
+                concat_ws("|", *[col(c) for c in RAW_COLS]),
+                256,
+            ),
         }
     )
 
@@ -191,7 +197,9 @@ def merge_into_bronze(spark: SparkSession, frame: DataFrame) -> None:
     spark.sql(CREATE_TABLE_SQL)
     if conform_table_schema(spark):
         report(f"Rebuilt {TABLE_NAME} to match the expected columns (census_year INT)")
-    condition = " AND ".join(f"target.{key} <=> source.{key}" for key in MERGE_KEYS)
+    condition = " AND ".join(
+        f"target.{key} <=> source.{key}" for key in MERGE_KEYS
+    )
     (
         DeltaTable.forName(spark, TABLE_NAME)
         .alias("target")
