@@ -19,7 +19,8 @@ import requests
 
 # PXWeb API endpoint for the 2024 census table:
 # Total Population, Urban Population, and Percent Urban by geographic location
-API_URL = "https://openstat.psa.gov.ph/PXWeb/api/v1/en/DB/1A/PO_2024/0241A6DPUP1.px"
+API_BASE = "https://openstat.psa.gov.ph/PXWeb/api/v1/en"
+API_URL = f"{API_BASE}/DB/1A/PO_2024/0241A6DPUP1.px"
 
 # Destination: the source volume, one folder per dataset (naming standard)
 VOLUME_ROOT = Path("/Volumes/ahon/reference/source")
@@ -95,7 +96,7 @@ def validate_csv(content: bytes) -> tuple[list[str], int]:
 
     Raises ExtractValidationError, before anything is written, if the response
     is not valid UTF-8, is empty, lacks a required column, has a malformed row,
-    or has no data rows. Returns the header columns and the number of data rows.
+    or has no data rows. Returns the header columns and the data row count.
     """
     try:
         text = content.decode("utf-8-sig")
@@ -115,7 +116,7 @@ def validate_csv(content: bytes) -> tuple[list[str], int]:
 
     row_count = 0
     for row_count, row in enumerate(reader, start=1):
-        # DictReader marks short rows with None values, long rows with a None key
+        # DictReader gives short rows None values and long rows a None key
         if None in row or None in row.values():
             msg = f"Malformed CSV row {row_count}"
             raise ExtractValidationError(msg)
@@ -126,13 +127,13 @@ def validate_csv(content: bytes) -> tuple[list[str], int]:
 
 
 def save_csv(content: bytes, target: Path) -> None:
-    """Write the raw CSV bytes to the target path, creating folders as needed."""
+    """Write the raw CSV bytes to the target, creating folders as needed."""
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content)
 
 
 def main() -> None:
-    """Download the dataset, validate it, save it to the volume, and summarize."""
+    """Download, validate, and save the dataset, then print a summary."""
     resp = fetch_csv()
     content = to_utf8(resp.content)
     # Validate first: on failure this raises and the existing file is untouched
