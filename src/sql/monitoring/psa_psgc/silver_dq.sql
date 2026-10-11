@@ -45,7 +45,7 @@ pateros_codes AS (
         _api_period
     FROM base
     WHERE geographic_level = 'MUN'
-      AND LOWER(TRIM(geographic_name)) = 'pateros'
+      AND LOWER(TRIM(area_name)) = 'pateros'
 ),
 
 sga_codes AS (
@@ -53,7 +53,7 @@ sga_codes AS (
         psgc_code,
         _api_period
     FROM base
-    WHERE LOWER(TRIM(geographic_name)) = 'special geographic area'
+    WHERE LOWER(TRIM(area_name)) = 'special geographic area'
 ),
 
 checks AS (
@@ -81,8 +81,8 @@ checks AS (
         COUNT(*),
         'Geographic names must not be null or empty.'
     FROM base
-    WHERE geographic_name IS NULL
-       OR TRIM(geographic_name) = ''
+    WHERE area_name IS NULL
+       OR TRIM(area_name) = ''
 
     UNION ALL
 
@@ -144,7 +144,7 @@ checks AS (
         COUNT(*),
         'Names should not end with PSA footnote markers such as 1/ or 2/.'
     FROM base
-    WHERE geographic_name RLIKE '[[:space:]][0-9]+/[[:space:]]*$'
+    WHERE area_name RLIKE '[[:space:]][0-9]+/[[:space:]]*$'
 
     UNION ALL
 
@@ -156,8 +156,8 @@ checks AS (
         COUNT(*),
         'Names should not have leading or trailing whitespace.'
     FROM base
-    WHERE geographic_name IS NOT NULL
-      AND geographic_name <> TRIM(geographic_name)
+    WHERE area_name IS NOT NULL
+      AND area_name <> TRIM(area_name)
 
     UNION ALL
 
@@ -261,8 +261,8 @@ checks AS (
         COUNT(*),
         'province_city should be populated for valid geographic records.'
     FROM base
-    WHERE geographic_name IS NOT NULL
-      AND TRIM(geographic_name) <> ''
+    WHERE area_name IS NOT NULL
+      AND TRIM(area_name) <> ''
       AND (
           province_city IS NULL
           OR TRIM(province_city) = ''
@@ -278,10 +278,10 @@ checks AS (
         COUNT(*),
         'province_city should begin with the cleaned geographic name.'
     FROM base
-    WHERE geographic_name IS NOT NULL
+    WHERE area_name IS NOT NULL
       AND province_city IS NOT NULL
       AND NOT (
-          province_city LIKE CONCAT(geographic_name, '%')
+          province_city LIKE CONCAT(area_name, '%')
       )
 
     UNION ALL
@@ -312,7 +312,7 @@ checks AS (
       AND pc.psgc_code IS NULL
       AND sg.psgc_code IS NULL
       AND COALESCE(TRIM(b.province_code), '') <> '999'
-      AND LOWER(TRIM(COALESCE(b.geographic_name, '')))
+      AND LOWER(TRIM(COALESCE(b.area_name, '')))
           <> 'special geographic area'
 
     UNION ALL
