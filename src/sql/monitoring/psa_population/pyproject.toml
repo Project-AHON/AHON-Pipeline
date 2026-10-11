@@ -3,9 +3,9 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "psa_population_monitoring"
+name = "psa_population"
 version = "0.1.0"
-description = "PSA population data quality monitoring"
+description = "PSA population dataset pipeline"
 
 [tool.ruff.lint]
 # Databricks notebooks use `# Databricks notebook source` as the first
