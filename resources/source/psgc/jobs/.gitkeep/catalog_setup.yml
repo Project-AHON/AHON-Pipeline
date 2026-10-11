@@ -1,6 +1,6 @@
 # Export the catalog setup code here. 
-# Procedure: Jobs & Pipelines -> Jobs -> Hamburger button in upper-right -> 
+# Procedure: Jobs & Pipelines -> Jobs -> Hamburger button in upper-right ->
 # Edit as YAML -> Copy and paste code into this file
 
-# If any ${var.cluster_id} or ${var.warehouse_id} shows up in the code, 
+# If any ${var.cluster_id} or ${var.warehouse_id} shows up in the code,
 # declare these as variables in databricks.yml
