@@ -1,15 +1,19 @@
+
 from delta.tables import DeltaTable
 from pyspark.sql import functions as F
 
-# Configuration
+# ============================================================
+# 1. Configuration
+# ============================================================
 
 RAW_PATH = "/Volumes/ahon_dev/reference/source/psa_psgc"
-
 BRONZE_TABLE = "ahon_dev.bronze.psa_psgc"
-
 SOURCE_REF = "https://classification.psa.gov.ph/psgc"
 
-# Read raw PSA PSGC data
+
+# ============================================================
+# 2. Read raw PSA PSGC API response files
+# ============================================================
 
 raw_df = (
     spark.read
@@ -17,89 +21,104 @@ raw_df = (
     .json(f"{RAW_PATH}/*.json")
 )
 
-raw_count = raw_df.count()
+print("Raw JSON columns:", raw_df.columns)
 
-if raw_count == 0:
+if "results" not in raw_df.columns:
     raise RuntimeError(
-        f"No PSA PSGC source files were found in {RAW_PATH}"
+        f"Expected a 'results' column. Found: {raw_df.columns}"
     )
 
+
+# ============================================================
+# 3. Extract individual records from the results array
+# ============================================================
+
+records_df = (
+    raw_df
+    .select(
+        F.explode_outer("results").alias("record")
+    )
+    .filter(F.col("record").isNotNull())
+)
+
+raw_records_df = records_df.select("record.*")
+
+if raw_records_df.limit(1).count() == 0:
+    raise RuntimeError(
+        f"No PSGC records found in {RAW_PATH}"
+    )
+
+print("PSGC record columns:", raw_records_df.columns)
+
+raw_count = raw_records_df.count()
 print(f"Raw PSA PSGC records: {raw_count:,}")
 
 
-bronze_df = raw_df.select(
-    F.col("code")
-        .cast("string")
-        .alias("psgc_code"),
+# ============================================================
+# 4. Validate required source columns
+# ============================================================
 
-    F.col("area_name")
-        .cast("string")
-        .alias("area_name"),
+required_columns = [
+    "code",
+    "area_name",
+    "geographic_level",
+]
 
-    F.col("correspondence_code")
-        .cast("string")
-        .alias("correspondence_code"),
+missing_columns = [
+    column
+    for column in required_columns
+    if column not in raw_records_df.columns
+]
 
-    F.col("geographic_level")
-        .cast("string")
-        .alias("geographic_level"),
+if missing_columns:
+    raise RuntimeError(
+        f"Required columns missing from PSGC records: "
+        f"{missing_columns}. Available columns: "
+        f"{raw_records_df.columns}"
+    )
 
-    F.col("reg")
-        .cast("string")
-        .alias("region_code"),
 
-    F.col("prv")
-        .cast("string")
-        .alias("province_code"),
+# ============================================================
+# 5. Transform source records into the Bronze schema
+# ============================================================
 
-    F.col("mun")
-        .cast("string")
-        .alias("municipality_code"),
+def source_column(column_name, data_type="string"):
+    """
+    Return a source column cast to the requested type.
+    If an optional field is absent, return NULL.
+    """
+    if column_name in raw_records_df.columns:
+        return F.col(column_name).cast(data_type)
 
-    F.col("bgy")
-        .cast("string")
-        .alias("barangay_code"),
+    return F.lit(None).cast(data_type)
 
-    F.col("old_name")
-        .cast("string")
-        .alias("old_name"),
 
-    F.col("city_class")
-        .cast("string")
-        .alias("city_class"),
-
-    F.col("income_classification")
-        .cast("string")
-        .alias("income_classification"),
-
-    F.col("urban_rural")
-        .cast("string")
-        .alias("urban_rural"),
-
-    F.col("island_region")
-        .cast("string")
-        .alias("island_region"),
-
-    F.col("status")
-        .cast("string")
-        .alias("status"),
-
-    # Added by our extraction layer
-    F.col("_api_period")
-        .cast("string")
-        .alias("_api_period"),
-
-    # Provided by the PSA PSGC API
-    F.col("version")
-        .cast("string")
-        .alias("version"),
-
-    # Preserve the nested populations structure
-    # as JSON in Bronze.
-    F.to_json(F.col("populations"))
-        .alias("populations_json"),
+bronze_df = raw_records_df.select(
+    source_column("code").alias("psgc_code"),
+    source_column("area_name").alias("area_name"),
+    source_column("correspondence_code").alias("correspondence_code"),
+    source_column("geographic_level").alias("geographic_level"),
+    source_column("reg").alias("region_code"),
+    source_column("prv").alias("province_code"),
+    source_column("mun").alias("municipality_code"),
+    source_column("bgy").alias("barangay_code"),
+    source_column("old_name").alias("old_name"),
+    source_column("city_class").alias("city_class"),
+    source_column("income_classification").alias("income_classification"),
+    source_column("urban_rural").alias("urban_rural"),
+    source_column("island_region").alias("island_region"),
+    source_column("status").alias("status"),
+    source_column("_api_period").alias("_api_period"),
+    source_column("version").alias("version"),
+    F.to_json(F.col("populations")).alias("populations_json")
+    if "populations" in raw_records_df.columns
+    else F.lit(None).cast("string").alias("populations_json"),
 )
 
+
+# ============================================================
+# 6. Add provenance and audit columns
+# ============================================================
 
 bronze_df = (
     bronze_df
@@ -125,6 +144,9 @@ bronze_df = (
 )
 
 
+# ============================================================
+# 7. Generate SHA-256 row hash
+# ============================================================
 
 hash_columns = [
     "psgc_code",
@@ -146,16 +168,12 @@ hash_columns = [
     "populations_json",
 ]
 
-
 bronze_df = bronze_df.withColumn(
     "_row_hash",
     F.sha2(
         F.to_json(
             F.struct(
-                *[
-                    F.col(column)
-                    for column in hash_columns
-                ]
+                *[F.col(column) for column in hash_columns]
             )
         ),
         256,
@@ -163,20 +181,24 @@ bronze_df = bronze_df.withColumn(
 )
 
 
-bronze_df = bronze_df.dropDuplicates(
-    ["_row_hash"]
-)
+# ============================================================
+# 8. Remove duplicate rows within the current batch
+# ============================================================
+
+bronze_df = bronze_df.dropDuplicates(["_row_hash"])
 
 unique_count = bronze_df.count()
 
 print(
-    f"Unique PSA PSGC records in batch: "
-    f"{unique_count:,}"
+    f"Unique PSA PSGC records in batch: {unique_count:,}"
 )
 
 
-spark.sql(
-    f"""
+# ============================================================
+# 9. Create the Bronze Delta table if it does not exist
+# ============================================================
+
+spark.sql(f"""
     CREATE TABLE IF NOT EXISTS {BRONZE_TABLE} (
         psgc_code STRING,
         area_name STRING,
@@ -202,8 +224,12 @@ spark.sql(
         _row_hash STRING
     )
     USING DELTA
-    """
-)
+""")
+
+
+# ============================================================
+# 10. Merge records into Bronze using the row hash
+# ============================================================
 
 delta_table = DeltaTable.forName(
     spark,
@@ -220,11 +246,25 @@ delta_table = DeltaTable.forName(
     .execute()
 )
 
-final_count = spark.table(
-    BRONZE_TABLE
-).count()
+
+# ============================================================
+# 11. Validate the final Bronze table
+# ============================================================
+
+final_count = spark.table(BRONZE_TABLE).count()
 
 print(
     f"Bronze table '{BRONZE_TABLE}' "
     f"now contains {final_count:,} records."
+)
+
+
+# ============================================================
+# 12. Display a sample of Bronze records
+# ============================================================
+
+display(
+    spark.table(BRONZE_TABLE)
+    .orderBy("_api_period", "psgc_code")
+    .limit(10)
 )

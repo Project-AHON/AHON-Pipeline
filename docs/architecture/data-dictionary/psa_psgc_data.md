@@ -81,3 +81,93 @@ The ingestion validates that:
 ## Downstream Use
 
 The Bronze PSGC table is used to create `ahon.reference.lgu_master`. The `Q2_2024` snapshot is currently the canonical source for the active LGU reference table.
+
+### Silver table
+`ahon_dev.silver.psa_psgc_clean`
+
+### Grain
+One record represents one cleaned PSGC geographic record from one API snapshot. The same PSGC code may appear across different API periods; `_api_period` identifies the snapshot.
+
+### Business key
+
+`psgc_code + geographic_level + _api_period`
+
+### Current row counts
+
+Silver row counts were not provided in the available run output, so they should be queried from the current table rather than inferred from Bronze counts.
+
+```sql
+SELECT
+    _api_period,
+    COUNT(*) AS records
+FROM ahon_dev.silver.psa_psgc_clean
+GROUP BY _api_period
+ORDER BY _api_period;
+```
+
+## Silver Columns
+
+| Column | Type | Description | Notes |
+|---|---|---|---|
+| `psgc_code` | STRING | Standardized PSGC code identifying the geographic area. | Business-key field. Stored as a string to preserve leading zeros; standardized to 10 digits in Silver. |
+| `geographic_name` | STRING | Cleaned name of the geographic area. | Derived from Bronze `area_name`; PSA footnote markers and unwanted whitespace are cleaned in Silver. |
+| `geographic_level` | STRING | Geographic level of the record. | Standardized to uppercase, trimmed values such as `REG`, `PROV`, `CITY`, `MUN`, `SUBMUN`, `BGY`, and `SGU`. |
+| `region_psgc` | STRING | PSGC code for the record's region. | Derived from the standardized PSGC code; used for code-based joins. |
+| `province_psgc` | STRING | PSGC code for the record's province. | Derived from the standardized PSGC code; may be a hierarchy code even when a conventional province name is not applicable. |
+| `citymun_psgc` | STRING | PSGC code for the record's city or municipality parent. | Derived from the standardized PSGC code; not applicable to region and province records. |
+| `region_code` | STRING | Source region code. | Retained from the Bronze source for reference and hierarchy-related logic. |
+| `province_code` | STRING | Source province code. | Retained from the Bronze source; special values such as `999` require exception-aware handling. |
+| `municipality_code` | STRING | Source municipality code. | Retained from the Bronze source. |
+| `barangay_code` | STRING | Source barangay code. | Retained from the Bronze source; may be NULL above barangay level. |
+| `province_name` | STRING | Resolved province name for the geographic record. | Derived through exact PSGC-code joins and special-case rules. Pateros and SGA may remain NULL; City of Isabela and its barangays map to Basilan. |
+| `province_city` | STRING | Display label combining the geographic name with relevant province or parent-city context. | Display field only. Downstream joins should use PSGC code columns, not this label. |
+| `correspondence_code` | STRING | Correspondence code associated with the geographic area. | Retained from the source. |
+| `old_name` | STRING | Former or previous name of the area. | Retained from the source; may be NULL. |
+| `status` | STRING | Status associated with the geographic area. | Retained from the source. |
+| `income_classification` | STRING | Income classification of the LGU. | Retained from the source; may be NULL. |
+| `city_class` | STRING | Classification of a city. | Retained from the source; supports HUC/ICC exception logic. |
+| `urban_rural` | STRING | Urban or rural classification. | Retained from the source; may be NULL. |
+| `island_region` | STRING | Island group or region classification. | Retained from the source; may be NULL. |
+| `populations_json` | STRING | Population information returned by the PSGC API in JSON format. | Retained from the source as JSON text; may be NULL. |
+| `source_version` | STRING | Source PSGC version associated with the record. | Retained from the source `version` field. This is distinct from `_api_period`, which identifies the ingested snapshot. |
+| `_api_period` | STRING | PSGC API snapshot from which the record was retrieved. | Examples include `Q2_2024`, `April_2024`, `Q4_2023`, and `Q2_2021`. Part of the business key. |
+| `_source_name` | STRING | Name identifying the original source. | Provenance column retained from Bronze. |
+| `_source_ref` | STRING | Reference identifying the source. | Provenance column retained from Bronze. |
+| `_ingested_at` | TIMESTAMP | Timestamp when the Bronze record was ingested. | Provenance column retained from Bronze. |
+| `_batch_id` | STRING | Identifier for the ingestion batch. | Provenance column retained from Bronze. |
+| `_row_hash` | STRING | SHA-256 hash identifying the Bronze source record for change detection. | Provenance column retained from Bronze; expected to be 64 hexadecimal characters. |
+| `_silver_row_hash` | STRING | SHA-256 hash of Silver content and derived fields. | Used to detect changes to standardized or derived Silver values, even if the Bronze row hash has not changed. |
+| `_silver_processed_at` | TIMESTAMP | Timestamp when the Silver record was processed. | Silver audit column updated when a record is inserted or its Silver content changes. |
+
+## Silver Transformations
+
+The Silver layer:
+
+- Cleans and standardizes source values, including geographic names and geographic levels.
+- Standardizes PSGC codes to 10-character strings while preserving leading zeros.
+- Deduplicates records within each API snapshot using the business key.
+- Retains `_api_period` so records from different snapshots remain distinguishable.
+- Derives `region_psgc`, `province_psgc`, and `citymun_psgc` from PSGC code structure.
+- Resolves `province_name` and `province_city` using exact code-based lookups and documented special-case rules.
+- Preserves Bronze provenance fields and adds Silver-specific hash and processing timestamp columns.
+- Uses an idempotent Delta `MERGE` keyed by `psgc_code`, `geographic_level`, and `_api_period`.
+- Does not delete target-only records by default; snapshot history may remain in Silver even if a record is absent from a later Bronze load.
+
+## Data Quality Rules
+
+The Silver checks validate that:
+
+- Required business-key and geographic-name fields are populated.
+- The composite business key is unique.
+- PSGC codes contain exactly 10 numeric digits.
+- Geographic levels use the expected standardized values.
+- PSA footnote markers and unwanted leading/trailing whitespace have been removed.
+- Provenance columns are populated and `_row_hash` has the expected SHA-256 format.
+- `_silver_row_hash` and `_silver_processed_at` are populated and valid.
+- Derived hierarchy codes are consistent with the PSGC code structure.
+- `province_city` is populated and follows the expected display-label pattern.
+- Missing province mappings are reviewed with exceptions for HUCs/ICCs and their descendants, Pateros, and SGA.
+- Barangay and sub-municipality parent relationships are checked within the same API snapshot.
+
+> **Schema note:** Column types above reflect the intended Silver schema. If the live Delta table has evolved, confirm the exact names and data types with `DESCRIBE TABLE ahon_dev.silver.psa_psgc_clean`.
+
