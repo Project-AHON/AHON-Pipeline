@@ -144,11 +144,6 @@ def add_provenance(frame: DataFrame, batch_id: str) -> DataFrame:
 def conform_table_schema(spark: SparkSession) -> bool:
     """Rebuild the table in place if its columns differ from the expected ones.
 
-    Fixes tables from earlier versions: census_year stored as STRING, or extra
-    columns left behind by a manual migration. The rebuild is one atomic
-    create-or-replace, so a failure leaves the table as it was and the table
-    history is kept. Does nothing, and returns False, when the table already
-    matches, so it is safe to run on every load.
     """
     table = spark.table(TABLE_NAME)
     year_type = table.schema["census_year"].dataType
