@@ -10,8 +10,6 @@ The raw CSV is saved to a Unity Catalog volume, but only after the response
 passes basic validation, so a bad response never replaces a good extract.
 """
 
-from __future__ import annotations
-
 import csv
 import io
 import sys

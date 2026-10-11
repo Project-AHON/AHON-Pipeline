@@ -6,8 +6,6 @@
 # Databricks notebook source
 """Load the PSA census population CSV into the bronze Delta table."""
 
-from __future__ import annotations
-
 import csv
 import sys
 import uuid
@@ -156,11 +154,20 @@ def conform_table_schema(spark: SparkSession) -> bool:
     matches, so it is safe to run on every load.
     """
     table = spark.table(TABLE_NAME)
-    year_type = table.schema["census_year"].dataType
-    if year_type == IntegerType() and table.schema.fieldNames() == TABLE_COLS:
+    # DESCRIBE TABLE avoids the .schema Analyze RPC (SCPAP001 on Spark Connect)
+    desc = spark.sql(f"DESCRIBE TABLE {TABLE_NAME}").collect()
+    col_types: dict[str, str] = {}
+    for row in desc:
+        name = row["col_name"]
+        if name and not name.startswith("#"):
+            col_types[name] = row["data_type"]
+    col_names = list(col_types.keys())
+
+    year_type_str = col_types.get("census_year", "")
+    if year_type_str == "int" and col_names == TABLE_COLS:
         return False
-    if year_type not in (IntegerType(), StringType()):
-        msg = f"{TABLE_NAME}.census_year has unexpected type {year_type.simpleString()}"
+    if year_type_str not in ("int", "string"):
+        msg = f"{TABLE_NAME}.census_year has unexpected type {year_type_str}"
         raise RuntimeError(msg)
 
     # try_cast gives NULL instead of failing, so bad values can be counted first
