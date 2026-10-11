@@ -1,0 +1,6 @@
+builtins = ["spark"]
+
+[lint]
+# Databricks notebooks use `# Databricks notebook source` as the first
+# line instead of a shebang, which triggers EXE002.
+ignore = ["EXE002"]
