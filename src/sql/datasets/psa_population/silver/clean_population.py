@@ -38,6 +38,8 @@ HASH_COLS = [
 ]
 # A record without these cannot be loaded into silver; it goes to REJECT_TABLE.
 REQUIRED_COLS = [c for c in HASH_COLS if c != "rural_population"]
+# Population columns that must be valid whole numbers, not decimals or non-numeric
+POPULATION_COLS = ["total_population", "urban_population"]
 UPDATE_CONDITION = "NOT (target.row_hash <=> source.row_hash)"
 
 # COMMAND ----------
@@ -46,6 +48,20 @@ UPDATE_CONDITION = "NOT (target.row_hash <=> source.row_hash)"
 def report(message: str) -> None:
     """Write a line to stdout, which Databricks shows as cell output."""
     sys.stdout.write(f"{message}\n")
+
+
+def is_invalid_population(name: str) -> Column:
+    """Return True when the STRING value is not a valid whole number.
+
+    Population counts are whole numbers.  A value like '1234.5' would be
+    silently rounded by to_long, and a non-numeric value would become NULL.
+    This flag lets reject_reason send such rows to the reject table instead.
+    """
+    as_double = sf.expr(f"try_cast({name} AS DOUBLE)")
+    as_long = sf.expr(
+        f"CAST(try_cast(try_cast({name} AS DOUBLE) AS BIGINT) AS DOUBLE)"
+    )
+    return as_double.isNull() | (as_double != as_long)
 
 
 def to_long(name: str) -> Column:
@@ -77,6 +93,11 @@ def build_silver_frame(spark: SparkSession, batch_id: str) -> DataFrame:
         sf.expr("try_cast(percent_urban AS DOUBLE)").alias("percent_urban"),
         sf.expr("try_cast(census_year AS INT)").alias("census_year"),
         sf.col("source_name"),
+        # Validation flags: True when the original STRING was not a whole number
+        *[
+            is_invalid_population(c).alias(f"_invalid_{c}")
+            for c in POPULATION_COLS
+        ],
     )
     levels = sf.split(sf.col("geographic_location"), PATH_SEPARATOR)
     derived = typed.withColumns(
@@ -94,7 +115,8 @@ def build_silver_frame(spark: SparkSession, batch_id: str) -> DataFrame:
     )
     hash_input = sf.concat_ws("|", *[sf.col(c) for c in HASH_COLS])
     hashed = derived.withColumns({"row_hash": sf.sha2(hash_input, 256)})
-    return hashed.select(*SILVER_COLS)
+    # Keep validation flags for reject_reason; dropped in split_valid_and_rejected
+    return hashed.select(*SILVER_COLS, *[f"_invalid_{c}" for c in POPULATION_COLS])
 
 
 def reject_reason() -> Column:
@@ -102,10 +124,14 @@ def reject_reason() -> Column:
     missing = reduce(or_, [sf.col(c).isNull() for c in REQUIRED_COLS])
     missing |= sf.col("geographic_location") == ""
     negative = sf.col("rural_population") < 0
+    invalid_population = reduce(
+        or_, [sf.col(f"_invalid_{c}") for c in POPULATION_COLS]
+    )
     return sf.concat_ws(
         ",",
         sf.when(missing, sf.lit("missing_required_field")),
         sf.when(negative, sf.lit("negative_rural_population")),
+        sf.when(invalid_population, sf.lit("invalid_population_value")),
     )
 
 
@@ -137,12 +163,13 @@ def assert_loadable(valid: DataFrame, valid_count: int) -> None:
 
 
 def merge_into_silver(spark: SparkSession, frame: DataFrame) -> None:
-    """Create the silver table if missing, then sync it with the valid rows.
+    """Create the silver table if missing, then upsert the valid rows.
 
     Matched rows are updated only when their content hash changed, so unchanged
-    rows keep their provenance. Silver rows with no match in the source are
-    deleted (old rows with a footnote marker, and rows now rejected), so silver
-    holds exactly the valid bronze rows and a rerun leaves no duplicates.
+    rows keep their provenance.  Rows that no longer appear in the source are
+    kept in silver (not deleted) to avoid accidentally removing valid data when
+    a row is rejected due to a data quality issue.  Rejected rows are handled
+    separately in the reject table.
     """
     spark.sql(f"CREATE TABLE IF NOT EXISTS {SILVER_TABLE} ({SILVER_SCHEMA})")
     condition = " AND ".join(f"target.{k} <=> source.{k}" for k in MERGE_KEYS)
@@ -152,25 +179,43 @@ def merge_into_silver(spark: SparkSession, frame: DataFrame) -> None:
         .merge(frame.alias("source"), condition)
         .whenMatchedUpdateAll(condition=UPDATE_CONDITION)
         .whenNotMatchedInsertAll()
-        .whenNotMatchedBySourceDelete()
         .execute()
     )
 
 
 def assert_silver_matches(spark: SparkSession, expected: int) -> None:
-    """Fail if silver does not hold exactly the rows that were merged."""
+    """Fail if silver holds fewer rows than were merged in this batch."""
     actual = spark.table(SILVER_TABLE).count()
-    if actual != expected:
-        msg = f"{SILVER_TABLE} has {actual:,} rows, expected {expected:,}"
+    if actual < expected:
+        msg = f"{SILVER_TABLE} has {actual:,} rows, expected at least {expected:,}"
         raise RuntimeError(msg)
 
 
-def write_rejects(rejected: DataFrame) -> int:
-    """Append rejected rows to the quarantine table and return how many."""
+def write_rejects(spark: SparkSession, rejected: DataFrame) -> int:
+    """Merge rejected rows into the quarantine table, avoiding duplicates on rerun.
+
+    Uses the merge keys as the dedup condition: if a row with the same
+    geographic_location and census_year already exists in the reject table,
+    it is updated (in case the reject reason changed) rather than appended
+    again.  This makes the notebook safe to rerun without creating duplicates.
+    """
     rejected_count = rejected.count()
     if rejected_count:
-        writer = rejected.write.format("delta").mode("append")
-        writer.option("mergeSchema", "true").saveAsTable(REJECT_TABLE)
+        spark.sql(
+            f"CREATE TABLE IF NOT EXISTS {REJECT_TABLE} "
+            f"({SILVER_SCHEMA}, reject_reason STRING) USING DELTA"
+        )
+        condition = " AND ".join(
+            f"target.{k} <=> source.{k}" for k in MERGE_KEYS
+        )
+        (
+            DeltaTable.forName(spark, REJECT_TABLE)
+            .alias("target")
+            .merge(rejected.alias("source"), condition)
+            .whenMatchedUpdateAll()
+            .whenNotMatchedInsertAll()
+            .execute()
+        )
     return rejected_count
 
 
@@ -184,7 +229,7 @@ def main() -> None:
     assert_loadable(valid, valid_count)
     merge_into_silver(spark, valid)
     assert_silver_matches(spark, valid_count)
-    rejected_count = write_rejects(rejected)
+    rejected_count = write_rejects(spark, rejected)
 
     report(f"Silver table : {SILVER_TABLE}")
     report(f"Reject table : {REJECT_TABLE}")
