@@ -270,7 +270,7 @@ def scrape_multiple_years(years_back=3, output_dir="data"):
         for year, count in scrape_summary.items():
             print(f"  • {year}: {count:,} earthquakes")
         print(f"\n📈 Total Records: {len(combined_all):,}")
-        print(f"\n📁 Files Created:")
+        print("\n📁 Files Created:")
         for year in range(start_year, current_year + 1):
             if scrape_summary.get(year, 0) > 0:
                 print(f"  • {output_dir}/phivolcs_earthquake_{year}.csv")
