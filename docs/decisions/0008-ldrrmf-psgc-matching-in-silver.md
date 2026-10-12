@@ -12,7 +12,7 @@ BLGF LDRRMF has no PSGC codes, only names (region, province, LGU name and LGU ty
 - PSGC codes are added to LDRRMF in **silver**. `silver.blgf_ldrrmf_annual_lgu_clean` gets `psgc_code`, `psgc_match_status` (`exact` / `unmatched`, the Schema v1 values) and `psgc_match_method`. The gold fact copies them.
 - The matching runs once per distinct LGU, not per row, in a Python script that writes a reference table, `reference.blgf_ldrrmf_lgu_map` (one row per region + province + LGU name + LGU type as BLGF writes it). Silver joins this map with plain SQL.
 - The PSGC side is `silver.psa_psgc_clean`, one snapshot (`Q2_2024`), the same snapshot `gold.dim_lgu` is built from.
-- Only exact matches give a code: the same name inside the same province, the same name among LGUs with no province (NCR, HUCs, Isabela City), or a person-checked override. There is no fuzzy matching. Anything else stays `unmatched` with `psgc_code` NULL, and the row is kept.
+- Only exact matches give a code: the same name inside the same province, the same name after normalising (case, accents, ‘City of’, abbreviations). Anything else stays `unmatched` with `psgc_code` NULL, and the row is kept.
 - Person-checked fixes live in `blgf_ldrrmf_lgu_map_overrides.csv` in the repository, one row per LGU with a reason. The map table is rebuilt in full on every run and is never edited by hand.
 
 ## Why

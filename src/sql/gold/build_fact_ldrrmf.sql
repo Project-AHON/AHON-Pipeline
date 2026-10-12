@@ -1,5 +1,6 @@
 -- Build the LDRRMF gold fact table
 -- Builds gold.fact_ldrrmf from silver.blgf_ldrrmf_annual_lgu_clean: one row per LGU (province, city or municipality) per fiscal year.
+-- Suggested repo path: src/sql/datasets/blgf_ldrrmf_annual_lgu/gold/build_fact_ldrrmf.sql
 -- Needs first: the silver table (which already carries psgc_code from the LGU map) and gold.dim_lgu.
 -- What it does:
 --   1. Builds the fact rows as a temporary view, fact_candidate (nothing is written yet).
@@ -55,12 +56,18 @@ FROM silver.blgf_ldrrmf_annual_lgu_clean AS s;
 
 -- Check the stop rules on the fact rows
 -- What it does: stops with an error if a rule fails, before the gold table is touched.
---   Rules: same row count as silver, unique key, every psgc_code exists in dim_lgu,
+--   Rules: same row count as silver, unique key, one row per PSGC code per year, every psgc_code exists in dim_lgu,
 --   match_confidence between 0 and 1.
 -- What to expect: one line of true values.
 SELECT
   assert_true(count(*) = (SELECT count(*) FROM silver.blgf_ldrrmf_annual_lgu_clean), 'Gold row count differs from silver'),
   assert_true(count(DISTINCT ldrrmf_fact_key) = count(*), 'ldrrmf_fact_key is not unique'),
+  -- Two BLGF spellings can map to one PSGC code (for example Pio V. Corpuz); this makes sure they never share a year,
+  -- so no LGU is counted twice in one fiscal year
+  assert_true(
+    (SELECT count(*) FROM (SELECT psgc_code, fiscal_year FROM fact_candidate WHERE psgc_code IS NOT NULL
+                           GROUP BY psgc_code, fiscal_year HAVING count(*) > 1)) = 0,
+    'An LGU appears more than once in the same fiscal year'),
   assert_true(
     count_if(psgc_code IS NOT NULL AND psgc_code NOT IN (SELECT psgc_code FROM gold.dim_lgu)) = 0,
     'A psgc_code is not in dim_lgu'),
