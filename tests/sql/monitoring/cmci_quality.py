@@ -16,7 +16,6 @@ import great_expectations as gx
 import pandas as pd
 from pyspark.sql import SparkSession
 
-
 CATALOG = "ahon"
 QUALITY_SCHEMA = "quality"
 

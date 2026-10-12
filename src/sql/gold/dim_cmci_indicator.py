@@ -1,9 +1,8 @@
-from pyspark.sql import functions as F
-
 from cmci_common import (
     EXPECTED_INDICATOR_COUNT,
     INDICATORS_BY_PILLAR,
 )
+from pyspark.sql import functions as F
 
 # =====================================================
 # CONFIG
