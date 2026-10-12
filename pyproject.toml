@@ -8,4 +8,7 @@ dependencies = [
 ]
 
 [tool.ruff]
-builtins = ["spark"]
+builtins = ["spark", "dbutils"]
+
+[tool.databricks.environment]
+environment_version = "6"
