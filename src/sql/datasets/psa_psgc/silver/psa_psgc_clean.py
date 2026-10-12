@@ -1,4 +1,3 @@
-
 """
 AHON PSA PSGC Bronze-to-Silver transformation.
 
@@ -361,7 +360,7 @@ province_lookup = (
 parent_lookup = assert_unique(
     (
         deduped
-        .filter(F.col("geographic_level").isin("CITY", "MUN"))
+        .filter(F.col("geographic_level").isin("CITY", "MUN", "SGU", "SUBMUN"))
         .select(
             F.col("psgc_code").alias("_parent_psgc"),
             F.col("_api_period").alias("_parent_period"),
@@ -554,13 +553,17 @@ parent_name = F.coalesce(
     F.col("parent_pv._parent_name"),
 )
 
-# Region and province records do not receive a parent province.
+# Regions have no province. Province records carry their own name.
 # City of Isabela uses Basilan when the snapshot contains Basilan.
 # No province is invented for Pateros or the Special Geographic Area.
 province_name_expr = (
     F.when(
-        src_level.isin("REG", "PROV"),
+        src_level == "REG",
         F.lit(None).cast("string"),
+    )
+    .when(
+        src_level == "PROV",
+        F.col("src.area_name"),
     )
     .when(
         F.col("isabela._isabela_psgc").isNotNull()
@@ -570,11 +573,28 @@ province_name_expr = (
     .otherwise(F.col("prov._province_name"))
 )
 
+
 # Display field only. Analytical joins should use PSGC codes.
+# Barangays: barangay, parent place, independent city (only when it is a
+# different place from the parent), province. Empty parts are skipped.
 province_city_expr = (
     F.when(
         src_level.isin("REG", "PROV"),
         F.col("src.area_name"),
+    )
+    .when(
+        src_level == "BGY",
+        F.concat_ws(
+            ", ",
+            F.col("src.area_name"),
+            parent_name,
+            F.when(
+                independent_city_name.isNotNull()
+                & ~independent_city_name.eqNullSafe(parent_name),
+                independent_city_name,
+            ),
+            province_name_expr,
+        ),
     )
     .when(
         independent_city_name.isNotNull()
@@ -642,40 +662,12 @@ silver = joined.select(
 
 
 # ============================================================
-# 9. SILVER CHANGE-DETECTION HASH
+# 9. PROCESSED TIMESTAMP
 # ============================================================
 
-# Include business content and derived fields in the hash.
-# Exclude audit columns so reruns do not cause unnecessary updates.
-content_columns = [
-    column
-    for column in silver.columns
-    if not column.startswith("_")
-]
-
-silver = (
-    silver
-    .withColumn(
-        "_silver_row_hash",
-        F.sha2(
-            F.concat_ws(
-                "\x1f",
-                *[
-                    F.coalesce(
-                        F.col(column).cast("string"),
-                        F.lit("<NULL>"),
-                    )
-                    for column in content_columns
-                ],
-            ),
-            256,
-        ),
-    )
-    .withColumn(
-        "_silver_processed_at",
-        F.current_timestamp(),
-    )
-)
+# Record when this row was processed into Silver.
+# _row_hash is carried forward from Bronze unchanged.
+silver = silver.withColumn("_processed_at", F.current_timestamp())
 
 assert_unique(
     silver,
@@ -805,10 +797,10 @@ else:
         AND t._api_period = s._api_period
     """
 
-    # Update only changed content. The null-safe comparison also
-    # backfills hashes on rows created by an older pipeline.
+    # Update only rows whose Bronze hash changed. The null-safe
+    # comparison also handles rows where either hash is NULL.
     change_condition = (
-        "NOT (t._silver_row_hash <=> s._silver_row_hash)"
+        "NOT (t._row_hash <=> s._row_hash)"
     )
 
     merge = (
