@@ -9,7 +9,7 @@
 - **One row is:** one LGU (province, city or municipality) in one fiscal year, as BLGF reported it. Same rows as silver (11,434 on ahon_dev, 2026-10-12).
 - **Key:** `ldrrmf_fact_key` (a hash of fiscal_year + region + province + lgu_name + lgu_type, stable across rebuilds)
 - **Joins to:** `gold.dim_lgu` on `psgc_code` (NULL for unmatched rows)
-- **Built by:** `src/sql/datasets/blgf_ldrrmf_annual_lgu/gold/build_fact_ldrrmf.sql`. A run rebuilds the whole table and stops before writing if a stop rule fails.
+- **Built by:** `src/sql/gold/build_fact_ldrrmf.sql`. A run rebuilds the whole table and stops before writing if a stop rule fails.
 - **Follows:** "PROJECT AHON: Schema v1" (JC), with the differences listed under Known issues.
 
 | Column | Type | Description | Notes |
