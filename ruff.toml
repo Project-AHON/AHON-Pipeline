@@ -3,4 +3,5 @@
 "src/sql/datasets/psa_psgc/extract/psa_psgc_ingest.py" = ["F821"]
 "src/sql/datasets/psa_psgc/lgu_master.py" = ["F821"]
 "src/sql/06_reference/load_lgu_master.py" = ["F821"]
+"src/sql/gold/dim_lgu.py" = ["F821"]
 "src/sql/datasets/psa_psgc/silver/psa_psgc_clean.py" = ["F821"]
