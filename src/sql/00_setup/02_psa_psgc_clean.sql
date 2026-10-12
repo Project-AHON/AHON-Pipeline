@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS ahon_dev.silver.psa_psgc_clean (
     source_version STRING,
     _api_period STRING NOT NULL,
 
-    -- Bronze provenance
+    -- Bronze provenance (carried forward unchanged)
     _source_name STRING,
     _source_ref STRING,
     _ingested_at TIMESTAMP,
@@ -48,8 +48,7 @@ CREATE TABLE IF NOT EXISTS ahon_dev.silver.psa_psgc_clean (
     _row_hash STRING,
 
     -- Silver audit
-    _silver_row_hash STRING,
-    _silver_processed_at TIMESTAMP
+    _processed_at TIMESTAMP
 )
 USING DELTA
 COMMENT 'Cleaned PSA PSGC records, one row per psgc_code, geographic_level and _api_period snapshot';

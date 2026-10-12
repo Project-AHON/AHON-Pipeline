@@ -119,7 +119,7 @@ ORDER BY _api_period;
 | Column | Type | Description | Notes |
 |---|---|---|---|
 | `psgc_code` | STRING | Standardized PSGC code identifying the geographic area. | Business-key field. Stored as a string to preserve leading zeros; standardized to 10 digits in Silver. |
-| `geographic_name` | STRING | Cleaned name of the geographic area. | Derived from Bronze `area_name`; PSA footnote markers and unwanted whitespace are cleaned in Silver. |
+| `area_name` | STRING | Cleaned name of the geographic area. | Derived from Bronze `area_name`; PSA footnote markers and unwanted whitespace are cleaned in Silver. |
 | `geographic_level` | STRING | Geographic level of the record. | Standardized to uppercase, trimmed values such as `REG`, `PROV`, `CITY`, `MUN`, `SUBMUN`, `BGY`, and `SGU`. |
 | `region_psgc` | STRING | PSGC code for the record's region. | Derived from the standardized PSGC code; used for code-based joins. |
 | `province_psgc` | STRING | PSGC code for the record's province. | Derived from the standardized PSGC code; may be a hierarchy code even when a conventional province name is not applicable. |

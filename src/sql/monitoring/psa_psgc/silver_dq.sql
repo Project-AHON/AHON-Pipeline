@@ -195,11 +195,9 @@ checks AS (
         'Silver Audit Fields',
         'FAIL',
         COUNT(*),
-        'Silver hash and processing timestamp must be populated.'
+        'The Silver processing timestamp must be populated.'
     FROM base
-    WHERE _silver_row_hash IS NULL
-       OR NOT (_silver_row_hash RLIKE '^[0-9a-fA-F]{64}$')
-       OR _silver_processed_at IS NULL
+    WHERE _processed_at IS NULL
 
     UNION ALL
 
