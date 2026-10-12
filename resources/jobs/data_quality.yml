@@ -1,56 +1,69 @@
+---
 resources:
   jobs:
     data_quality:
       name: data_quality
+
       tasks:
         - task_key: cmci_bronze_gx
           spark_python_task:
-            python_file: /Workspace/Users/joan.maquinano@ftwfoundation.org/AHON-Pipeline/tests/sql/monitoring/cmci_quality.py
+            python_file: >-
+              ../../tests/sql/monitoring/cmci_quality.py
             parameters:
               - --layer
               - bronze
               - --enforce
               - "true"
           environment_key: cmci_gx_environment
+
         - task_key: cmci_silver_gx
           depends_on:
             - task_key: cmci_bronze_gx
           spark_python_task:
-            python_file: /Workspace/Users/joan.maquinano@ftwfoundation.org/AHON-Pipeline/tests/sql/monitoring/cmci_quality.py
+            python_file: >-
+              ../../tests/sql/monitoring/cmci_quality.py
             parameters:
               - --layer
               - silver
               - --enforce
               - "true"
           environment_key: cmci_gx_environment
+
         - task_key: cmci_gold_gx
           depends_on:
             - task_key: cmci_silver_gx
           spark_python_task:
-            python_file: /Workspace/Users/joan.maquinano@ftwfoundation.org/AHON-Pipeline/tests/sql/monitoring/cmci_quality.py
+            python_file: >-
+              ../../tests/sql/monitoring/cmci_quality.py
             parameters:
               - --layer
               - gold
               - --enforce
               - "true"
           environment_key: cmci_gx_environment
+
         - task_key: cmci_platinum_gx
           depends_on:
             - task_key: cmci_gold_gx
           spark_python_task:
-            python_file: /Workspace/Users/joan.maquinano@ftwfoundation.org/AHON-Pipeline/tests/sql/monitoring/cmci_quality.py
+            python_file: >-
+              ../../tests/sql/monitoring/cmci_quality.py
             parameters:
               - --layer
               - platinum
               - --enforce
               - "true"
           environment_key: cmci_gx_environment
+
       queue:
         enabled: true
+
       environments:
         - environment_key: cmci_gx_environment
           spec:
             client: "6"
             dependencies:
               - great-expectations==1.23.1
+
       performance_target: PERFORMANCE_OPTIMIZED
+      
