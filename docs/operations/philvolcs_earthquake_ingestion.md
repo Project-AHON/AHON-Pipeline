@@ -230,6 +230,79 @@ SELECT _source_ref, _row_hash, explode(broken_rules) AS rule_name FROM issues;
 
 ## Validation evidence
 
+### Gold preparation follow-up
+
+The Gold follow-up is isolated on `feature/82-earthquake-gold-validation`, based
+on the existing Bronze/Silver commit `75e67ef62f5caafb5767f268d931caccdaad7f4d`
+in open PR #85. Live main was rechecked as
+`e1e8b883a1780b3150e6c7cd880530f4d7e42e66`. No existing checkout was switched.
+The refreshed open set is #54, #60, #66, #69, #72, #73, #75, #81, #84, #85.
+Changed-file lists, diffs, discussion/review comments and inline review threads
+were inspected. #85 is the unmerged predecessor; #81 supplies no earthquake fact
+contract. #84's CMCI model/Great Expectations proposal remains dataset-specific
+and is not copied. It also conflicts with ADR 0008/0009 reservations; coordinate
+numbering with the documentation owners. The predecessor's ADR 0009 file has a
+0007 heading/index-link typo; resolve it with #85's owner, without treating it as
+approval or changing the decision's meaning. No new ADR is needed for this
+read-only implementation of the existing blocked-contract behavior.
+
+Use the same required parameters above with `--stage gold`. For an initial
+candidate-only dev investigation, also supply `--check-only`. Gold preparation
+runs **after** successful Bronze/Silver checks; without check-only the runner
+may first write valid Bronze/Silver changes. The Gold section itself never writes
+any target. Missing/incompatible reference or dim_lgu prerequisites are reported
+as BLOCKED while independent scoped observation accounting still runs.
+
+Sequence: existing landing/Bronze/Silver gates and verification -> read configured
+PSGC snapshot and dim_lgu -> build temporary conflict/accounting/candidate views
+-> report disposition totals -> aggregate Gold checks -> raise on the unapproved
+contract or any other stop failure. The SQL is now present at
+`src/sql/gold/build_fact_earthquake_event.sql`; it does not materialize the fact.
+There is no successful Gold-stage completion until the contract is approved.
+
+All seven dimension fields must equal the selected reference projection. Extra
+target-only codes, missing entities, name/level/hierarchy changes and duplicates
+are checked rather than silently mixed into a fact relationship. Scope is the
+explicit landing hashes; use the existing `--reprocess` only for deliberate
+historical review. The separate dimension loader is a prerequisite and is not
+called or rewritten by the earthquake task. Keep one Spark Python task/session;
+no bundle, job infrastructure, spatial libraries or DQ framework were added.
+
+The [fact dictionary](../architecture/data-dictionary/fact_earthquake_event.md)
+defines review dispositions, row accounting and exact pending decisions. Current
+PSGC candidates are not analytical assignments; unmatched usable observations
+remain in the provisional candidate. Depth/magnitude changes are possible
+corrections, not automatic updates. No event key, time migration or exclusion
+policy was invented. Existing Gold targets stay untouched.
+
+The focused `tests/sql/gold/test_earthquake_gold.py` keeps small inline fixtures
+and emits read-only SQL derived from the actual Gold SQL, avoiding a separate
+generator/fixture file. Generate a query with:
+
+```text
+python tests/sql/gold/test_earthquake_gold.py --emit > <local_fixture_query.sql>
+```
+
+Run that output only on approved dev SQL compute. Ten scenarios cover normal
+and unmatched observations, invalid timestamps/NaN/infinity, cross-batch duplicates
+and possible corrections, collisions, missing reference/dimension, snapshot and
+dimension-attribute mismatches, extra dimension codes, missing lineage, changed
+signatures and an unchanged diagnostic replay. Python tests verify the blocked
+stop gate prevents progress to a write. A replay of diagnostic fixtures is not
+a Delta second-run/atomic-MERGE integration test.
+
+Local validation: 41 tests passed (27 predecessor tests and 14 Gold tests); Gold
+production SQL and all ten emitted scenarios parsed in the Databricks dialect.
+Databricks fixture execution was **NOT RUN**: automatic approval review rejected
+sending the repository-derived query to the development warehouse and its
+potential billable startup. No fixture result counts are claimed for this Gold
+follow-up. Full Spark preparation/read_files integration, live dimension/source
+counts, timestamp/schema migrations, actual fact MERGE/rerun/failure-preservation
+and postwrite verification remain not run. No production or pipeline tables,
+jobs or reference snapshots were changed.
+
+### Earlier Bronze/Silver fixture evidence
+
 Local: 27 focused pytest cases passed, including SHA/structure failures, immutable
 landing and its second unchanged run, normal and same-name/province matches,
 malformed/nested/blank descriptions, independent cities, unmatched candidates,
