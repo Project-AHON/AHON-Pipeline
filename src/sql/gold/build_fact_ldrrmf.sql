@@ -1,6 +1,5 @@
 -- Build the LDRRMF gold fact table
 -- Builds gold.fact_ldrrmf from silver.blgf_ldrrmf_annual_lgu_clean: one row per LGU (province, city or municipality) per fiscal year.
--- Suggested repo path: src/sql/datasets/blgf_ldrrmf_annual_lgu/gold/build_fact_ldrrmf.sql
 -- Needs first: the silver table (which already carries psgc_code from the LGU map) and gold.dim_lgu.
 -- What it does:
 --   1. Builds the fact rows as a temporary view, fact_candidate (nothing is written yet).
