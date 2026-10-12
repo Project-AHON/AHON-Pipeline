@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local bundle and verification state
+.databricks/
+.pytest-workspace*/

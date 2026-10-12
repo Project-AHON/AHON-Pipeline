@@ -1,0 +1,48 @@
+bundle:
+  name: ahon_pipeline
+include:
+- resources/*.job.yml
+variables:
+  catalog:
+    description: Isolated Unity Catalog catalog; setup creates it when authorized
+  source_volume:
+    default: source
+  source_period:
+    default: Q2_2024
+  psgc_secret_scope:
+    default: psa
+  psgc_secret_key:
+    default: psgc_token
+  hf_repo:
+    default: Jess-Christine/Project-AHON
+  hf_revision:
+    default: 9273d4b4d5af6d2a14e52451c45ac70a6e3012f5
+  cmci_mapping_file:
+    description: Reviewed mapping CSV in the selected source volume
+    default: /Volumes/${var.catalog}/reference/${var.source_volume}/cmci_lgu_map.csv
+  run_as_user:
+    default: ${workspace.current_user.userName}
+sync:
+  include:
+  - src/**
+  - resources/contracts/**
+  - tests/integration/**
+  exclude:
+  - tools/**
+  - notebooks/**
+workspace:
+  root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+run_as:
+  user_name: ${var.run_as_user}
+targets:
+  dev:
+    default: true
+    mode: development
+    variables:
+      catalog: ahon_dev
+  prod:
+    mode: production
+    variables:
+      catalog: ahon
+    workspace:
+      root_path: /Workspace/Users/${var.run_as_user}/.bundle/${bundle.name}/prod

@@ -4,7 +4,7 @@
 -- Check names in the comments are the ones in the data quality checks doc for this dataset.
 
 -- Settings: one line to change between ahon_dev and ahon (clean_blgf_ldrrmf_annual_lgu.sql has its own)
-USE CATALOG ahon_dev;
+-- Catalog selected by SQL runner.
 
 -- COMMAND ----------
 
@@ -21,7 +21,7 @@ SELECT
   count(*) AS rows_in_silver,
   (
     -- row_count_matches_bronze
-    count(*) = (SELECT count(*) FROM bronze.blgf_ldrrmf_annual_lgu)
+    count(*) = (SELECT count(*) FROM (SELECT DISTINCT regexp_extract(_source_ref, "FY([0-9]{4})", 1), region, province, lgu_name, lgu_type FROM bronze.blgf_ldrrmf_annual_lgu))
     -- unique_lgu_year
     AND count(*) = (SELECT count(*) FROM (SELECT DISTINCT fiscal_year, region, province, lgu_name, lgu_type FROM silver.blgf_ldrrmf_annual_lgu_clean))
     -- fiscal_year_valid (update the year range here and in clean_blgf_ldrrmf_annual_lgu.sql when a new fiscal year is loaded)
@@ -45,7 +45,7 @@ FROM silver.blgf_ldrrmf_annual_lgu_clean;
 -- What to expect: difference = 0 on every line, and only the types Province, City and Municipality.
 WITH b AS (
   SELECT try_cast(regexp_extract(_source_ref, 'FY(\\d{4})', 1) AS INT) AS fiscal_year,
-         trim(lgu_type) AS lgu_type, count(*) AS n
+         trim(lgu_type) AS lgu_type, count(DISTINCT region, province, lgu_name, lgu_type) AS n
   FROM bronze.blgf_ldrrmf_annual_lgu
   GROUP BY 1, 2
 ),
@@ -97,3 +97,18 @@ FROM (
   WHERE total_expenditure > total_appropriation
 )
 ORDER BY rule_code, fiscal_year, region, province, lgu_name;
+
+-- COMMAND ----------
+
+-- Check the PSGC codes in silver
+-- What it does: counts rows by match status and LGU type, and checks that psgc_code is filled exactly when the status is exact.
+-- What to expect: unresolved contextual matches remain NULL, and code_status_mismatch = 0.
+SELECT
+  psgc_match_status,
+  lgu_type,
+  count(*) AS rows,
+  count(psgc_code) AS with_code,
+  count_if((psgc_match_status = 'exact') <> (psgc_code IS NOT NULL)) AS code_status_mismatch
+FROM silver.blgf_ldrrmf_annual_lgu_clean
+GROUP BY ALL
+ORDER BY ALL;

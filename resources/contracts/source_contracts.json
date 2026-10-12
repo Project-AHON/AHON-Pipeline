@@ -1,0 +1,11 @@
+{
+  "observation_contract": "immutable_file_observation_v1",
+  "bronze_hash": "SHA256 of ordered JSON source columns with explicit nulls",
+  "file_observation_identity": "SHA256 of file SHA256 and raw row hash; identical raw rows accounted as repeats",
+  "earthquake_observation_identity": "SHA256 of file SHA256 and 1-based source row ordinal; repeated raw rows retained",
+  "psgc_snapshot": "Q2_2024",
+  "cmci_mapping_required_columns": ["psgc_code", "cmci_name", "source_period", "reviewed", "reviewer", "evidence"],
+  "cmci_metric_version": "selected_35_v1",
+  "risk_classification": "WITHHELD",
+  "earthquake_event_fact": "BLOCKED_PENDING_EVENT_IDENTITY_AND_CORRECTION_POLICY"
+}

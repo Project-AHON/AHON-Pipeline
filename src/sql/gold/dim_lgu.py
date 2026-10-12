@@ -11,7 +11,6 @@ Silver remains the source of truth for cleaned area names and hierarchy codes.
 from delta.tables import DeltaTable
 from pyspark.sql import functions as F
 
-
 # ============================================================
 # 1. CONFIGURATION
 # ============================================================
@@ -27,6 +26,7 @@ GOLD_SCHEMA = f"{CATALOG}.gold"
 TARGET_TABLE = f"{GOLD_SCHEMA}.dim_lgu"
 
 DIMENSION_COLUMNS = [
+    "source_period",
     "psgc_code",
     "area_name",
     "geographic_level",
@@ -103,6 +103,7 @@ if source_duplicate_codes.limit(1).count() > 0:
 dim_lgu = (
     snapshot_df
     .select(
+        F.lit(SOURCE_PERIOD).alias("source_period"),
         F.col("psgc_code").cast("string").alias("psgc_code"),
         F.col("area_name").alias("area_name"),
         F.col("geographic_level").alias("geographic_level"),
@@ -181,6 +182,8 @@ if not spark.catalog.tableExists(TARGET_TABLE):
 
 else:
     target_df = spark.table(TARGET_TABLE)
+    if "source_period" in target_df.columns and target_df.where(F.col("source_period") != SOURCE_PERIOD).limit(1).count():
+        raise ValueError("Changing the active dimension snapshot requires reviewed migration")
 
     missing_target_columns = [
         column for column in DIMENSION_COLUMNS
@@ -193,6 +196,11 @@ else:
             f"Missing columns: {missing_target_columns}. "
             "Review the schema before migrating it."
         )
+
+    if {f.name: f.dataType for f in target_df.schema if f.name in DIMENSION_COLUMNS} != {f.name: f.dataType for f in dim_lgu.select(*DIMENSION_COLUMNS).schema}:
+        raise ValueError("Existing dimension types require reviewed migration")
+    if target_df.groupBy("psgc_code").count().where("count > 1").limit(1).count():
+        raise ValueError("Existing dimension has duplicate keys")
 
     target = DeltaTable.forName(spark, TARGET_TABLE)
 
@@ -208,6 +216,7 @@ else:
             "target.psgc_code = source.psgc_code",
         )
         .whenMatchedUpdate(
+            condition=" OR ".join(f"NOT(target.`{column}` <=> source.`{column}`)" for column in update_columns),
             set={column: f"source.{column}" for column in update_columns}
         )
         .whenNotMatchedInsert(

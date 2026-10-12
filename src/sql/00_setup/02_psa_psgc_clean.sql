@@ -1,11 +1,11 @@
 -- Create the PSA PSGC silver table
--- Defines ahon_dev.silver.psa_psgc_clean so its columns and types are reviewed in the repo.
+-- Defines silver.psa_psgc_clean so its columns and types are reviewed in the repo.
 -- Safe to rerun: IF NOT EXISTS leaves an existing table unchanged.
--- Written by silver/psa_psgc_clean.py. Change ahon_dev to ahon for production.
+-- Written by silver/psa_psgc_clean.py. Execute through the catalog-selecting SQL runner.
 
-CREATE SCHEMA IF NOT EXISTS ahon_dev.silver;
+CREATE SCHEMA IF NOT EXISTS silver;
 
-CREATE TABLE IF NOT EXISTS ahon_dev.silver.psa_psgc_clean (
+CREATE TABLE IF NOT EXISTS silver.psa_psgc_clean (
     -- Geographic identity
     psgc_code STRING NOT NULL,
     area_name STRING NOT NULL,

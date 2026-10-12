@@ -113,24 +113,17 @@ jobs:
       # 5. Validate YAML files
       - name: Validate YAML files
         run: |
-          pip install yamllint
           yamllint -f parsable .
 
       # 6. Lint Python files
       - name: Lint Python files
         run: |
-          pip install ruff
-          ruff check . --fix
+          python tools/validate_repository.py
+          ruff check src tests tools
 
       # 7. Run tests
       - name: Run tests
         run: |
-          pip install pytest
+          python -m compileall -q src tests tools
 
-          if find tests -type f -name 'test_*.py' -print -quit |
-            grep -q .
-          then
-            pytest tests -q
-          else
-            echo "No test files found. Skipping tests."
-          fi
+          pytest tests -q

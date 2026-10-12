@@ -1,0 +1,77 @@
+# Assessment of all pull requests
+
+Baseline: `e1e8b883a1780b3150e6c7cd880530f4d7e42e66`. Retrieved 2026-10-13. Paginated API enumeration: 25 + 25 + 0 = 50 PRs, open/merged/closed-unmerged. Full metadata, actual base/head SHAs, changed files, review/discussion and available workflow results are in [pr-evidence.json](pr-evidence.json). Workflow evidence is the returned run page, not an exhaustive historical run archive. Empty review arrays do not constitute approval.
+
+All 50 diffs and discussions were inspected. Merged work was evaluated against main, not merged again. Closed work was checked for supersession or unresolved source issues. Local integration is selective implementation, not GitHub merge/review/comment activity.
+
+Integration order: main PSGC #62 → #74 → #79 plus dimension #77; fiscal extraction #39/#64 → #81; population latest #73 → blocking checks #75; CMCI request scope #60 → grouping #66 → long Gold/coverage #84; earthquake #85 → own delta #88. Complete DAB #69 intent orchestrates these. #54 needs a separate asset/CRS/coverage decision. No superseded branch is blindly resurrected.
+
+| PR / actual state | Purpose, datasets/layers, dependencies, conflicts and disposition |
+| --- | --- |
+| [#16: Created LGU reference table](https://github.com/Project-AHON/AHON-Pipeline/pull/16) (closed unmerged) | Closed initial LGU table; shared PSGC dimension #77 supersedes workbook reference. |
+| [#17: Fixed bugged actions](https://github.com/Project-AHON/AHON-Pipeline/pull/17) (merged) | Merged action fixes; retain workflow intent with pinned tooling and nonmutating validation. |
+| [#18: fix PR governance YAML formatting](https://github.com/Project-AHON/AHON-Pipeline/pull/18) (closed unmerged) | Closed CI/governance iteration; superseded by merged #17/#25. Inspect workflow diff, retain current governance rather than obsolete duplicate actions. |
+| [#19: ci-documentation-check](https://github.com/Project-AHON/AHON-Pipeline/pull/19) (closed unmerged) | Closed CI/governance iteration; superseded by merged #17/#25. Inspect workflow diff, retain current governance rather than obsolete duplicate actions. |
+| [#20: ci-documentation-check](https://github.com/Project-AHON/AHON-Pipeline/pull/20) (closed unmerged) | Closed CI/governance iteration; superseded by merged #17/#25. Inspect workflow diff, retain current governance rather than obsolete duplicate actions. |
+| [#21: ci-documentation-check](https://github.com/Project-AHON/AHON-Pipeline/pull/21) (closed unmerged) | Closed CI/governance iteration; superseded by merged #17/#25. Inspect workflow diff, retain current governance rather than obsolete duplicate actions. |
+| [#22: ci-documentation-check](https://github.com/Project-AHON/AHON-Pipeline/pull/22) (closed unmerged) | Closed CI/governance iteration; superseded by merged #17/#25. Inspect workflow diff, retain current governance rather than obsolete duplicate actions. |
+| [#23: ci-documentation-check](https://github.com/Project-AHON/AHON-Pipeline/pull/23) (closed unmerged) | Closed CI/governance iteration; superseded by merged #17/#25. Inspect workflow diff, retain current governance rather than obsolete duplicate actions. |
+| [#24: ci-documentation-check](https://github.com/Project-AHON/AHON-Pipeline/pull/24) (closed unmerged) | Closed CI/governance iteration; superseded by merged #17/#25. Inspect workflow diff, retain current governance rather than obsolete duplicate actions. |
+| [#25: ci-documentation-check](https://github.com/Project-AHON/AHON-Pipeline/pull/25) (merged) | Merged documentation CI requirement; preserve docs-update rule and add runnable assets/link checks. |
+| [#26: Add batch CMCI Bronze and Silver pipeline](https://github.com/Project-AHON/AHON-Pipeline/pull/26) (closed unmerged) | Closed early CMCI batch/wide experiment; superseded by #60/#66/#84. No parallel Bronze implementation. |
+| [#28: Updated naming.md file, logged to /decisions + decisions template fil…](https://github.com/Project-AHON/AHON-Pipeline/pull/28) (closed unmerged) | Closed naming predecessor; superseded by #29. |
+| [#29: Updated namind.md file, logged to /decisions + decisions template fil…](https://github.com/Project-AHON/AHON-Pipeline/pull/29) (merged) | Merged naming/ADR correction; follow established names and preserve API spelling philvolcs for compatibility. |
+| [#31: docs: CONTRIBUTING and ownership draft](https://github.com/Project-AHON/AHON-Pipeline/pull/31) (merged) | Merged CONTRIBUTING/ownership draft; follow governance/naming and document implementation decisions without implying approval. |
+| [#33: feature: Git Repo Structure Initial - will be updated as we go along](https://github.com/Project-AHON/AHON-Pipeline/pull/33) (merged) | Merged initial structure; informs layout, later revisions already in main. |
+| [#35: feature: V2 Git Repo Structure Initial - with gitkeeps / will be updated as we go along](https://github.com/Project-AHON/AHON-Pipeline/pull/35) (merged) | Merged structure revision; superseded by #36; no independent runtime delta. |
+| [#36: feature: V3 Git Repo Structure Initial - with gitkeeps / will be updated as we go along- #35](https://github.com/Project-AHON/AHON-Pipeline/pull/36) (merged) | Merged repository structure revision; preserve established src/sql, docs and tests layout. |
+| [#37: Project_Noah_Ingestion](https://github.com/Project-AHON/AHON-Pipeline/pull/37) (closed unmerged) | Closed NOAH ingestion proposal; outside active earthquake scope. Defer rather than resurrect geospatial assumptions. |
+| [#39: Extract/Ingestion codes for LDRRMF + decision logs + da…](https://github.com/Project-AHON/AHON-Pipeline/pull/39) (merged) | Merged LDRRMF source extraction and ADRs; reuse fiscal workbooks, validate coverage, pin mirror and remove hard-coded workspace. |
+| [#46: feat: load PSGC LGU reference and boundaries](https://github.com/Project-AHON/AHON-Pipeline/pull/46) (closed unmerged) | Closed PSGC reference/boundary experiment; no verified geometry/exposure contract. Shared dim_lgu supersedes tabular reference intent. |
+| [#47: feat: reconcile and ingest CMCI LGU data](https://github.com/Project-AHON/AHON-Pipeline/pull/47) (closed unmerged) | Closed CMCI matching/ingestion experiment; fuzzy match cannot establish reviewed geography. Superseded by #60 and reviewed map. |
+| [#48: feature: Ingest Phivolcs Earthquake Activity dataset](https://github.com/Project-AHON/AHON-Pipeline/pull/48) (merged) | Merged PHIVOLCS monthly ingestion; reuse source semantics while fixing TLS, historical fallback, immutable publishing and explicit windows. |
+| [#50: Fix: 49 fix linting issues with ruff](https://github.com/Project-AHON/AHON-Pipeline/pull/50) (closed unmerged) | Closed lint predecessor; superseded by #51. |
+| [#51: Bugfix/49 fix linting issues with ruff](https://github.com/Project-AHON/AHON-Pipeline/pull/51) (merged) | Merged lint fixes; preserve style, replace CI mutation with check-only lint. |
+| [#53: feature: 52-hugging-face-documentation-and-setup](https://github.com/Project-AHON/AHON-Pipeline/pull/53) (merged) | Merged Hugging Face setup documentation; retain mirror intent, pin exact source revision and avoid secret embedding. |
+| [#54: feature: 41-ingest-critical-infrastructures](https://github.com/Project-AHON/AHON-Pipeline/pull/54) (open) | Critical infrastructure incomplete: inconsistent source/table paths, unstable asset identity, overwrite behavior, CRS and coverage unresolved. No runnable job or exposure claim until reviewed contract. |
+| [#55: Feature/create temp psgc reference table for cmci](https://github.com/Project-AHON/AHON-Pipeline/pull/55) (closed unmerged) | Closed CMCI reference predecessor to #61; superseded. |
+| [#56: Feature/create bronze cmci with profiling](https://github.com/Project-AHON/AHON-Pipeline/pull/56) (closed unmerged) | Closed CMCI Bronze predecessor to #60; superseded. |
+| [#57: CHC_Chirps_Ingestion](https://github.com/Project-AHON/AHON-Pipeline/pull/57) (closed unmerged) | Closed CHIRPS rainfall proposal; outside current earthquake objective, deferred; no active schema/job. |
+| [#58: feature/psgc_ingest](https://github.com/Project-AHON/AHON-Pipeline/pull/58) (closed unmerged) | Closed PSGC ingestion predecessor; superseded by #62/#74/#79. |
+| [#59: Feature/psa population (ingest, bronze, silver)](https://github.com/Project-AHON/AHON-Pipeline/pull/59) (closed unmerged) | Closed full population predecessor; source/hierarchy informs current path-aware implementation. No second parallel Silver workflow. |
+| [#60: Feature/create bronze cmci with profiling](https://github.com/Project-AHON/AHON-Pipeline/pull/60) (open) | Reuse HTTP request scope, strict 35 indicator/response parsing. Do not auto-label inferred mappings reviewed; require evidence CSV, immutable byte-preserving landing. |
+| [#61: Feature/create temp psgc reference table for cmci](https://github.com/Project-AHON/AHON-Pipeline/pull/61) (merged) | Merged temporary CMCI PSGC reference; superseded as active reference by shared dim_lgu #77 and reviewed versioned CMCI map. |
+| [#62: feature: psa_psgc_data](https://github.com/Project-AHON/AHON-Pipeline/pull/62) (merged) | Merged PSGC source/cleaning baseline; reuse bounded source periods and normalization, add immutable landing, observation identity and quarantine. |
+| [#64: feature: Silver table for LDRRMF and docs](https://github.com/Project-AHON/AHON-Pipeline/pull/64) (merged) | Merged LDRRMF Silver parsing/ratio checks; retain decimal/flags and reconcile mapper #81, lineage and correction writes. |
+| [#66: add CMCI Silver pillar tables](https://github.com/Project-AHON/AHON-Pipeline/pull/66) (open) | Reuse selected indicator/pillar grouping after #60; replace five wide Silver tables with one long fact contract to avoid duplicate logic. |
+| [#69: Feature/Created-DAB](https://github.com/Project-AHON/AHON-Pipeline/pull/69) (open) | Reuse bundle deployment intent; replace production-only placeholders with nine complete resources, isolated dev/prod targets and serverless entry points. |
+| [#70: Feature/raw_population](https://github.com/Project-AHON/AHON-Pipeline/pull/70) (closed unmerged) | Closed raw population predecessor; superseded; no blind merge. |
+| [#71: Feature/raw_population](https://github.com/Project-AHON/AHON-Pipeline/pull/71) (closed unmerged) | Closed raw population revision; superseded. Inform geographic indentation/source handling only. |
+| [#72: Updated raw](https://github.com/Project-AHON/AHON-Pipeline/pull/72) (closed unmerged) | Closed population raw revision; superseded by later Bronze/typed population work. Keep original label fidelity rather than duplicate pipelines. |
+| [#73: Feature/population silver](https://github.com/Project-AHON/AHON-Pipeline/pull/73) (open) | Review latest head rather than stale PR body. Reimplement typed population from contextual paths with idempotent rejects and nondeleting correction merges; avoid malformed count handling. |
+| [#74: chore/update-psgc-columns](https://github.com/Project-AHON/AHON-Pipeline/pull/74) (merged) | Merged PSGC column standardization; preserve leading zeros and hierarchy. #79 supersedes missing audit/province details. |
+| [#75: Added dq checks for population bronze and silver](https://github.com/Project-AHON/AHON-Pipeline/pull/75) (open) | Reuse population quality intent, replace printed FAIL with blocking persisted gates; exclude unrelated earthquake edits. |
+| [#77: Feature/Add_dim_lgu](https://github.com/Project-AHON/AHON-Pipeline/pull/77) (merged) | Merged shared dim_lgu. Reuse hierarchy and codes, add explicit source_period and guard duplicate/snapshot changes. |
+| [#79: chore: ff-up PR for PSA PSGC silver after #74 (DDL, audit columns, province labels, docs)](https://github.com/Project-AHON/AHON-Pipeline/pull/79) (merged) | Merged follow-up after #74; audit/province fields inform PSGC contract. Requires explicit parameterized catalog and compatible schema, already reconciled here. |
+| [#81: feature: psgc mapping in silver and fact_ldrrmf table](https://github.com/Project-AHON/AHON-Pipeline/pull/81) (open) | Reuse contextual BLGF mapper, 19 reviewed overrides and funding fact. Tighten name-only/different-level dispositions; retain equivalent reviewed alias targets but block conflicting normalized overrides; remove fabricated confidence; use nondeleting merges. |
+| [#84: feat: add CMCI Gold, Platinum, and data quality pipeline](https://github.com/Project-AHON/AHON-Pipeline/pull/84) (open) | Reuse long indicator fact/dimension and explicit coverage intent after #60/#66. Replace duplicated setup/wide scoring with one long contract; raw pillar sums are not official preparedness. |
+| [#85: feature: retain earthquake observations and add Bronze/Silver quality…](https://github.com/Project-AHON/AHON-Pipeline/pull/85) (open) | Reuse raw observation and quality contracts/tests. Replace event-like Bronze identity with file+ordinal observations; keep source wallclock unassigned. Legacy-table migration needs review. |
+| [#87: Feature/86 GOLD philvolcs earthquake data](https://github.com/Project-AHON/AHON-Pipeline/pull/87) (closed unmerged) | Closed predecessor to #88; no separate integration. Superseded Gold guards retained through #88. |
+| [#88: Feature/86 philvolcs earthquake data](https://github.com/Project-AHON/AHON-Pipeline/pull/88) (open) | Reuse read-only Gold validation and runner guards after #85. Actual base is #85 head 75e67ef; own delta does not reintroduce inherited observation work. Event fact remains withheld. |
+
+## Open branch evidence
+
+| PR | Actual base | Actual head |
+| --- | --- | --- |
+| #88 | feature/82-philvolcs-earthquake-data `75e67ef62f5caafb5767f268d931caccdaad7f4d` | feature/86-philvolcs-earthquake-data `22fe4e5f32a35542bd4d964fd9cd7a3da8d2ecf7` |
+| #85 | main `e1e8b883a1780b3150e6c7cd880530f4d7e42e66` | feature/82-philvolcs-earthquake-data `75e67ef62f5caafb5767f268d931caccdaad7f4d` |
+| #84 | main `e1e8b883a1780b3150e6c7cd880530f4d7e42e66` | feature/cmci-gold-platinum-dq `8fa5aad99814261736aa2ee0d756329238748dd7` |
+| #81 | main `e1e8b883a1780b3150e6c7cd880530f4d7e42e66` | feature/80-add-psgc-codes-to-ldrrmf-silver-and-build-gold-fact_ldrrmf `606555800dee04e3d46072f979fa593e4766f2cd` |
+| #75 | main `1d39e2c67e1db9f5f1222f313478473dddb8e784` | feature/dq_checks_population `dfee1848143cf33380c6e40500f6603f85a83553` |
+| #73 | main `1d39e2c67e1db9f5f1222f313478473dddb8e784` | feature/population_silver `82432555b7e29592ac3a2203d8a4dc7656f3e7ab` |
+| #69 | main `1d39e2c67e1db9f5f1222f313478473dddb8e784` | feature/DAB `f96e4b4690db1854ebc520c9e075d3649da8e7c7` |
+| #66 | main `c047a1f6a0811fba42a4028e7ed7ff9d3c10151b` | feature/cmci-silver `f9d6fc1b21b2fab8d9d9249244ada07b1738ce9f` |
+| #60 | main `c047a1f6a0811fba42a4028e7ed7ff9d3c10151b` | feature/create-bronze-CMCI-with-profiling `8ec82709fef64f62fc93735b41e0f606b8c35ab9` |
+| #54 | main `0dfd491528bc2c4ed654adc76e7e07f4bfac3467` | feature/41-ingest-critical-infrastructure-dataset `1440508071633a23144807a78e77f695c334f35c` |
+
+Conflicts were resolved around one versioned geography contract, a single CMCI long schema, corrected observation identity, deterministic nondeleting writes and explicit analytical limits. Critical infrastructure remains incomplete; event identity and risk methodology remain blocked. Engineering decisions are recorded in [ADR 0010](../decisions/0010-coherent-medallion-contract.md), not described as scientific approval.

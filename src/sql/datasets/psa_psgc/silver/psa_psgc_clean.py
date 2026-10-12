@@ -19,10 +19,10 @@ Main behavior:
     - Preserves history unless DELETE_MISSING is enabled.
 """
 
+from delta.tables import DeltaTable
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
-from delta.tables import DeltaTable
-
+from quality import check, upsert
 
 # ============================================================
 # 1. CONFIGURATION
@@ -93,6 +93,10 @@ invalid_codes = bronze.filter(
 )
 
 if invalid_codes.limit(1).count() > 0:
+    raw_reject = invalid_codes.withColumn("disposition", F.lit("invalid_psgc_code"))
+    reject_keys = ["_observation_id"] if "_observation_id" in raw_reject.columns else ["_api_period", "_row_hash"]
+    upsert(spark, raw_reject.dropDuplicates(reject_keys), f"{CATALOG}.silver.psa_psgc_code_reject", reject_keys)
+    check(spark, CATALOG, globals().get("PIPELINE_RUN_ID", "interactive"), "invalid_psgc_code", "bronze.psa_psgc", invalid_codes.count())
     print("Invalid PSGC codes found in Bronze:")
     invalid_codes.select(
         "psgc_code",
@@ -259,13 +263,20 @@ print("PSGC codes standardized to 10 digits in Silver.")
 
 # Keep records that have the fields needed for the Silver key
 # and geographic interpretation.
-valid = cleaned.filter(
+valid_condition = (
     F.col("psgc_code").isNotNull()
     & F.col("area_name").isNotNull()
     & (F.col("area_name") != "")
-    & F.col("geographic_level").isNotNull()
+    & F.col("geographic_level").isin("REG", "PROV", "CITY", "MUN", "BGY", "SGU", "SUBMUN")
     & F.col("_api_period").isNotNull()
 )
+
+rejected = cleaned.filter(~F.coalesce(valid_condition, F.lit(False))).withColumn("disposition", F.lit("invalid_geographic_fields"))
+
+check(spark, CATALOG, globals().get('PIPELINE_RUN_ID', 'interactive'), 'invalid_geographic_fields', 'silver.psa_psgc_reject', rejected.count(), 'WARN')
+upsert(spark, rejected, f"{CATALOG}.silver.psa_psgc_reject", ["_api_period", "_row_hash"])
+valid = cleaned.filter(valid_condition)
+
 
 # Deterministically select one record per code, level, and snapshot.
 dedup_window = (
@@ -598,7 +609,7 @@ province_city_expr = (
     )
     .when(
         independent_city_name.isNotNull()
-        & src_level.isin("BGY", "SUBMUN"),
+        & src_level.isin("BGY", "SGU", "SUBMUN"),
         F.concat_ws(
             ", ",
             F.col("src.area_name"),
@@ -615,7 +626,7 @@ province_city_expr = (
     )
     .when(
         parent_name.isNotNull()
-        & src_level.isin("BGY", "SUBMUN"),
+        & src_level.isin("BGY", "SGU", "SUBMUN"),
         F.concat_ws(
             ", ",
             F.col("src.area_name"),
@@ -733,21 +744,8 @@ else:
         if field.name not in existing_columns
     ]
 
-    if new_fields:
-        column_ddl = ", ".join(
-            f"`{field.name}` {field.dataType.simpleString()}"
-            for field in new_fields
-        )
-
-        spark.sql(
-            f"ALTER TABLE {SILVER_TABLE} "
-            f"ADD COLUMNS ({column_ddl})"
-        )
-
-        print(
-            "Added Silver columns:",
-            [field.name for field in new_fields],
-        )
+    if new_fields or {f.name: f.dataType for f in existing_df.schema} != {f.name: f.dataType for f in silver.schema}:
+        raise ValueError("Existing PSGC Silver schema differs; reviewed migration required")
 
     # Check that old Silver records will not create ambiguous
     # matches after their codes are normalized to 10 digits.
@@ -800,7 +798,7 @@ else:
     # Update only rows whose Bronze hash changed. The null-safe
     # comparison also handles rows where either hash is NULL.
     change_condition = (
-        "NOT (t._row_hash <=> s._row_hash)"
+        " OR ".join(f"NOT(t.`{c}` <=> s.`{c}`)" for c in silver.columns if c not in {"_processed_at", "_ingested_at", "_batch_id"})
     )
 
     merge = (

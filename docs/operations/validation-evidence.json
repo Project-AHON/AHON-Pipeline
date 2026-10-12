@@ -1,0 +1,85 @@
+{
+  "baseline_main": "e1e8b883a1780b3150e6c7cd880530f4d7e42e66",
+  "branch": "feature/coherent-medallion-pipeline",
+  "profile": "7474651621867565",
+  "workspace": "https://dbc-74becaaa-f34b.cloud.databricks.com",
+  "verified_date": "2026-10-13",
+  "local": {
+    "pytest": {
+      "passed": 69,
+      "failed": 0,
+      "basetemp": "workspace-local"
+    },
+    "ruff": "PASS",
+    "yaml": "PASS",
+    "compile": "PASS",
+    "repository_assets_dependencies_links": "PASS",
+    "diff_whitespace": "PASS",
+    "strict_bundle_dev": "PASS",
+    "strict_bundle_prod_configuration_only": "PASS"
+  },
+  "deployment": {
+    "target": "dev",
+    "catalog": "ahon_dev",
+    "jobs": 9,
+    "schedules": "PAUSED",
+    "production_deployed": false
+  },
+  "runs": [
+    {
+      "run_id": 619663474246608,
+      "task_run_id": 409755408585312,
+      "status": "SUCCESS",
+      "suite": "population, earthquake, CMCI, replay, quarantine and blocking checks"
+    },
+    {
+      "run_id": 161258103251102,
+      "task_run_id": 43883518136491,
+      "status": "SUCCESS",
+      "suite": "PSGC reference, dimension, normalization, replay and malformed quarantine"
+    },
+    {
+      "run_id": 144074574547018,
+      "task_run_id": 173868759076392,
+      "status": "SUCCESS",
+      "suite": "financial SQL, geographic mapping, ratio edge cases, CMCI invalid correction and recovery, evidence status"
+    },
+    {
+      "run_id": 644608557954738,
+      "task_run_id": 566285731623410,
+      "status": "SUCCESS",
+      "suite": "default ahon_dev setup"
+    },
+    {
+      "run_id": 712716407891759,
+      "task_run_id": 801376577052061,
+      "status": "SUCCESS",
+      "suite": "financial invalid total quarantine before blocking, replay, correction recovery and finite negative earthquake magnitude"
+    }
+  ],
+  "fixed_failures": [
+    {
+      "run_id": 855558121182629,
+      "reason": "Databricks script __file__ unavailable; introduced validated launcher"
+    },
+    {
+      "run_id": 277907114947490,
+      "reason": "Spark Connect errorifexists unsupported; used error write mode"
+    },
+    {
+      "run_id": 267990613538590,
+      "reason": "Equivalent reviewed alias duplicates; allow same target, reject conflicts"
+    },
+    {
+      "run_id": 752096235156542,
+      "reason": "MERGE-source schema guard whitespace parsing; regression-tested actual queries"
+    }
+  ],
+  "limits": [
+    "Synthetic fixtures; complete nationwide source retrieval and parent orchestration not executed",
+    "PSA secret and reviewed CMCI mapping missing in selected workspace",
+    "Scientific risk, exposure, vulnerability and preparedness scale not approved; classifications/gaps/rankings withheld",
+    "Production identity, permissions, network and migrations unverified",
+    "Historical workflow metadata retrieval is not an exhaustive archive"
+  ]
+}
