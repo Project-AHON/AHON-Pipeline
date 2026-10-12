@@ -1,8 +1,3 @@
-# Databricks notebook source
-# /// script
-# [tool.databricks.environment]
-# environment_version = "6"
-# ///
 """Extract PSA 2024 census population data from the PXWeb API.
 
 The raw CSV is saved to a Unity Catalog volume, but only after the response
@@ -159,7 +154,6 @@ def main() -> None:
         report("Converted the response from Latin-1 to UTF-8")
     report(f"Data rows: {row_count:,}")
     report(f"Header: {fieldnames}")
-
 
 # COMMAND ----------
 
