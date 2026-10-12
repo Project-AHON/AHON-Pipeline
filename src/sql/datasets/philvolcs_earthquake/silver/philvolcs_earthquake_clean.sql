@@ -1,74 +1,35 @@
-CREATE TABLE IF NOT EXISTS ahon.silver.philvolcs_earthquake_data_clean (
-    id BIGINT NOT NULL PRIMARY KEY,
-    event_time TIMESTAMP NOT NULL,
-    latitude DOUBLE NOT NULL,
-    longitude DOUBLE NOT NULL,
-    depth DOUBLE NOT NULL,
-    magnitude DOUBLE NOT NULL,
-    location_description STRING,
-    month INT NOT NULL,
-    year INT NOT NULL,
-    _source_name STRING,
-    _source_ref STRING,
-    _ingested_at TIMESTAMP,
-    _batch_id STRING,
-    _row_hash STRING
-);
-
-MERGE INTO ahon.silver.philvolcs_earthquake_data_clean AS target
-USING (
-    WITH parsed AS (
-        SELECT
-            bronze._source_name,
-            bronze._source_ref,
-            bronze._ingested_at,
-            bronze._batch_id,
-            bronze._row_hash,
-            try_to_timestamp(bronze.`Date-Time`, 'dd MMMM yyyy - hh:mm a') AS event_time,
-            try_cast(bronze.Latitude AS DOUBLE) AS latitude,
-            try_cast(bronze.Longitude AS DOUBLE) AS longitude,
-            try_cast(bronze.Depth AS DOUBLE) AS depth,
-            try_cast(bronze.Magnitude AS DOUBLE) AS magnitude,
-            nullif(trim(bronze.Location), '') AS location_description
-        FROM ahon.bronze.philvolcs_earthquake_data AS bronze
-        WHERE trim(bronze.`Date-Time`) <> ''
-    ),
-    invalid AS (
-        SELECT
-            *,
-            CASE
-                WHEN event_time IS NULL THEN 1
-                WHEN latitude IS NULL OR latitude < -90 OR latitude > 90 THEN 1
-                WHEN longitude IS NULL OR longitude < -180 OR longitude > 180 THEN 1
-                WHEN depth IS NULL OR depth < 0 THEN 1
-                WHEN magnitude IS NULL OR magnitude < 0 THEN 1
-                ELSE 0
-            END AS is_invalid
-        FROM parsed
-    ),
-    valid AS (
-        SELECT
-            *
-        FROM invalid
-        WHERE is_invalid = 0
-    )
-    SELECT
-        xxhash64(event_time, latitude, longitude, depth, magnitude) AS id,
-        event_time,
-        latitude,
-        longitude,
-        depth,
-        magnitude,
-        location_description,
-        extract(MONTH FROM event_time) AS month,
-        extract(YEAR FROM event_time) AS year,
-        _source_name,
-        _source_ref,
-        _ingested_at,
-        _batch_id,
-        _row_hash
-    FROM valid
-) AS source
-ON target.id = source.id
-WHEN MATCHED THEN UPDATE SET *
-WHEN NOT MATCHED THEN INSERT *;
+-- Candidate only. Every distinct observation survives; id is not the merge key.
+CREATE OR REPLACE TEMP VIEW earthquake_parsed AS
+SELECT b.*, try_to_timestamp(upper(trim(`Date-Time`)),
+  'dd MMMM yyyy - hh:mm a') AS event_time,
+  nullif(trim(Location), '') AS location_description
+FROM earthquake_scope b;
+-- COMMAND ----------
+CREATE OR REPLACE TEMP VIEW earthquake_silver_candidate AS
+SELECT xxhash64(p.event_time, p.Latitude, p.Longitude, p.Depth, p.Magnitude) AS id,
+  p.event_time, p.Latitude AS latitude, p.Longitude AS longitude,
+  p.Depth AS depth, p.Magnitude AS magnitude, p.location_description,
+  cast(month(p.event_time) AS INT) AS month, cast(year(p.event_time) AS INT) AS year,
+  coalesce(p.event_time IS NULL OR p.Latitude IS NULL OR isnan(p.Latitude)
+    OR NOT p.Latitude BETWEEN -90 AND 90 OR p.Longitude IS NULL
+    OR isnan(p.Longitude) OR NOT p.Longitude BETWEEN -180 AND 180
+    OR p.Depth IS NULL OR isnan(p.Depth) OR p.Depth < 0
+    OR p.Depth = double('Infinity') OR p.Magnitude IS NULL
+    OR isnan(p.Magnitude) OR p.Magnitude < 0 OR p.Magnitude = double('Infinity')
+    OR coalesce(p._raw_period_invalid, false) OR p.Year IS NULL OR p.Year <> year(p.event_time)
+    OR p.Month IS NULL OR lower(trim(p.Month)) <> lower(date_format(p.event_time, 'MMMM')),
+    true) AS has_dq_issues,
+  p._source_name, p._source_ref, p._ingested_at, p._batch_id, p._row_hash,
+  c.as_of AS _processed_at,
+  m.locality_token AS reported_locality, m.province_token AS reported_province,
+  coalesce(m.candidate_codes, cast(array() AS ARRAY<STRING>)) AS psgc_candidate_codes,
+  coalesce(m.candidate_status, 'unparsed') AS psgc_candidate_status,
+  m.candidate_method AS psgc_candidate_method,
+  c.source_period AS _psgc_snapshot,
+  cast(NULL AS STRING) AS psgc_code, 'blocked_meaning' AS psgc_match_status,
+  cast(NULL AS STRING) AS psgc_match_method
+FROM earthquake_parsed p
+LEFT JOIN earthquake_description_keys k ON p._row_hash = k._row_hash
+LEFT JOIN earthquake_lgu_candidates m
+  ON k.locality_token = m.locality_token AND k.province_token = m.province_token
+CROSS JOIN earthquake_config c;

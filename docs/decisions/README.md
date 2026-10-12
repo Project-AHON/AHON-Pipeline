@@ -40,3 +40,4 @@ if it changes, write a new record and mark the old one
 | [0004](0004-source-file-landing-hugging-face.md) | Land source files through Hugging Face | Accepted |
 | [0005](0005-CMCI-locality-mapping-and-incremental-ingestion) | CMCI mapping and ingestion | Accepted |
 | [0006](0006-silver-provenance-and-dq-flag.md) | Silver keeps provenance columns and marks data quality problems in one column | Proposed |
+| [0007](0007-earthquake-observations-and-locality-candidates.md) | Earthquake observations and locality candidates (0007/0008 reserved in open PRs) | Proposed |
