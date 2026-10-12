@@ -97,3 +97,18 @@ FROM (
   WHERE total_expenditure > total_appropriation
 )
 ORDER BY rule_code, fiscal_year, region, province, lgu_name;
+
+-- COMMAND ----------
+
+-- Check the PSGC codes in silver
+-- What it does: counts rows by match status and LGU type, and checks that psgc_code is filled exactly when the status is exact.
+-- What to expect: every row 'exact' except the 5 old Maguindanao province rows (FY2018 to FY2022), and code_status_mismatch = 0.
+SELECT
+  psgc_match_status,
+  lgu_type,
+  count(*) AS rows,
+  count(psgc_code) AS with_code,
+  count_if((psgc_match_status = 'exact') <> (psgc_code IS NOT NULL)) AS code_status_mismatch
+FROM silver.blgf_ldrrmf_annual_lgu_clean
+GROUP BY ALL
+ORDER BY ALL;

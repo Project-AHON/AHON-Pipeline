@@ -38,7 +38,8 @@ Rows per file: 1,513 (FY2018), 1,566, 1,612, 1,637, 1,683, 1,707, 1,716 (FY2024)
 - **One row is:** one LGU (province, city or municipality) in one fiscal year. Same rows as bronze (11,434); no row is dropped and no value is corrected except trimming spaces.
 - **Key:** `fiscal_year` + `region` + `province` + `lgu_name` + `lgu_type`.
 - **Built from bronze by:** `src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/clean_blgf_ldrrmf_annual_lgu.sql`. A run rebuilds the whole table.
-- **Not in silver:** PSGC codes, utilization rates and the PSGC-based region. Reconciling with PSGC is done in gold.
+- **PSGC codes:** added from `ahon.reference.blgf_ldrrmf_lgu_map` (see below). Build order: `silver.psa_psgc_clean`, then `build_blgf_ldrrmf_lgu_map.py`, then this table.
+- **Not in silver:** utilization rates and the PSGC-based region (both come in gold).
 
 | Column | Type | Description | Notes |
 | --- | --- | --- | --- |
@@ -53,6 +54,9 @@ Rows per file: 1,513 (FY2018), 1,566, 1,612, 1,637, 1,683, 1,707, 1,716 (FY2024)
 | `qrf_30pct_expenditure` | decimal(18,2) | Spent from the 30% Quick Response Fund | Pesos. Bronze `30pct_quick_response_fund_expenditures` |
 | `total_appropriation` | decimal(18,2) | Total budget | Pesos. Bronze `total_budget_appropriation`; equals the sum of the two parts |
 | `total_expenditure` | decimal(18,2) | Total spent | Pesos. Bronze `total_expenditures`; equals the sum of the two parts |
+| `psgc_code` | string | 10-digit PSGC code of the province, city or municipality | From the LGU map, only when its status is `matched`. NULL otherwise (see Known issues: Maguindanao) |
+| `psgc_match_status` | string | `exact` or `unmatched` | Team schema values. `exact` = a single exact name match inside the province, or a person-checked override |
+| `psgc_match_method` | string | How the map found the code | `province_name`, `no_province_name` (NCR, HUCs, Isabela City), `override`; NULL when nothing matched |
 | `has_dq_issues` | boolean | The row breaks at least one flag rule | True when any amount is negative, the total budget is 0, or total spent is above total budget. Only marks the row. See the rules below |
 | `_source_name` | string | The dataset the row came from | Carried from bronze |
 | `_source_ref` | string | The Excel file the row was loaded from | Carried from bronze |
@@ -87,6 +91,14 @@ Draft rules for this dataset. The shared DQ tables (`dq_ruleset`, `dq_results`, 
 
 The check names are the same as in the data quality checks doc. To see which check a flagged row breaks, run the finder query in `check_blgf_ldrrmf_annual_lgu_clean.sql`. It joins back to silver on `_source_ref` + `_row_hash`.
 
+## LGU map: `ahon.reference.blgf_ldrrmf_lgu_map`
+
+- **One row is:** one distinct LGU as BLGF writes it (region + province + LGU name + LGU type, trimmed), with the PSGC code it matched. 2,055 rows, more than the number of LGUs because BLGF writes some regions differently by year.
+- **Built by:** `src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/build_blgf_ldrrmf_lgu_map.py`, from bronze and `silver.psa_psgc_clean` (snapshot `Q2_2024`, the same as `gold.dim_lgu`). Person-checked fixes are in `blgf_ldrrmf_lgu_map_overrides.csv` next to it, each with a reason.
+- **Matching:** names are compared in a simple form (upper case, no accents, no "City of", broken ñ repaired). Rules in order: override, same name in the same province, same name among LGUs with no province, then name only or old name (these need review and give no code).
+- **Result (ahon_dev, 2026-10-12):** 2,053 matched (1,994 by province and name, 38 with no province, 23 overrides including the Maguindanao row), 2 unmatched (Maguindanao province).
+- **When to rerun:** after a new BLGF year or a PSGC snapshot change. The silver build stops if an LGU is missing from the map.
+
 ## Known issues
 
 - **The Excel files do not share one layout.** The data sheet name and position change by year, the header sits on a different row in FY2024, FY2023 puts `LGU TYPE` first, and FY2021 labels it `LGU CODE`. The load finds the header row and maps columns by name, and stops with an error if a file does not fit.
@@ -94,14 +106,16 @@ The check names are the same as in the data quality checks doc. To see which che
 - **Spending above budget.** 388 rows (3.4%) have expenditure above appropriation (98, 85, 107, 56, 23, 10, 9). It may be legitimate (carry-over or supplemental funds) or an entry error. Kept as received.
 - **Province rows are separate funds** from city and municipality rows. Do not add them together.
 - **Coverage grows over time**, from 1,513 lines in FY2018 to 1,716 in FY2024.
-- **No PSGC code.** Silver does not add one. Matching to other datasets (and to the correct region) is done in gold; municipality names repeat across provinces, so match on province and name together.
+- **PSGC code comes from the LGU map.** Municipality names repeat across provinces, so the map matches on province and name together. The correct region comes from PSGC through `psgc_code`.
 - **Region differs by year.** In FY2018 and FY2021 the BARMM provinces (Basilan, Maguindanao, Sulu, Tawi-Tawi) are listed under Region IX or XII, in other years under BARMM. Isabela City is under Region IX in every year. Silver keeps the region as received.
 - **LGU names change between years.** 92 LGUs are missing in some years, and many of those are renames: "Naga City (Cebu)" until FY2021 and "Naga City" from FY2020, "Talisay City (Cebu)" likewise, "Santo Niño (Faire)", "Mendez (Mendez-Nuñez)" and "Mapun (Cagayan De Tawi-Tawi)" in FY2018 to FY2020, and "Western Samar (Samar)" in FY2018 to FY2020. The same LGU can therefore look like two LGUs, which also affects year-over-year comparisons. Silver keeps the names as received; gold matches them through PSGC.
 - **Pateros is labelled Municipality in some years and City in others.** PSGC lists it as a municipality (checked in the PSGC 2Q 2026 file).
 - **Part-level overspending is common.** 295 rows have a 70% or 30% part spent above its own budget while the total is within budget. Not flagged; it may be money moved between the two parts (not checked with BLGF).
 - **The 30% share varies.** About 76% of rows (8,673) have a 30% part of 29 to 31% of the total budget; 2,574 do not. Not flagged.
 - **Negative expenditures.** 3 rows have a negative amount (Romblon FY2020, Albay FY2021, Leon FY2022), possibly refunds or reversals. Kept and flagged.
-- **Maguindanao** is one province in FY2018 to FY2022 and Maguindanao Del Norte and Del Sur from FY2023 (the 2022 split).
+- **Maguindanao** is one province in FY2018 to FY2022 and Maguindanao Del Norte and Del Sur from FY2023 (the 2022 split). **The old province rows (FY2018 to FY2022, 5 rows) have no PSGC code**, because PSGC Q2_2024 lists only the two new provinces. They are kept with `psgc_code` NULL and `psgc_match_status = 'unmatched'`. Its towns are matched to their current codes. Possible fix later: take the old code from PSGC Q2_2021 and add it to `dim_lgu` as a retired area (decided 2026-10-12: note it for now).
+- **Broken ñ.** PSGC (`psa_psgc_clean`) has `Ã±` for ñ ("City of DasmariÃ±as"), and the BLGF FY2019 file has `ãƒâ€˜` or `ã‘` ("Biã‘An City"). Silver keeps the names as received; the LGU map repairs them before comparing.
+- **BLGF spellings that differ from PSGC** (Ozamis, Korondal, Cordoba, Lavesares, Pililia, Mustahpa, Bumbaran, Bacungan, Datu Montawal = PSGC "Pagagawan", and others) are fixed with overrides, listed with reasons in the overrides csv.
 - **Only the data sheet is loaded.** Each Excel file also has a `Metadata` sheet (originator, extraction date, disclaimer), which is not loaded.
 
 ## Open
