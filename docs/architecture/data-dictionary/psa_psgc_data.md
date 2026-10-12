@@ -34,7 +34,7 @@ One record represents one PSGC geographic record from one API snapshot. The same
 | Column | Type | Description | Notes |
 |---|---|---|---|
 | `_api_period` | STRING | PSGC API snapshot from which the record was retrieved. | `Q2_2024`, `April_2024`, `Q4_2023`, or `Q2_2021`. |
-| `area_name` | STRING | Cleaned name of the geographic area. | Derived from Bronze `area_name`; PSA footnote markers and unwanted whitespace are cleaned in Silver.|
+| `area_name` | STRING | Name of the geographic area. | Source field: `area_name`. |
 | `bgy` | BIGINT | PSGC code identifying the barangay. | Source field: `bgy`. May be NULL above barangay level. |
 | `city_class` | STRING | Classification of a city. | Source field: `city_class`. |
 | `code` | STRING | PSGC code identifying the geographic area. | Source field: `code`; used as `psgc_code` downstream. |
