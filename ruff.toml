@@ -1,3 +1,10 @@
+builtins = ["spark"]
+
+[lint]
+# Databricks notebooks use `# Databricks notebook source` as the first
+# line instead of a shebang, which triggers EXE002.
+ignore = ["EXE002"]
+
 [lint.per-file-ignores]
 "src/sql/datasets/psa_psgc/bronze/psa_psgc.py" = ["F821"]
 "src/sql/datasets/psa_psgc/extract/psa_psgc_ingest.py" = ["F821"]
