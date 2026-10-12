@@ -9,3 +9,6 @@ dependencies = [
 
 [tool.ruff]
 builtins = ["spark"]
+
+[tool.databricks.environment]
+environment_version = '6'
