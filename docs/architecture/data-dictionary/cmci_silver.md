@@ -6,7 +6,7 @@
 
 ## Silver CMCI Pillar Tables
 
-- **Built from Bronze by:** `src/sql/02_silver_clean/cmci_indicator_parse.py`
+- **Built from Bronze by:** `src/sql/datasets/cmci/silver/cmci_parse.py`
 - **One row is:** one approved CMCI LGU and reporting year for one pillar
 - **Key:** `psgc_code`, `year`
 - **Expected coverage:** 1,634 LGUs × 11 years = 17,974 rows per table

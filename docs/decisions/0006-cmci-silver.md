@@ -36,7 +36,7 @@ Each table contains one row per approved `psgc_code` and `year`. Silver records 
 ## Consequences
 
 - Five Silver tables must exist before running the parser.
-- `cmci_indicator_parse.py` reads the latest valid version of every Bronze batch.
+- \cmci_parse.py` reads the latest valid version of every Bronze batch.`
 - Each Silver table contains 17,974 rows when coverage is complete.
 - The expected scope is 1,634 approved LGUs across 11 years.
 - The eight PSGC-only CMCI source gaps do not receive placeholder Silver rows.
