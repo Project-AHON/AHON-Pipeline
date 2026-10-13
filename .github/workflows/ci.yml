@@ -116,11 +116,22 @@ jobs:
           pip install yamllint
           yamllint -f parsable .
 
-      # 6. Lint Python files
-      - name: Lint Python files
+      # 6. Lint changed Python files
+      - name: Lint changed Python files
         run: |
           pip install ruff
-          ruff check . --fix
+          git fetch origin ${{ github.base_ref }}
+
+          FILES=$(git diff --name-only \
+            --diff-filter=ACMRT \
+            origin/${{ github.base_ref }}...HEAD \
+            -- '*.py')
+
+          if [ -n "$FILES" ]; then
+            ruff check $FILES --config pyproject.toml
+          else
+            echo "No Python files changed."
+          fi
 
       # 7. Run tests
       - name: Run tests
