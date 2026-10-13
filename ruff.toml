@@ -1,4 +1,4 @@
-builtins = ["spark"]
+builtins = ["spark", "dbutils", "display"]
 
 [lint]
 # Databricks notebooks use `# Databricks notebook source` as the first
