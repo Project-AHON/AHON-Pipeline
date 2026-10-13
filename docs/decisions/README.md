@@ -39,4 +39,5 @@ if it changes, write a new record and mark the old one
 | [0003](0003-repository-structure-initial.md) | Repository structure | Accepted |
 | [0004](0004-source-file-landing-hugging-face.md) | Land source files through Hugging Face | Accepted |
 | [0005](0005-CMCI-locality-mapping-and-incremental-ingestion) | CMCI mapping and ingestion | Accepted |
-| [0006](0006-silver-provenance-and-dq-flag.md) | Silver keeps provenance columns and marks data quality problems in one column | Proposed |
+| [0006](0006-cmci-mapping-and-ingestion.md) | CMCI mapping and ingestion | Accepted |
+| [0007](0007-silver-provenance-and-dq-flag.md) | Silver keeps provenance columns and marks data quality problems in one column | Proposed |
