@@ -1,4 +1,4 @@
-# 0005: Store CMCI Silver data by pillar
+# 0006: Store CMCI Silver data by pillar
 
 - **Status:** Accepted
 - **Date:** 2026-10-09
