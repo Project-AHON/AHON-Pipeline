@@ -1,59 +1,110 @@
-# PHILVOLCS Earthquake Seismic Activity
+# PHILVOLCS earthquake observations
 
 - **Source:** Philippine Institute of Volcanology and Seismology (PHIVOLCS), Department of Science and Technology (DOST). The raw extract is the combined CSV `phivolcs_earthquake_all_years.csv` generated from PHIVOLCS monthly earthquake pages and landed in the `ahon.reference.source` volume under the 'philippine_earthquake' folder.
 - **Coverage:** Monthly earthquake listings from 2019-01-01 through 2026-09-29 in the current extract, covering seismic events reported in the Philippines and nearby offshore areas; the source is refreshed as PHIVOLCS publishes new monthly tables.
 - **Owner:** Department of Science and Technology - Philippine Institute of Volcanology and Seismology (DOST-Philvolcs)
 
-## Bronze: `ahon.bronze.philvolcs_earthquake_data`
+## Bronze: `<catalog>.bronze.philvolcs_earthquake_data`
 
-- **One row is:** one earthquake event as scraped from a PHIVOLCS monthly page: a timestamped event with latitude, longitude, depth, magnitude, and a free-text location description.
-- **Loaded by:** `src/sql/datasets/philvolcs_earthquake/extract/philvolcs_earthquake_ingest.py` and `src/sql/datasets/philvolcs_earthquake/bronze/philvolcs_earthquake.sql`.
-- **Row hash covers:** all eight source columns below, in the order listed, joined with `||` (empty strings remain empty).
+One row is a distinct source observation under the existing `_row_hash` contract,
+including invalid/non-event rows that can be represented by the typed schema.
+Repeated identical source rows stay in the immutable CSV; reports explicitly count
+raw rows, distinct observations and repetitions. A revised magnitude/depth or
+source description may produce a new observation.
 
 | Column | Type | Description | Notes |
 | --- | --- | --- | --- |
-| `Date-Time` | string | Earthquake event timestamp as published by PHIVOLCS, in the raw format `dd Month yyyy - hh:mm AM/PM` | Example: `31 January 2019 - 02:55 PM`; some rows have lowercase `am`/`pm` and a few non-event header rows also appear in the raw file |
-| `Latitude` | double | Event latitude in decimal degrees north | Range in the current extract: 1.73 to 24.84; some missing values are present |
-| `Longitude` | double | Event longitude in decimal degrees east | Range in the current extract: 116.3 to 132.18; some missing values are present |
-| `Depth` | double | Earthquake depth in kilometers | Range in the current extract: 0.0 to 800.0; values are kept as scraped |
-| `Magnitude` | double | Event magnitude | Range in the current extract: 1.0 to 7.8 |
-| `Location` | string | Free-text location description, including distance and bearing from a known place | Examples include `025 km S 58° W of Sipalay (Negros Occidental)`. Degree symbols and formatting vary |
-| `Month` | string | Month label from the source page, such as `January` | Used as scraped; the raw file also contains month/year banner rows |
-| `Year` | int | Year value from the source page | Current extract spans 2019 to 2026 |
-| `_source_name` | string | The dataset the row came from | Always `philvolcs_earthquake_data` |
-| `_source_ref` | string | Raw source file path within the reference volume | Example: `/Volumes/ahon/reference/source/philvolcs_earthquake/phivolcs_earthquake_all_years.csv` |
-| `_ingested_at` | timestamp (UTC) | When the row was loaded into bronze | |
-| `_batch_id` | string | The run identifier that wrote the row | Same value on every row loaded in a single batch |
-| `_row_hash` | string | SHA-256 of the raw source columns as received | Covers the eight source columns above, not the provenance columns |
+| `Date-Time` | STRING | Source timestamp text | `dd MMMM yyyy - hh:mm AM/PM`; can be invalid/blank |
+| `Latitude` | DOUBLE | Published latitude, decimal degrees | Nullable; original numeric text remains in raw CSV |
+| `Longitude` | DOUBLE | Published longitude, decimal degrees | Nullable; original numeric text remains in raw CSV |
+| `Depth` | DOUBLE | Published depth in km | Nullable; NaN/infinity are reported |
+| `Magnitude` | DOUBLE | Published magnitude | Nullable; no arbitrary upper limit |
+| `Location` | STRING | Published description | Legacy trim/blank-to-null remains; raw text retained in file |
+| `Month` | STRING | Source page month name | Legacy trim/blank-to-null remains |
+| `Year` | INT | Source page year | Legacy try_cast remains; original text separately checked |
+| `_source_name` | STRING | Dataset name | `philvolcs_earthquake_data` |
+| `_source_ref` | STRING | Immutable landing CSV path | First source containing this hash; file digest/type manifest beside it |
+| `_ingested_at` | TIMESTAMP | First Bronze ingestion time, UTC | Unchanged on a rerun |
+| `_batch_id` | STRING | First ingestion run ID | One supplied ID per run; unchanged rows retain earlier IDs |
+| `_row_hash` | STRING | Observation fingerprint | Lowercase 64-character SHA-256; merge identity |
 
-The raw file in the current profile has 129,792 rows, of which 129,711 pass the silver validation rules after cleaning. Record counts by year in the valid set are: 2019 = 12,971; 2020 = 14,033; 2021 = 12,042; 2022 = 14,325; 2023 = 16,617; 2024 = 18,104; 2025 = 21,763; 2026 = 19,856.
+**Legacy hash contract:** main computes `sha2(concat_ws('||', Date-Time, Latitude,
+Longitude, Depth, Magnitude, Location, Month, Year), 256)` from `read_files`
+**inferred source values before Bronze casts/trims**, in exactly that order.
+`concat_ws` skips nulls and does not escape delimiters. Therefore the old dictionary
+claim of original numeric text fidelity was incorrect. The runner pins reviewed
+inferred types, checks recomputed hashes against landed/persisted observations,
+and stops for distinct signatures sharing a hash, textual observations collapsing
+under inference, or inference drift. It does not introduce a new identity contract.
 
-## Silver: `ahon.silver.philvolcs_earthquake_data_clean`
+Typed Bronze cannot distinguish all original numeric strings, restore previously
+trimmed values, or recover first lineage already changed by old main reruns.
+The immutable CSV and `<csv>.manifest.json` retain its SHA-256, raw count, source
+columns, inference types and source period counts. These files must be retained
+as long as the observations. Recomputing hashes for history requires each original
+file and its inferred-type contract; it cannot be done faithfully from typed
+Bronze alone. An incompatible target or missing original contract requires a
+fresh development target or separately reviewed migration, never a production
+overwrite. Invalid numeric text stays auditable in raw even when a legacy cast
+produces null. A schema-inference change can block a batch pending that decision.
 
-- **One row is:** one valid earthquake event after parsing and validating the raw PHIVOLCS rows, with non-event banner rows removed and impossible values filtered out.
-- **Key:** `id`
-- **Deduplication rule:** Silver identifies the same event by `event_time`, `latitude`, `longitude`, `depth`, and `magnitude`. The surrogate key is computed as `xxhash64(event_time, latitude, longitude, depth, magnitude)`.
-- **Built from bronze by:** `src/sql/datasets/philvolcs_earthquake/silver/philvolcs_earthquake_clean.sql`.
+## Silver: `<catalog>.silver.philvolcs_earthquake_data_clean`
 
-## Known issues
+One row is one distinct Bronze observation, including flagged rows. The merge key
+is `_row_hash`; `id` remains an event signature and is **not unique**. Enrichment
+must not multiply rows. Existing Silver's event primary key/NOT NULL constraints
+must be migrated explicitly before adopting this observation contract.
 
-- Bronze keeps every source row, including non-event banner rows and invalid values. Silver is the filtered analytic table and deduplicates repeated observations of the same event using the event signature `(event_time, latitude, longitude, depth, magnitude)`.
-- The raw `Date-Time` field is a free-form string...
+| Column | Type | Description | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT | `xxhash64(event_time, latitude, longitude, depth, magnitude)` | Same signature expression; never invalid-observation identity |
+| `event_time` | TIMESTAMP, nullable | Parsed source wall-clock value under legacy signature convention | Not labeled UTC; see time semantics below |
+| `latitude`, `longitude` | DOUBLE, nullable | Bronze coordinates | Kept even when implausible; flagged |
+| `depth`, `magnitude` | DOUBLE, nullable | Bronze depth/magnitude | Finite/nonnegative rules; no 800/7.8 upper cutoff |
+| `location_description` | STRING, nullable | Trimmed description | Blank Location allowed |
+| `month`, `year` | INT, nullable | Derived from parsed source wall time | Compared with Bronze page metadata |
+| `has_dq_issues` | BOOLEAN | Invalid timestamp/numeric values or inconsistent source period | Mapping gaps are separate |
+| `_source_name`, `_source_ref`, `_batch_id`, `_row_hash` | STRING | Unchanged Bronze lineage | Same meanings as above |
+| `_ingested_at` | TIMESTAMP | Unchanged Bronze ingestion time | UTC |
+| `_processed_at` | TIMESTAMP | Silver processing time, UTC | Unchanged rows keep their earlier value |
+| `reported_locality`, `reported_province` | STRING | Conservatively parsed/normalized tokens | Empty/unparsed tokens retained as empty or null |
+| `psgc_candidate_codes` | ARRAY<STRING> | Exact CITY/MUN locality+province candidates | Zero, one or multiple; no invented/padded codes |
+| `psgc_candidate_status` | STRING | `single_candidate`, `ambiguous`, `unmatched`, `unparsed`, `blocked_reference` | Proposal, not approved Schema v1 values |
+| `psgc_candidate_method` | STRING, nullable | `exact_locality_province_candidate` | Method category, not confidence probability |
+| `_psgc_snapshot` | STRING | Configured reference period | Default Q2_2024; no Q2 2026 substitution |
+| `psgc_code` | STRING, nullable | Analytical PSGC assignment | Always null pending approved meaning |
+| `psgc_match_status` | STRING | `blocked_meaning` | Minimal proposed extension; no guessed assignment |
+| `psgc_match_method` | STRING, nullable | Approved assignment method | Always null while blocked |
 
-## Open
+**Candidate meaning:** the reference locality named in `025 km S 58° W of
+Sipalay (Negros Occidental)`, not the epicenter's containing/affected LGU.
+Only the supported simple distance/bearing, locality and one province-parenthesis
+pattern is parsed. Nested island/municipality descriptions remain unparsed.
+Normalize case and whitespace only. Do not remove significant tokens, `City of`,
+accents, or repair names without reviewed evidence. Such conservative rules leave
+some obvious-looking names unmatched intentionally. Independent cities without
+conventional province relationships need evidence before exceptions; no name-only
+fallback or fabricated overrides exist. Unmatched does not mean offshore.
 
-- Confirm whether the source should store PHIVOLCS time as local time without timezone or whether it should be explicitly labeled as `Asia/Manila` in downstream datasets.
-- Decide whether the raw `Month` and `Year` fields should be treated as trusted source metadata or replaced entirely by `event_time`-derived values.
-- Review whether additional quality checks are needed for impossible event depths (for example, the raw maximum depth of 800 km) and duplicate event records that may share the same timestamp and coordinates.
+One temporary `earthquake_lgu_candidates` row per normalized locality/province
+is enough for the bounded input scope. This is a narrow reference enrichment
+exception, not a combination of earthquake with another measure dataset. Silver
+uses `silver.psa_psgc_clean`, never Gold. Missing reference blocks candidates but
+allows independent cleaning. Snapshot changes or reviewed reference corrections
+need deliberate historical reprocessing. Historical events are candidate-matched
+to the chosen reference vintage, not claimed to have those historic boundaries.
 
-## Silver invalid-record definition
+**Time semantics:** [PHIVOLCS](https://earthquake.phivolcs.dost.gov.ph/) labels
+listing times Philippine Time and explains UTC+8. The runner fixes its session to
+UTC solely to reproduce a stable legacy wall-clock TIMESTAMP/signature expression;
+`event_time` is not thereby a UTC event instant. Timeliness output separately uses
+`to_utc_timestamp(event_time, 'Asia/Manila')`. Main's original session convention
+and the full historical landing headers were not recovered. Changing existing
+event_time/IDs requires reviewed reconciliation, rather than relabeling history.
 
-A bronze row is invalid in silver if any of the following is true:
-
-- `Date-Time` is blank or cannot be parsed as a timestamp.
-- `Latitude` is null or outside the inclusive range [-90, 90].
-- `Longitude` is null or outside the inclusive range [-180, 180].
-- `Depth` is null or negative.
-- `Magnitude` is null or negative.
-
-A blank `Location` is allowed and becomes `NULL`; it does not make the record invalid.
+The [read-only issue lookup](../../operations/philvolcs_earthquake_ingestion.md#read-only-issue-lookup)
+is keyed by `_source_ref` and `_row_hash` and runs in the runner's Spark session.
+DQ aggregates cover all seven attributes;
+stop rules are raised before writes by the runner. Read-only reports alone do
+not enforce a build. See proposed [ADR 0009](../../decisions/0009-earthquake-observations-and-locality-candidates.md)
+and [blocked event fact](fact_earthquake_event.md).
