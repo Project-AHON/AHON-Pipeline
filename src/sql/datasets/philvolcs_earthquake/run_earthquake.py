@@ -186,6 +186,72 @@ def merge_candidate(spark, name, view, columns, update=False):
     """)
 
 
+def prepare_gold_review(spark):
+    """Read-only scoped evidence; never infer an approved event or geography policy."""
+    from pyspark.sql import functions as F
+
+    scope = spark.table("earthquake_silver_check")
+    review = scope
+    if spark.catalog.tableExists(SILVER):
+        # Semi join returns each historical observation once, even if multiple
+        # scope signatures share coordinates. Also inspect signature collisions
+        # outside those coordinates; id alone is not an approved event identity.
+        keys = scope.select("id", "event_time", "latitude", "longitude").distinct()
+        p, k = spark.table(SILVER).alias("p"), keys.alias("k")
+        same_signature = F.col("p.id") == F.col("k.id")
+        same_point_time = (
+            F.col("k.event_time").isNotNull()
+            & F.col("k.latitude").isNotNull() & F.col("k.longitude").isNotNull()
+            & (F.col("p.event_time") == F.col("k.event_time"))
+            & (F.col("p.latitude") == F.col("k.latitude"))
+            & (F.col("p.longitude") == F.col("k.longitude"))
+        )
+        previous = p.join(k, same_signature | same_point_time, "left_semi").join(
+            scope.select("_row_hash"), "_row_hash", "left_anti",
+        )
+        review = scope.unionByName(previous)
+    review.createOrReplaceTempView("earthquake_event_review")
+
+    # dim_lgu has no snapshot column and retains target-only rows. Compare ALL
+    # seven projected attributes to the selected reference, not just membership.
+    dimension_columns = ["psgc_code", "area_name", "geographic_level", "region_code",
+                         "province_code", "municipality_code", "barangay_code"]
+    reference_columns = ["psgc_code", "area_name", "geographic_level", "region_psgc",
+                         "province_psgc", "citymun_psgc", "_api_period"]
+    schema = ", ".join(f"{c} string" for c in dimension_columns)
+    period = spark.table("earthquake_config").select("source_period").first()[0]
+    available = []
+    for table, required, view in [
+        ("silver.psa_psgc_clean", reference_columns, "earthquake_gold_reference"),
+        ("gold.dim_lgu", dimension_columns, "earthquake_gold_dimension"),
+    ]:
+        supported = spark.catalog.tableExists(table)
+        if supported:
+            frame = spark.table(table)
+            types = schema_types(frame)
+            supported = all(types.get(c) == "string" for c in required)
+        if not supported:
+            # Keep independent observation accounting runnable with explicit
+            # BLOCKED prerequisite results; never substitute another snapshot.
+            frame = spark.createDataFrame([], schema)
+        elif table == "silver.psa_psgc_clean":
+            frame = frame.where(F.col("_api_period") == period).select(
+                "psgc_code", "area_name", "geographic_level",
+                F.col("region_psgc").alias("region_code"),
+                F.col("province_psgc").alias("province_code"),
+                F.col("citymun_psgc").alias("municipality_code"),
+                F.when(F.col("geographic_level") == "BGY", F.col("psgc_code"))
+                .otherwise(F.lit(None).cast("string")).alias("barangay_code"),
+            )
+        else:
+            frame = frame.select(*dimension_columns)
+        frame.createOrReplaceTempView(view)
+        available.append(supported)
+    spark.createDataFrame([tuple(available)],
+                          "reference_supported boolean, dimension_supported boolean"
+                          ).createOrReplaceTempView("earthquake_gold_prerequisites")
+
+
 def main():
     from pyspark.sql import SparkSession
     from pyspark.sql import functions as F
@@ -309,19 +375,9 @@ def main():
       'Measured only; no cadence/SLA approved' AS timeliness_status
       FROM earthquake_silver_check""").first().asDict())
     if args.stage == "gold":
-        # Predecessor dim_lgu is deliberately not created or changed here.
-        if not spark.catalog.tableExists("gold.dim_lgu"):
-            report({"check_name": "gold_dim_lgu_prerequisite", "status": "BLOCKED"})
-        # Include existing same-time/coordinate observations when reviewing possible
-        # corrections across batches. Do not collect event rows on the driver.
-        review = spark.table("earthquake_silver_check")
-        if spark.catalog.tableExists(SILVER):
-            previous = spark.table(SILVER).join(
-                review.select("event_time", "latitude", "longitude").distinct(),
-                ["event_time", "latitude", "longitude"], "left_semi",
-            ).join(review.select("_row_hash"), "_row_hash", "left_anti")
-            review = review.unionByName(previous)
-        review.createOrReplaceTempView("earthquake_event_review")
+        # Reached only after Bronze and Silver stop checks and verification pass.
+        # Gold/dimension targets are never created or changed by this diagnostic.
+        prepare_gold_review(spark)
         execute_sql(spark, SQL_ROOT / "gold/build_fact_earthquake_event.sql", checks=True)
 
 
