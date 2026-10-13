@@ -1,0 +1,18 @@
+---
+bundle:
+  name: ahon
+
+include:
+  - resources/jobs/*.yml
+
+sync:
+  include:
+    - notebooks/**
+    - src/**
+    - tests/**
+
+targets:
+  prod:
+    mode: production
+    workspace:
+      root_path: ~/.bundle/${bundle.name}/${bundle.target}
