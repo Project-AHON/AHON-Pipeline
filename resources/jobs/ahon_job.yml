@@ -1,7 +1,1001 @@
----
-# Export the main job code here.
-# Procedure: Jobs & Pipelines -> Jobs -> Hamburger button in upper-right ->
-# Edit as YAML -> Copy and paste code into this file
-
-# If any ${var.cluster_id} or ${var.warehouse_id} shows up in the code,
-# declare these as variables in databricks.yml
+resources:
+  jobs:
+    ahon_pipeline:
+      name: ${bundle.name}_pipeline
+      max_concurrent_runs: ${var.max_concurrent_runs}
+      timeout_seconds: ${var.job_timeout_seconds}
+      performance_target: STANDARD
+      tags:
+        project: ${bundle.name}
+        aidevkit_project: ai-dev-kit
+      queue:
+        enabled: true
+      parameters:
+      - name: batch_id
+        default: '{{job.run_id}}'
+      - name: catalog
+        default: ${var.catalog}
+      environments:
+      - environment_key: core
+        spec:
+          environment_version: ${var.environment_version}
+          dependencies:
+          - sqlparse==0.5.3
+      - environment_key: psgc
+        spec:
+          environment_version: ${var.environment_version}
+          dependencies:
+          - requests==2.32.5
+      - environment_key: files
+        spec:
+          environment_version: ${var.environment_version}
+          dependencies:
+          - pandas==2.3.3
+          - openpyxl==3.1.5
+          - huggingface_hub==2.2.0
+      - environment_key: population
+        spec:
+          environment_version: ${var.environment_version}
+          dependencies:
+          - requests==2.32.5
+      - environment_key: earthquake
+        spec:
+          environment_version: ${var.environment_version}
+          dependencies:
+          - pandas==2.3.3
+          - requests==2.32.5
+          - lxml==6.1.3
+      - environment_key: cmci
+        spec:
+          environment_version: ${var.environment_version}
+          dependencies:
+          - beautifulsoup4==4.14.3
+          - requests==2.32.5
+      - environment_key: osm
+        spec:
+          environment_version: ${var.environment_version}
+          dependencies:
+          - geopandas==1.1.1
+          - pyogrio==0.11.1
+          - shapely==2.1.2
+          - pyproj==3.7.0
+          - huggingface_hub==2.2.0
+      tasks:
+      - task_key: setup
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_sql.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/00_setup/00_catalog_schema_setup.sql
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+      - task_key: psgc_extract
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/psa_psgc/extract/psa_psgc_ingest.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --secret-scope
+          - ${var.psgc_secret_scope}
+          - --secret-key
+          - ${var.psgc_secret_key}
+          - --api-base-url
+          - ${var.psgc_api_base_url}
+          - --expected-rows
+          - ${var.psgc_expected_rows}
+          - --request-timeout
+          - ${var.request_timeout}
+        environment_key: psgc
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: setup
+      - task_key: psgc_bronze
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/psa_psgc/bronze/psa_psgc.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --expected-rows
+          - ${var.psgc_expected_rows}
+        environment_key: psgc
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: psgc_extract
+      - task_key: psgc_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/datasets/psa_psgc/silver/psa_psgc_clean.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: psgc_bronze
+      - task_key: dim_lgu
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/gold/dim_lgu.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: psgc_silver
+      - task_key: barangay_population_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/psa_psgc/silver/clean_barangay_population.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: psgc_silver
+      - task_key: barangay_population_gold
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/gold/fact_population.py
+          - --source-period
+          - ${var.source_period}
+          - --census-year
+          - ${var.census_year}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: dim_lgu
+        - task_key: barangay_population_silver
+      - task_key: population_extract
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/psa_population/extract/extract_psa_population.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --source-file
+          - ${var.population_source_file}
+          - --census-year
+          - ${var.census_year}
+          - --expected-profile
+          - ${var.population_expected_profile}
+          - --api-url
+          - ${var.population_api_url}
+          - --request-timeout
+          - ${var.request_timeout}
+        environment_key: population
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: setup
+      - task_key: population_bronze
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/psa_population/bronze/load_psa_population.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --source-file
+          - ${var.population_source_file}
+          - --census-year
+          - ${var.census_year}
+          - --expected-profile
+          - ${var.population_expected_profile}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: population_extract
+      - task_key: population_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/psa_population/silver/clean_psa_population.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --source-file
+          - ${var.population_source_file}
+          - --census-year
+          - ${var.census_year}
+          - --expected-profile
+          - ${var.population_expected_profile}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: population_bronze
+      - task_key: population_total_gold
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/gold/build_fact_population_total.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: population_silver
+        - task_key: dim_lgu
+      - task_key: ldrrmf_extract
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/blgf_ldrrmf_annual_lgu/extract/extract_blgf_ldrrmf_annual_lgu.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --hf-repo
+          - ${var.hf_repo}
+          - --hf-revision
+          - ${var.hf_revision}
+          - --expected-rows
+          - ${var.ldrrmf_expected_rows}
+          - --file-pattern
+          - ${var.ldrrmf_file_pattern}
+          - --hf-folder
+          - ${var.ldrrmf_folder}
+        environment_key: files
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: setup
+      - task_key: ldrrmf_bronze
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/blgf_ldrrmf_annual_lgu/bronze/load_blgf_ldrrmf_annual_lgu.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --expected-rows
+          - ${var.ldrrmf_expected_rows}
+          - --file-pattern
+          - ${var.ldrrmf_file_pattern}
+        environment_key: files
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: ldrrmf_extract
+      - task_key: ldrrmf_mapping
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/build_blgf_ldrrmf_lgu_map.py
+          - --source-period
+          - ${var.source_period}
+          - --overrides-file
+          - ${workspace.file_path}/src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/blgf_ldrrmf_lgu_map_overrides.csv
+        environment_key: files
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: ldrrmf_bronze
+        - task_key: psgc_silver
+      - task_key: ldrrmf_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_sql.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/clean_blgf_ldrrmf_annual_lgu.sql
+          - --min-year
+          - ${var.ldrrmf_start_year}
+          - --max-year
+          - ${var.ldrrmf_end_year}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: ldrrmf_mapping
+      - task_key: ldrrmf_gold
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_sql.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/gold/build_fact_ldrrmf.sql
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: ldrrmf_silver
+        - task_key: dim_lgu
+      - task_key: earthquake_extract
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/philvolcs_earthquake/extract/philvolcs_earthquake_ingest.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --start-month
+          - ${var.start_month}
+          - --end-month
+          - ${var.end_month}
+          - --archive-url-template
+          - ${var.earthquake_archive_url_template}
+          - --latest-url
+          - ${var.earthquake_latest_url}
+          - --request-timeout
+          - ${var.request_timeout}
+          - --source-timezone
+          - ${var.source_timezone}
+        environment_key: earthquake
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: setup
+      - task_key: earthquake_bronze
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/philvolcs_earthquake/observation_pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - bronze
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: earthquake_extract
+      - task_key: earthquake_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/philvolcs_earthquake/observation_pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - silver
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: earthquake_bronze
+        - task_key: psgc_silver
+      - task_key: cmci_extract
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/cmci/pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - extract
+          - --mapping-file
+          - ${var.cmci_mapping_file}
+          - --source-period
+          - ${var.source_period}
+          - --start-year
+          - ${var.cmci_start_year}
+          - --end-year
+          - ${var.cmci_end_year}
+          - --test-lgu-limit
+          - ${var.cmci_test_limit}
+          - --metric-version
+          - ${var.cmci_metric_version}
+          - --portal-url
+          - ${var.cmci_portal_url}
+          - --process-url
+          - ${var.cmci_process_url}
+          - --request-timeout
+          - ${var.request_timeout}
+          - --request-batch-size
+          - ${var.cmci_request_batch_size}
+          - --request-delay
+          - ${var.cmci_request_delay}
+          - --http-retries
+          - ${var.cmci_http_retries}
+          - --http-backoff
+          - ${var.cmci_http_backoff}
+          - --indicator-file
+          - ${workspace.file_path}/resources/cmci_indicators.csv
+          - --run-mode
+          - ${var.cmci_run_mode}
+          - --user-agent
+          - ${var.cmci_user_agent}
+        environment_key: cmci
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: setup
+        - task_key: dim_lgu
+      - task_key: cmci_bronze
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/cmci/pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - bronze
+          - --mapping-file
+          - ${var.cmci_mapping_file}
+          - --source-period
+          - ${var.source_period}
+          - --start-year
+          - ${var.cmci_start_year}
+          - --end-year
+          - ${var.cmci_end_year}
+          - --test-lgu-limit
+          - ${var.cmci_test_limit}
+          - --metric-version
+          - ${var.cmci_metric_version}
+          - --indicator-file
+          - ${workspace.file_path}/resources/cmci_indicators.csv
+          - --run-mode
+          - ${var.cmci_run_mode}
+        environment_key: cmci
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: cmci_extract
+      - task_key: cmci_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/cmci/pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - silver
+          - --mapping-file
+          - ${var.cmci_mapping_file}
+          - --source-period
+          - ${var.source_period}
+          - --start-year
+          - ${var.cmci_start_year}
+          - --end-year
+          - ${var.cmci_end_year}
+          - --test-lgu-limit
+          - ${var.cmci_test_limit}
+          - --metric-version
+          - ${var.cmci_metric_version}
+          - --indicator-file
+          - ${workspace.file_path}/resources/cmci_indicators.csv
+          - --run-mode
+          - ${var.cmci_run_mode}
+        environment_key: cmci
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: cmci_bronze
+      - task_key: cmci_gold
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/cmci/pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - gold
+          - --mapping-file
+          - ${var.cmci_mapping_file}
+          - --source-period
+          - ${var.source_period}
+          - --start-year
+          - ${var.cmci_start_year}
+          - --end-year
+          - ${var.cmci_end_year}
+          - --test-lgu-limit
+          - ${var.cmci_test_limit}
+          - --metric-version
+          - ${var.cmci_metric_version}
+          - --indicator-file
+          - ${workspace.file_path}/resources/cmci_indicators.csv
+          - --run-mode
+          - ${var.cmci_run_mode}
+        environment_key: cmci
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: cmci_silver
+      - task_key: cmci_platinum
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/cmci/pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - platinum
+          - --mapping-file
+          - ${var.cmci_mapping_file}
+          - --source-period
+          - ${var.source_period}
+          - --start-year
+          - ${var.cmci_start_year}
+          - --end-year
+          - ${var.cmci_end_year}
+          - --test-lgu-limit
+          - ${var.cmci_test_limit}
+          - --metric-version
+          - ${var.cmci_metric_version}
+          - --indicator-file
+          - ${workspace.file_path}/resources/cmci_indicators.csv
+          - --run-mode
+          - ${var.cmci_run_mode}
+        environment_key: cmci
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: cmci_gold
+      - task_key: osm_extract
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/osm_critical_infrastructures/pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - extract
+          - --hf-repo
+          - ${var.hf_repo}
+          - --hf-revision
+          - ${var.hf_revision}
+          - --hf-folder
+          - ${var.osm_folder}
+          - --shapefile-stems
+          - ${var.osm_shapefile_stems}
+        environment_key: osm
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: setup
+      - task_key: osm_bronze
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/osm_critical_infrastructures/pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - bronze
+          - --hf-repo
+          - ${var.hf_repo}
+          - --hf-revision
+          - ${var.hf_revision}
+          - --hf-folder
+          - ${var.osm_folder}
+          - --shapefile-stems
+          - ${var.osm_shapefile_stems}
+        environment_key: osm
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: osm_extract
+      - task_key: osm_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/datasets/osm_critical_infrastructures/pipeline.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --stage
+          - silver
+          - --hf-repo
+          - ${var.hf_repo}
+          - --hf-revision
+          - ${var.hf_revision}
+          - --hf-folder
+          - ${var.osm_folder}
+          - --shapefile-stems
+          - ${var.osm_shapefile_stems}
+        environment_key: osm
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: osm_bronze
+      - task_key: population_components
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_sql.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/platinum/population_components.sql
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: barangay_population_gold
+      - task_key: funding_components
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_sql.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/platinum/funding_components.sql
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: ldrrmf_gold
+      - task_key: earthquake_components
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_sql.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/platinum/earthquake_components.sql
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: earthquake_silver

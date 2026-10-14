@@ -1,5 +1,7 @@
 # Earthquake run guide and review evidence
 
+Historical review evidence for an earlier baseline. Its commands and proposed normalized risk formula are superseded by the [current runbook](runbook.md), [source inventory](../architecture/source-to-target.md) and [analytical contracts](../architecture/metrics.md). The configured pipeline retains observations and locality candidates; it does not infer event identity, exposure or validated risk scores.
+
 Part of [#82](https://github.com/Project-AHON/AHON-Pipeline/issues/82). Reviewed
 12 October 2026 (Asia/Manila), against actual main
 `e1e8b883a1780b3150e6c7cd880530f4d7e42e66`. The original

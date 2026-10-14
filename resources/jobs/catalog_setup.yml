@@ -1,7 +1,47 @@
----
-# Export the catalog setup code here.
-# Procedure: Jobs & Pipelines -> Jobs -> Hamburger button in upper-right ->
-# Edit as YAML -> Copy and paste code into this file
-
-# If any ${var.cluster_id} or ${var.warehouse_id} shows up in the code,
-# declare these as variables in databricks.yml
+resources:
+  jobs:
+    catalog_setup:
+      name: ${bundle.name}_catalog_setup
+      max_concurrent_runs: ${var.max_concurrent_runs}
+      timeout_seconds: ${var.job_timeout_seconds}
+      performance_target: STANDARD
+      tags:
+        project: ${bundle.name}
+        aidevkit_project: ai-dev-kit
+      queue:
+        enabled: true
+      parameters:
+      - name: batch_id
+        default: '{{job.run_id}}'
+      - name: catalog
+        default: ${var.catalog}
+      environments:
+      - environment_key: core
+        spec:
+          environment_version: ${var.environment_version}
+          dependencies:
+          - sqlparse==0.5.3
+      tasks:
+      - task_key: setup
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_sql.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/00_setup/00_catalog_schema_setup.sql
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS

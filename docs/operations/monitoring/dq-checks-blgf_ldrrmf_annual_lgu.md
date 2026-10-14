@@ -1,3 +1,5 @@
+Historical profile results, not current runtime verification. Current persisted checks and recovery are documented in [the runbook](../runbook.md) and [the source dictionary](../../architecture/data-dictionary/blgf_ldrrmf_annual_lgu.md).
+
 # Data quality checks: blgf_ldrrmf_annual_lgu (draft, 2026-10-09)
 
 Checks for the BLGF LDRRMF Annual by LGU dataset so far, by layer. Silver rows are never dropped. A failed check does one of these, shown at the start of each description in brackets:

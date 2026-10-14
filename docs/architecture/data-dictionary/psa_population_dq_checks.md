@@ -1,3 +1,5 @@
+> Historical prior implementation. For the supported runtime contract see [psa_population.md](psa_population.md) and [decision 0010](../../decisions/0010-reconciled-source-contracts.md). The details below are retained for historical context and are not executable deployment instructions.
+
 # PSA Population Data Quality Checks
 
 Two read-only notebooks check the PSA population tables after each load: one for bronze (`ahon.bronze.psa_population_raw`) and one for silver (`ahon.silver.psa_population`). Each prints one line per check with its failing row count and a status.

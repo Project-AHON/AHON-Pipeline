@@ -64,7 +64,7 @@ WITH metrics AS (
             OR TRIM(_api_period) = ''
         ) AS missing_api_period
 
-    FROM ahon.bronze.psa_psgc
+    FROM bronze.psa_psgc
 ),
 
 checks AS (

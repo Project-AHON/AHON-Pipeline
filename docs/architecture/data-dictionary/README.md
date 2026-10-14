@@ -8,12 +8,25 @@ What each table and column in the pipeline means. One page per dataset, plus one
 | --- | --- | --- |
 | [blgf_ldrrmf_annual_lgu](blgf_ldrrmf_annual_lgu.md) | `blgf_ldrrmf_annual_lgu` | bronze |
 | [psa_population](psa_population.md) | `psa_population` | bronze, silver |
-| [philvolcs_earthquake_data](philvolcs_earthquake_data.md) | `philvolcs_earthquake_data`, `philvolcs_earthquake_data_clean` | bronze, silver |
+| [philvolcs_earthquake_data](philvolcs_earthquake_data.md) | `philvolcs_earthquake_observation`, `philvolcs_earthquake_observation_clean` | bronze, silver |
+
+The supported runtime contracts are now the following pages. The older CMCI and population DQ pages are explicitly marked historical; their prior table names and orchestration must not be used to deploy this branch.
+
+| Current page | Contract |
+| --- | --- |
+| [PSGC](psa_psgc_data.md) | Raw observations and current snapshot cleaning |
+| [LGU dimension](dim_lgu.md) | One selected snapshot and standardized hierarchy |
+| [Barangay population](fact_population.md) | Barangay × census year, NULL preservation |
+| [Population sources](psa_population.md) | Separate PXWeb administrative totals and dispositions |
+| [CMCI](cmci_dictionary.md) | Reviewed identities, selected long-form indicators and coverage |
+| [Funding fact](fact_ldrrmf.md) | Original reporting unit × fiscal year, pesos and ratios |
+| [Earthquake observations](philvolcs_earthquake_data.md) | Observation grain, invalid retention and withheld locality assignment |
+| [Source-to-target inventory](../source-to-target.md) | All table paths, keys, reference periods and OSM feature contract |
 
 
 ## How to add a page
 
-1. Copy [00tablename-dictionary-template.md](00tablename-dictionary-template.md).
+1. Copy [the dictionary template](00tablename-dicitionary-template.md).
 2. Rename it after the dataset, exactly as the dataset is named in the code folder, the volume folder and the bronze table (`publisher_dataset.md`). For a gold or platinum table, use the table name (`dim_location.md`).
 3. Fill in each section. Remove the instruction comments.
 4. Add a row to the table above.

@@ -1,42 +1,9 @@
 # fact_population
 
-Gold table `ahondev.gold.fact_population`, built by `fact_population.py`.
+Target: `<catalog>.gold.fact_population`. Grain: one barangay per census year; unique key `(barangay_code, population_year)`. This retains PR #91's source/grain, with corrected runtime contracts. `population_key` is deterministic `xxhash64` of the business key and is not a publisher identifier.
 
-**Grain:** one barangay per census year, keyed by `(barangay_code, population_year)`.
-Population is a barangay total, not an exposed-population measure.
+Source: `silver.psgc_population_clean`, parsed from embedded PSGC `populations_json` for a selected API snapshot. `population_year` is the census reference year, separate from `source_period`. Region/municipality/province codes come from the same-snapshot `gold.dim_lgu`; codes are strings with leading zeros.
 
-## Source
+Columns: `population_key` BIGINT; `barangay_code`, `barangay_name`, `municipality_code`, `province_code`, `region_code` STRING; `population` BIGINT (people, nullable); `population_year` INT; `disposition`, `source_period`, `_source_ref`, `_row_hash`, `_batch_id` STRING; `_ingested_at` TIMESTAMP. `province_code` may be NULL. Missing source values remain NULL with `missing_population`; invalid values block Gold and remain visible in Silver.
 
-- Population: the `Bgy` rows of `ahondev.silver.psa_psgc` for the chosen API period, read from the `populations_json` field for the chosen census year.
-- Parent codes: `ahondev.gold.dim_lgu`, joined on `barangay_code = psgc_code`.
-
-## Parameters
-
-| Widget | Default | Description |
-| --- | --- | --- |
-| `census_year` | `2024` | Census year to extract from `populations_json` |
-| `source_version` | `Q2_2024` | API period filter on `psa_psgc._api_period` |
-
-## Columns
-
-| Column | Type | Description |
-| --- | --- | --- |
-| `population_key` | BIGINT | Hash of `barangay_code` and `population_year` |
-| `barangay_code` | STRING | 10-digit PSGC code, references `dim_lgu.psgc_code` |
-| `barangay_name` | STRING | Barangay name from the source |
-| `municipality_code` | STRING | Parent municipality or city code |
-| `province_code` | STRING | Parent province code, null if none |
-| `region_code` | STRING | Parent region code |
-| `population` | BIGINT | Barangay total population |
-| `population_year` | INT | Census year |
-
-## How to rerun
-
-Run `silver.psa_psgc`, then `dim_lgu`, then `fact_population`. Rerunning is safe: it upserts on the key and does not delete other years.
-
-The notebook stops before writing if there are no barangay rows, any source barangay has no `dim_lgu` match, a required value is null, population is negative, or the key is duplicated.
-
-## Known issues
-
-- Barangays with no population value in the source get no row.
-- Other years and rows no longer in the source are kept, not removed.
+The dimension must be unique before joining, and joined count must equal the source count. MERGE upserts changed business values without deleting absent observations; target schema/key mismatch stops. Existing NOT NULL populations or different schemas need reviewed migration. This count is not exposed population. Do not load PXWeb administrative totals into this table; those use `fact_population_total`.

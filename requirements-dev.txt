@@ -1,0 +1,5 @@
+pytest==9.1.1
+ruff==0.16.10
+PyYAML==6.0.3
+sqlglot==30.21.0
+yamllint==1.37.1

@@ -1,7 +1,7 @@
 """AHON Gold fact_population transformation.
 
-Source: ahondev.silver.psa_psgc and ahondev.gold.dim_lgu
-Target: ahondev.gold.fact_population
+Source: <catalog>.silver.psgc_population_clean and <catalog>.gold.dim_lgu
+Target: <catalog>.gold.fact_population
 
 Grain: one barangay per census year, keyed by (barangay_code, population_year).
 barangay_code references dim_lgu.psgc_code. Population is a barangay total,
@@ -14,17 +14,17 @@ from functools import reduce
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
-from pyspark.sql.types import ArrayType, StringType, StructField, StructType
 
-dbutils.widgets.text("census_year", "2024")
+dbutils.widgets.text("census_year", "")
 CENSUS_YEAR = dbutils.widgets.get("census_year")
 
-dbutils.widgets.text("source_version", "Q2_2024")
+dbutils.widgets.text("source_version", "")
 SOURCE_VERSION = dbutils.widgets.get("source_version")
+dbutils.widgets.text("catalog", "")
 
-# Silver PSGC lives in the "ahondev" catalog; Gold also in "ahondev".
-GOLD_CATALOG = "ahondev"
-SOURCE_TABLE = f"{GOLD_CATALOG}.silver.psa_psgc"
+# The selected catalog holds both typed census observations and the Gold dimension.
+GOLD_CATALOG = globals().get("PIPELINE_CATALOG", dbutils.widgets.get("catalog"))
+SOURCE_TABLE = f"{GOLD_CATALOG}.silver.psgc_population_clean"
 DIM_TABLE = f"{GOLD_CATALOG}.gold.dim_lgu"
 TARGET_TABLE = f"{GOLD_CATALOG}.gold.fact_population"
 KEY_COLS = ["barangay_code", "population_year"]
@@ -32,28 +32,20 @@ FACT_SCHEMA = (
     "population_key BIGINT NOT NULL, "
     "barangay_code STRING NOT NULL, barangay_name STRING NOT NULL, "
     "municipality_code STRING NOT NULL, province_code STRING, "
-    "region_code STRING NOT NULL, population BIGINT NOT NULL, "
-    "population_year INT NOT NULL"
+    "region_code STRING NOT NULL, population BIGINT, "
+    "population_year INT NOT NULL, "
+    "disposition STRING, source_period STRING, _source_ref STRING, _row_hash STRING, "
+    "_ingested_at TIMESTAMP, _batch_id STRING"
 )
 FACT_COLS = [column.split()[0] for column in FACT_SCHEMA.split(", ")]
 VALUE_COLS = [c for c in FACT_COLS if c not in KEY_COLS]
 
-# PSGC silver populations_json is an array of {id, population, year, psgc}
-POP_JSON_SCHEMA = ArrayType(
-    StructType([
-        StructField("id", StringType()),
-        StructField("population", StringType()),
-        StructField("year", StringType()),
-        StructField("psgc", StringType()),
-    ])
-)
-
 SOURCE_REQUIRED = [
-    "psgc_code",
-    "geographic_name",
-    "geographic_level",
+    "barangay_code",
+    "barangay_name",
+    "population",
+    "population_year",
     "_api_period",
-    "populations_json",
 ]
 DIM_REQUIRED = [
     "psgc_code",
@@ -86,40 +78,29 @@ def load_source(spark: SparkSession) -> DataFrame:
     """Extract barangay-level population from the PSGC silver table."""
     silver = spark.table(SOURCE_TABLE)
     require_columns(silver, SOURCE_TABLE, SOURCE_REQUIRED)
-    bgy = silver.filter(
-        (sf.col("geographic_level") == "Bgy")
-        & (sf.col("_api_period") == SOURCE_VERSION)
-    )
+    bgy = silver.filter((sf.col("_api_period") == SOURCE_VERSION)
+                        & (sf.col("population_year") == int(CENSUS_YEAR)))
     if bgy.limit(1).count() == 0:
         fail(
             f"No barangay (Bgy) rows in {SOURCE_TABLE} "
             f"for API period {SOURCE_VERSION}"
         )
-    exploded = (
-        bgy.withColumn(
-            "pop_records", sf.from_json(sf.col("populations_json"), POP_JSON_SCHEMA)
-        )
-        .withColumn("pop", sf.explode("pop_records"))
-        .filter(sf.col("pop.year") == CENSUS_YEAR)
-    )
-    if exploded.limit(1).count() == 0:
-        fail(f"No population records for census year {CENSUS_YEAR} in {SOURCE_TABLE}")
-    cleaned_population = sf.expr(
-        "try_cast(trim(regexp_replace(pop.population, ',', '')) AS BIGINT)"
-    )
-    return exploded.select(
-        sf.col("psgc_code").cast("string").alias("barangay_code"),
-        sf.col("geographic_name").alias("barangay_name"),
-        cleaned_population.alias("population"),
-        sf.lit(int(CENSUS_YEAR)).alias("population_year"),
-    )
+    if bgy.where("disposition NOT IN ('accepted', 'missing_population')").limit(1).count():
+        fail("Invalid barangay census observations must be resolved in Silver")
+    return bgy.select("barangay_code", "barangay_name", "population", "population_year",
+                      "disposition", sf.col("_api_period").alias("source_period"),
+                      "_source_ref", "_row_hash", "_ingested_at", "_batch_id")
 
 
 def load_dim(spark: SparkSession) -> DataFrame:
     """Read the barangay rows of dim_lgu."""
     dim = spark.table(DIM_TABLE)
     require_columns(dim, DIM_TABLE, DIM_REQUIRED)
-    return dim.filter(sf.col("geographic_level") == "Bgy").select(
+    if dim.groupBy("psgc_code").count().where("count > 1").limit(1).count():
+        fail("dim_lgu has duplicate PSGC keys; join would fan out")
+    if dim.where(sf.col("source_period") != SOURCE_VERSION).limit(1).count():
+        fail("Population and dimension snapshots differ")
+    return dim.filter(sf.col("geographic_level") == "BGY").select(
         sf.col("psgc_code").cast("string").alias("barangay_code"),
         "municipality_code",
         "province_code",
@@ -151,7 +132,7 @@ def build_fact(joined: DataFrame) -> DataFrame:
 
 def assert_valid_fact(fact: DataFrame) -> None:
     """Fail on duplicate keys, null required values or negative population."""
-    required = [c for c in FACT_COLS if c != "province_code"]
+    required = [c for c in FACT_COLS if c not in ("province_code", "population")]
     null_rows = fact.filter(
         reduce(lambda a, b: a | b, [sf.col(c).isNull() for c in required])
     )
@@ -169,6 +150,13 @@ def assert_valid_fact(fact: DataFrame) -> None:
 def upsert_fact(spark: SparkSession, fact: DataFrame) -> None:
     """Create the fact table if missing, then upsert on the grain keys."""
     spark.sql(f"CREATE TABLE IF NOT EXISTS {TARGET_TABLE} ({FACT_SCHEMA})")
+    from quality import unique
+    unique(spark, GOLD_CATALOG, globals().get("PIPELINE_RUN_ID", "interactive"),
+           spark.table(TARGET_TABLE), KEY_COLS, TARGET_TABLE)
+    expected = {f.name: f.dataType for f in fact.schema}
+    existing = {f.name: f.dataType for f in spark.table(TARGET_TABLE).schema}
+    if existing != expected:
+        fail("Existing population schema requires reviewed migration or a fresh dev catalog")
     on_keys = " AND ".join(f"target.{k} = source.{k}" for k in KEY_COLS)
     changed = " OR ".join(
         f"NOT (target.{c} <=> source.{c})" for c in VALUE_COLS
@@ -196,8 +184,7 @@ def main() -> None:
             f"No barangay population rows in {SOURCE_TABLE} "
             f"for year {CENSUS_YEAR}"
         )
-    # Drop barangays with no population data (source value "-" or null)
-    source = source.filter(sf.col("population").isNotNull())
+    # Missing measurements remain NULL and carry their source disposition.
     matched = join_to_dim(source, load_dim(spark))
     assert_joined(matched, source.count())
     fact = build_fact(matched)

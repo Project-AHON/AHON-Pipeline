@@ -12,12 +12,21 @@
 --         keeps psgc_code NULL with psgc_match_status 'unmatched'. No row is dropped.
 --      f. Carries the five bronze provenance columns forward and adds _processed_at.
 --   2. Checks the stop rules on the view. If one fails, the run stops with an error and the existing silver table is left as it was.
---   3. Only when every stop rule passes, replaces the silver table with the view.
--- Each run rebuilds the whole table (CREATE OR REPLACE), so rerunning does not duplicate rows.
+--   3. Only when every stop rule passes, merges checked rows without absence-based deletion.
+-- Each run merges checked business keys; unchanged observations retain first lineage.
 -- Run all statements in one session (one SQL task or one notebook run), because a temporary view only lasts for the session.
 
--- Settings: one line to change between ahon_dev and ahon (check_blgf_ldrrmf_annual_lgu_clean.sql has its own)
-USE CATALOG ahon_dev;
+-- Catalog selected by runner.
+
+-- Corrections across distinct ingestions are versioned; contradictory rows in one batch have no winner.
+SELECT assert_true(count(*) = 0, 'Conflicting BLGF LGU-year observations in one ingestion')
+FROM (
+  SELECT regexp_extract(_source_ref, 'FY([0-9]{4})', 1), trim(region), trim(province),
+    trim(lgu_name), trim(lgu_type), _ingested_at, _batch_id
+  FROM bronze.blgf_ldrrmf_annual_lgu
+  WHERE _batch_id = :batch_id
+  GROUP BY ALL HAVING count(DISTINCT _row_hash) > 1
+);
 
 -- COMMAND ----------
 
@@ -31,14 +40,16 @@ WITH cleaned AS (
     trim(province) AS province,
     trim(lgu_name) AS lgu_name,
     trim(lgu_type) AS lgu_type,
-    CAST(`70pct_ldrrmf_budget_appropriation` AS DECIMAL(18, 2)) AS ldrrmf_70pct_appropriation,
-    CAST(`70pct_ldrrmf_expenditures` AS DECIMAL(18, 2)) AS ldrrmf_70pct_expenditure,
-    CAST(`30pct_quick_response_fund_budget_appropriation` AS DECIMAL(18, 2)) AS qrf_30pct_appropriation,
-    CAST(`30pct_quick_response_fund_expenditures` AS DECIMAL(18, 2)) AS qrf_30pct_expenditure,
-    CAST(total_budget_appropriation AS DECIMAL(18, 2)) AS total_appropriation,
-    CAST(total_expenditures AS DECIMAL(18, 2)) AS total_expenditure,
+    TRY_CAST(`70pct_ldrrmf_budget_appropriation` AS DECIMAL(18, 2)) AS ldrrmf_70pct_appropriation,
+    TRY_CAST(`70pct_ldrrmf_expenditures` AS DECIMAL(18, 2)) AS ldrrmf_70pct_expenditure,
+    TRY_CAST(`30pct_quick_response_fund_budget_appropriation` AS DECIMAL(18, 2)) AS qrf_30pct_appropriation,
+    TRY_CAST(`30pct_quick_response_fund_expenditures` AS DECIMAL(18, 2)) AS qrf_30pct_expenditure,
+    TRY_CAST(total_budget_appropriation AS DECIMAL(18, 2)) AS total_appropriation,
+    TRY_CAST(total_expenditures AS DECIMAL(18, 2)) AS total_expenditure,
     _source_name, _source_ref, _ingested_at, _batch_id, _row_hash
-  FROM bronze.blgf_ldrrmf_annual_lgu
+  FROM (SELECT * FROM bronze.blgf_ldrrmf_annual_lgu WHERE _batch_id = :batch_id
+    QUALIFY row_number() OVER (PARTITION BY regexp_extract(_source_ref, 'FY([0-9]{4})', 1), region, province, lgu_name, lgu_type
+      ORDER BY _ingested_at DESC, _observation_id DESC) = 1)
 )
 SELECT
   -- c. = the cleaned bronze row, m. = the LGU map row (both have region, province, lgu_name and lgu_type)
@@ -58,6 +69,7 @@ SELECT
   CASE WHEN m.match_status = 'matched' THEN 'exact' ELSE 'unmatched' END AS psgc_match_status,
   -- How the map found it (province_name, no_province_name, override), or NULL when it did not
   m.match_method AS psgc_match_method,
+  m.source_period,
   -- Map row found at all? Used by the stop rule below; not written to the table
   m.lgu_name IS NOT NULL AS _in_lgu_map,
   c._source_name, c._source_ref, c._ingested_at, c._batch_id, c._row_hash,
@@ -71,13 +83,31 @@ LEFT JOIN reference.blgf_ldrrmf_lgu_map AS m
 
 -- COMMAND ----------
 
+-- Invalid contract rows are retained before blocking downstream materialization.
+CREATE TABLE IF NOT EXISTS silver.blgf_ldrrmf_annual_lgu_reject USING DELTA AS
+SELECT * EXCEPT (_in_lgu_map), 'invalid_financial_contract_or_missing_reference' AS disposition
+FROM silver_candidate WHERE false;
+-- COMMAND ----------
+MERGE INTO silver.blgf_ldrrmf_annual_lgu_reject t USING (
+ SELECT * EXCEPT (_in_lgu_map), 'invalid_financial_contract_or_missing_reference' AS disposition
+ FROM silver_candidate WHERE fiscal_year IS NULL OR fiscal_year NOT BETWEEN :min_year AND :max_year
+ OR lgu_type IS NULL OR lgu_type NOT IN ('Province','City','Municipality')
+ OR ldrrmf_70pct_appropriation IS NULL OR ldrrmf_70pct_expenditure IS NULL
+ OR qrf_30pct_appropriation IS NULL OR qrf_30pct_expenditure IS NULL
+ OR total_appropriation IS NULL OR total_expenditure IS NULL
+ OR total_appropriation <> ldrrmf_70pct_appropriation + qrf_30pct_appropriation
+ OR total_expenditure <> ldrrmf_70pct_expenditure + qrf_30pct_expenditure
+ OR NOT _in_lgu_map
+) s ON t._source_ref <=> s._source_ref AND t._row_hash <=> s._row_hash
+WHEN NOT MATCHED THEN INSERT *;
+-- COMMAND ----------
 -- Check the stop rules on the cleaned rows
 -- What it does: stops with an error if a stop rule fails, before the silver table is touched.
 --   Rules: row count, amounts not NULL, unique key, valid year, valid LGU type, total = sum of parts,
 --   every LGU is in the map (if not, rerun build_blgf_ldrrmf_lgu_map.py).
 -- What to expect: one line of true values. Any error here means silver was not replaced: fix the cause and rerun the file.
 SELECT
-  assert_true(count(*) = (SELECT count(*) FROM bronze.blgf_ldrrmf_annual_lgu), 'Silver row count differs from bronze'),
+  assert_true(count(*) = (SELECT count(*) FROM (SELECT DISTINCT regexp_extract(_source_ref, 'FY([0-9]{4})', 1), region, province, lgu_name, lgu_type FROM bronze.blgf_ldrrmf_annual_lgu WHERE _batch_id = :batch_id)), 'Silver row count differs from requested bronze delivery'),
   assert_true(
     count_if(ldrrmf_70pct_appropriation IS NULL OR ldrrmf_70pct_expenditure IS NULL
              OR qrf_30pct_appropriation IS NULL OR qrf_30pct_expenditure IS NULL
@@ -88,7 +118,7 @@ SELECT
     count(*) = (SELECT count(*) FROM (SELECT DISTINCT fiscal_year, region, province, lgu_name, lgu_type FROM silver_candidate)),
     'Silver has duplicate LGU-year keys'),
   -- Update the year range here and in the check file when a new fiscal year is loaded
-  assert_true(count_if(fiscal_year IS NULL OR fiscal_year NOT BETWEEN 2018 AND 2024) = 0, 'fiscal_year is missing or outside 2018 to 2024'),
+  assert_true(count_if(fiscal_year IS NULL OR fiscal_year NOT BETWEEN :min_year AND :max_year) = 0, 'fiscal_year is missing or outside the configured fiscal-year window'),
   assert_true(count_if(lgu_type IS NULL OR lgu_type NOT IN ('Province', 'City', 'Municipality')) = 0, 'lgu_type is not Province, City or Municipality'),
   assert_true(
     count_if(total_appropriation <> ldrrmf_70pct_appropriation + qrf_30pct_appropriation
@@ -100,8 +130,21 @@ FROM silver_candidate;
 -- COMMAND ----------
 
 -- Write the silver table
--- What it does: replaces the silver table with the checked rows. This only runs if the stop rules above passed.
+-- What it does: merges checked rows into the silver table. This only runs if the stop rules above passed.
 -- What to expect: the table has the same rows as bronze. Run check_blgf_ldrrmf_annual_lgu_clean.sql next.
-CREATE OR REPLACE TABLE silver.blgf_ldrrmf_annual_lgu_clean
-COMMENT 'BLGF LDRRMF budget and spending, one row per LGU (province, city or municipality) per fiscal year. Cleaned from bronze: trimmed text, fiscal_year added, amounts as exact pesos. has_dq_issues marks rows that fail a data quality rule. psgc_code links to PSGC (NULL when not matched). Rows are never dropped.'
-AS SELECT * EXCEPT (_in_lgu_map) FROM silver_candidate;
+CREATE TABLE IF NOT EXISTS silver.blgf_ldrrmf_annual_lgu_clean USING DELTA AS SELECT * EXCEPT (_in_lgu_map) FROM silver_candidate WHERE false;
+-- COMMAND ----------
+MERGE INTO silver.blgf_ldrrmf_annual_lgu_clean t USING (SELECT * EXCEPT (_in_lgu_map) FROM silver_candidate) s ON t.fiscal_year <=> s.fiscal_year AND t.region <=> s.region AND t.province <=> s.province AND t.lgu_name <=> s.lgu_name AND t.lgu_type <=> s.lgu_type
+WHEN MATCHED AND (NOT(t._row_hash <=> s._row_hash) OR NOT(t.psgc_code <=> s.psgc_code) OR NOT(t.source_period <=> s.source_period)) THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *;
+
+-- COMMAND ----------
+-- Retained financial warnings and unmatched geography have explicit row counts.
+SELECT 'funding_flagged_rows' AS check_id,
+  'silver.blgf_ldrrmf_annual_lgu_clean' AS table_name,
+  count_if(has_dq_issues) AS failed_count, 'WARN' AS severity
+FROM silver.blgf_ldrrmf_annual_lgu_clean
+UNION ALL
+SELECT 'unmatched_funding_geography', 'silver.blgf_ldrrmf_annual_lgu_clean',
+  count_if(psgc_code IS NULL), 'WARN'
+FROM silver.blgf_ldrrmf_annual_lgu_clean;

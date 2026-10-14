@@ -2,6 +2,10 @@
 
 Project AHON is a data-driven disaster and hazard monitoring platform designed to provide actionable insights that strengthen disaster preparedness and decision-making.
 
+The executable batch pipeline covers PSGC/LGU references, barangay census population, separate PXWeb population totals, selected CMCI indicators, BLGF disaster funding, PHIVOLCS observations and OSM infrastructure features. It exposes source evidence and coverage. Risk, vulnerability, preparedness and priority scores remain withheld until their methodology is supported.
+
+Start with the [development runbook](docs/operations/runbook.md), [source-to-target inventory and PR decisions](docs/architecture/source-to-target.md), [verification evidence](docs/operations/validation.md), [analytical limitations](docs/architecture/metrics.md), and [reconciled contract decision](docs/decisions/0010-reconciled-source-contracts.md). Use a fresh development catalog; existing incompatible schemas require review. `resources/jobs/` contains executable jobs with no schedules. Production deployment and execution are outside this task.
+
 ## Repository structure
 
 ```
@@ -16,7 +20,7 @@ ahon-pipeline/
 │   └── pull_request_template.md # PR template
 ├── src/                         # pipeline code; SQL and Python files sit together
 │   └── sql/                     # for now, all pipeline code sits under src/sql/ (may move up to src/ later)
-│       ├── 00_setup/                               # shared: catalogs, schemas, volumes, control table
+│       ├── 00_setup/                               # shared: schemas; catalog and volume created by the runner
 │       ├── datasets/                               # one folder per source dataset
 │       │   └── publisher_dataset/                  # example: replace with the real dataset name
 │       │       ├── extract/                        # optional: pulls data from the source and writes raw files
@@ -29,7 +33,7 @@ ahon-pipeline/
 │       │           └── clean_rules.py              # example: Python only if the dataset needs it
 │       ├── gold/                                   # shared: combines datasets into dimensions and facts
 │       ├── platinum/                               # shared: analytics tables built from gold
-│       ├── monitoring/                             # shared: data quality rules, run log
+│       ├── monitoring/                             # shared: data quality rules
 │       └── common/                                 # shared reusable Python
 ├── resources/                   # job and pipeline definitions (YAML), included by databricks.yml
 ├── notebooks/                   # experiments only; jobs never run these
@@ -54,9 +58,9 @@ ahon-pipeline/
 
 - **Code:** under `src/sql/` for now (the `sql/` folder may be dropped later). Each dataset has its own folder under `src/sql/datasets/` with a `bronze/` and a `silver/` folder for its SQL, and Python where the dataset needs it. Code that is shared or combines datasets goes in the shared folders.
 - **Dataset subfolders:** `bronze/` and `silver/` are the standard ones. If a dataset needs more, its owner can add a subfolder, such as `extract/` for code that pulls data from the source and writes the raw files. Keep the subfolder inside that dataset's folder, and describe it with a comment in this tree or a short note in the dataset's folder.
-- **Source files:** files from file-based sources are uploaded to the team's Hugging Face dataset repository and copied, unchanged, into the `source` volume, which is in the `reference` schema (`ahon.reference.source`), by the dataset's `extract/` code, in one folder named after the dataset. Bronze code reads from the volume only. See [docs/decisions/0004-source-file-landing-hugging-face.md](docs/decisions/0004-source-file-landing-hugging-face.md).
+- **Source files:** files from file-based sources are uploaded to the team's Hugging Face dataset repository and copied, unchanged, into the `source` volume, which is in the `reference` schema (`<catalog>.reference.<source_volume>`), by the dataset's `extract/` code, in one folder named after the dataset. Bronze code reads from the volume only. See [docs/decisions/0004-source-file-landing-hugging-face.md](docs/decisions/0004-source-file-landing-hugging-face.md).
 - **Schemas:** folder names match the schema names in the naming standard, with no number prefixes.
-- **Setup scripts:** files in `src/sql/setup/` have number prefixes (`01_`, `02_`) because they must run in order.
+- **Setup scripts:** files in `src/sql/00_setup/` have number prefixes (`01_`, `02_`) because they must run in order.
 - **Reusable Python:** in `src/sql/common/`, imported by the layer code.
 - **Notebooks:** experiments only. Jobs run `.sql` and `.py` files from `src/sql/`.
 - **Tests:** in `tests/`, in the same layout as `src/sql/`.

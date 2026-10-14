@@ -1,18 +1,118 @@
----
 bundle:
   name: ahon
-
 include:
-  - resources/jobs/*.yml
-
+- resources/jobs/*.yml
+variables:
+  catalog:
+    description: Catalog to process; use a fresh isolated catalog for development verification
+  source_volume:
+    description: source volume
+  source_period:
+    description: Approved PSGC API snapshot used for references
+  census_year:
+    description: Actual census reference year of the selected population source
+  hf_repo:
+    description: hf repo
+  hf_revision:
+    description: Pinned source commit containing BLGF and OSM assets
+  psgc_secret_scope:
+    description: Existing PSA token secret scope
+  psgc_secret_key:
+    description: Existing PSA token secret key
+  cmci_mapping_file:
+    description: Reviewed mapping CSV in a UC Volume; no guessed or synthetic production mappings
+  cmci_start_year:
+    description: cmci start year
+  cmci_end_year:
+    description: cmci end year
+  start_month:
+    description: Explicit first PHIVOLCS month YYYY-MM
+  end_month:
+    description: Explicit last PHIVOLCS month YYYY-MM
+  workspace_root:
+    description: Explicit bundle state/files root in the selected workspace; isolate development state
+  environment_version:
+    description: environment version
+  job_timeout_seconds:
+    description: job timeout seconds
+  task_timeout_seconds:
+    description: task timeout seconds
+  task_retries:
+    description: task retries
+  retry_interval_millis:
+    description: retry interval millis
+  max_concurrent_runs:
+    description: max concurrent runs
+  psgc_api_base_url:
+    description: psgc api base url
+  psgc_expected_rows:
+    description: JSON map of approved API snapshots to expected source row counts
+  population_api_url:
+    description: population api url
+  population_source_file:
+    description: population source file
+  population_expected_profile:
+    description: JSON list of expected counts at national, region, source province-group and city/municipality levels
+  ldrrmf_expected_rows:
+    description: JSON map of approved fiscal years to workbook row counts
+  ldrrmf_file_pattern:
+    description: ldrrmf file pattern
+  ldrrmf_folder:
+    description: ldrrmf folder
+  ldrrmf_start_year:
+    description: ldrrmf start year
+  ldrrmf_end_year:
+    description: ldrrmf end year
+  cmci_portal_url:
+    description: cmci portal url
+  cmci_process_url:
+    description: cmci process url
+  cmci_test_limit:
+    description: cmci test limit
+  cmci_request_batch_size:
+    description: cmci request batch size
+  cmci_request_delay:
+    description: cmci request delay
+  cmci_http_retries:
+    description: cmci http retries
+  cmci_http_backoff:
+    description: cmci http backoff
+  cmci_metric_version:
+    description: cmci metric version
+  osm_folder:
+    description: osm folder
+  osm_shapefile_stems:
+    description: JSON list of approved shapefile stems in the selected source revision
+  request_timeout:
+    description: request timeout
+  earthquake_archive_url_template:
+    description: earthquake archive url template
+  earthquake_latest_url:
+    description: earthquake latest url
+  cmci_run_mode:
+    description: Explicit test or full source scope; use test until reviewed activation
+  source_timezone:
+    description: Publisher listing clock used only for current-month request selection; event UTC interpretation
+      remains withheld
+  cmci_user_agent:
+    description: Explicit User-Agent for approved source requests
 sync:
   include:
-    - notebooks/**
-    - src/**
-    - tests/**
-
+  - src/**
+  - tests/**
+  - resources/cmci_indicators.csv
+  exclude:
+  - notebooks/**
+workspace:
+  root_path: ${var.workspace_root}
+run_as:
+  user_name: ${workspace.current_user.userName}
 targets:
+  dev:
+    mode: development
+    workspace:
+      root_path: ${var.workspace_root}
   prod:
     mode: production
     workspace:
-      root_path: ~/.bundle/${bundle.name}/${bundle.target}
+      root_path: ${var.workspace_root}
