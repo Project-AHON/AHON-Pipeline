@@ -4,11 +4,24 @@ version = "0.1.0"
 requires-python = ">=3.10"
 
 dependencies = [
-    "openpyxl==3.1.5",
+    "openpyxl==3.1.5"
 ]
 
 [tool.ruff]
-builtins = ["spark", "dbutils"]
+builtins = ["spark", "dbutils", "display"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["EXE002"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/sql/datasets/psa_psgc/bronze/psa_psgc.py" = ["F821"]
+"src/sql/datasets/psa_psgc/extract/psa_psgc_ingest.py" = ["F821"]
+"src/sql/datasets/psa_psgc/lgu_master.py" = ["F821"]
+"src/sql/06_reference/load_lgu_master.py" = ["F821"]
+"src/sql/gold/dim_lgu.py" = ["F821"]
+"src/sql/datasets/psa_psgc/silver/psa_psgc_clean.py" = ["F821"]
+"src/sql/gold/fact_population.py" = ["F821"]
 
 [tool.databricks.environment]
 environment_version = "6"
