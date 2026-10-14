@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS ahon.gold.fact_cmci_indicator (
     raw_score DOUBLE
 )
 USING DELTA
-COMMENT 'CMCI indicator fact table; one row per PSGC LGU, reporting year, and CMCI indicator';  
+COMMENT 'CMCI indicator fact table; one row per PSGC LGU, reporting year, and CMCI indicator';
 
 -- CMCI INDICATOR DIMENSION
 
