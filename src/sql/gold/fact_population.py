@@ -1,4 +1,3 @@
-# Databricks notebook source
 """AHON Gold fact_population transformation.
 
 Source: ahondev.silver.psa_psgc and ahondev.gold.dim_lgu
@@ -16,8 +15,6 @@ from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from pyspark.sql.types import ArrayType, StructField, StructType, StringType
-
-# COMMAND ----------
 
 dbutils.widgets.text("census_year", "2024")
 CENSUS_YEAR = dbutils.widgets.get("census_year")
@@ -65,8 +62,6 @@ DIM_REQUIRED = [
     "province_code",
     "municipality_code",
 ]
-
-# COMMAND ----------
 
 
 def report(message: str) -> None:
@@ -215,8 +210,6 @@ def main() -> None:
     report(f"Fact rows    : {final.count():,}")
     final.groupBy("population_year").count().orderBy("population_year").show()
 
-
-# COMMAND ----------
 
 if __name__ == "__main__":
     main()

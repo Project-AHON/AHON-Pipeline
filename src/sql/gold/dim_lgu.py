@@ -1,8 +1,13 @@
 """
 AHON Gold dim_lgu transformation.
 
+<<<<<<< Updated upstream
 Source: ahon_dev.silver.psa_psgc_clean
 Target: ahon_dev.gold.dim_lgu
+=======
+Source: ahondev.silver.psa_psgc
+Target: ahondev.gold.dim_lgu
+>>>>>>> Stashed changes
 
 Creates one geographic dimension from a single approved PSGC snapshot.
 Silver remains the source of truth for cleaned area names and hierarchy codes.
@@ -16,14 +21,24 @@ from pyspark.sql import functions as F
 # 1. CONFIGURATION
 # ============================================================
 
+<<<<<<< Updated upstream
 dbutils.widgets.text("catalog", "ahon_dev")
 CATALOG = dbutils.widgets.get("catalog")
+=======
+dbutils.widgets.text("gold_catalog", "ahondev")
+GOLD_CATALOG = dbutils.widgets.get("gold_catalog")
+>>>>>>> Stashed changes
 
 dbutils.widgets.text("source_period", "Q2_2024")
 SOURCE_PERIOD = dbutils.widgets.get("source_period")
 
+<<<<<<< Updated upstream
 SOURCE_TABLE = f"{CATALOG}.silver.psa_psgc_clean"
 GOLD_SCHEMA = f"{CATALOG}.gold"
+=======
+SOURCE_TABLE = f"{GOLD_CATALOG}.silver.psa_psgc"
+GOLD_SCHEMA = f"{GOLD_CATALOG}.gold"
+>>>>>>> Stashed changes
 TARGET_TABLE = f"{GOLD_SCHEMA}.dim_lgu"
 
 DIMENSION_COLUMNS = [
@@ -48,6 +63,7 @@ source_df = spark.table(SOURCE_TABLE)
 
 required_source_columns = [
     "psgc_code",
+<<<<<<< Updated upstream
     "area_name",
     "geographic_level",
     "region_psgc",
@@ -60,6 +76,21 @@ missing_columns = [
     column
     for column in required_source_columns
     if column not in source_df.columns
+=======
+    "geographic_name",
+    "geographic_level",
+    "region_code",
+    "province_code",
+    "municipality_code",
+    "_api_period",
+]
+
+source_columns = set(source_df.columns)
+missing_columns = [
+    column
+    for column in required_source_columns
+    if column not in source_columns
+>>>>>>> Stashed changes
 ]
 
 if missing_columns:
@@ -104,6 +135,7 @@ dim_lgu = (
     snapshot_df
     .select(
         F.col("psgc_code").cast("string").alias("psgc_code"),
+<<<<<<< Updated upstream
         F.col("area_name").alias("area_name"),
         F.col("geographic_level").alias("geographic_level"),
 
@@ -116,6 +148,19 @@ dim_lgu = (
         # It is NULL for all other geographic levels.
         F.when(
             F.col("geographic_level") == "BGY",
+=======
+        F.col("geographic_name").alias("area_name"),
+        F.col("geographic_level").alias("geographic_level"),
+
+        F.col("region_code").alias("region_code"),
+        F.col("province_code").alias("province_code"),
+        F.col("municipality_code").alias("municipality_code"),
+
+        # For Bgy rows, barangay_code stores the full 10-digit PSGC code.
+        # It is NULL for all other geographic levels.
+        F.when(
+            F.col("geographic_level") == "Bgy",
+>>>>>>> Stashed changes
             F.col("psgc_code").cast("string"),
         ).otherwise(F.lit(None).cast("string")).alias("barangay_code"),
     )
@@ -182,9 +227,16 @@ if not spark.catalog.tableExists(TARGET_TABLE):
 else:
     target_df = spark.table(TARGET_TABLE)
 
+<<<<<<< Updated upstream
     missing_target_columns = [
         column for column in DIMENSION_COLUMNS
         if column not in target_df.columns
+=======
+    target_columns = set(target_df.columns)
+    missing_target_columns = [
+        column for column in DIMENSION_COLUMNS
+        if column not in target_columns
+>>>>>>> Stashed changes
     ]
 
     if missing_target_columns:
