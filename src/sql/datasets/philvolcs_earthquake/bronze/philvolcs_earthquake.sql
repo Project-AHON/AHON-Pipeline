@@ -1,52 +1,25 @@
-CREATE TABLE IF NOT EXISTS ahon.bronze.philvolcs_earthquake_data (
-    `Date-Time` STRING,
-    Latitude DOUBLE,
-    Longitude DOUBLE,
-    Depth DOUBLE,
-    Magnitude DOUBLE,
-    Location STRING,
-    Month STRING,
-    Year INT,
-    _source_name STRING,
-    _source_ref STRING,
-    _ingested_at TIMESTAMP,
-    _batch_id STRING,
-    _row_hash STRING
-);
-
-MERGE INTO ahon.bronze.philvolcs_earthquake_data AS target
-USING (
-    SELECT
-        raw.`Date-Time` AS `Date-Time`,
-        try_cast(raw.Latitude AS DOUBLE) AS Latitude,
-        try_cast(raw.Longitude AS DOUBLE) AS Longitude,
-        try_cast(raw.Depth AS DOUBLE) AS Depth,
-        try_cast(raw.Magnitude AS DOUBLE) AS Magnitude,
-        nullif(trim(raw.Location), '') AS Location,
-        nullif(trim(raw.Month), '') AS Month,
-        try_cast(raw.Year AS INT) AS Year,
-        'philvolcs_earthquake_data' AS _source_name,
-        '/Volumes/ahon/reference/source/philvolcs_earthquake/phivolcs_earthquake_all_years.csv' AS _source_ref,
-        current_timestamp() AS _ingested_at,
-        uuid() AS _batch_id,
-        sha2(concat_ws(
-            '||',
-            raw.`Date-Time`,
-            raw.Latitude,
-            raw.Longitude,
-            raw.Depth,
-            raw.Magnitude,
-            raw.Location,
-            raw.Month,
-            raw.Year
-        ), 256) AS _row_hash
-    FROM read_files(
-        '/Volumes/ahon/reference/source/philvolcs_earthquake/phivolcs_earthquake_all_years.csv',
-        format => 'csv',
-        header => true,
-        inferColumnTypes => true
-    ) AS raw
-) AS source
-ON target._row_hash = source._row_hash
-WHEN MATCHED THEN UPDATE SET *
-WHEN NOT MATCHED THEN INSERT *;
+-- Runner validates landing and target schemas first. Legacy hash identity stays.
+CREATE OR REPLACE TEMP VIEW earthquake_bronze_observations AS
+SELECT `Date-Time`, try_cast(Latitude AS DOUBLE) AS Latitude,
+  try_cast(Longitude AS DOUBLE) AS Longitude, try_cast(Depth AS DOUBLE) AS Depth,
+  try_cast(Magnitude AS DOUBLE) AS Magnitude,
+  nullif(trim(Location), '') AS Location, nullif(trim(Month), '') AS Month,
+  try_cast(Year AS INT) AS Year,
+  'philvolcs_earthquake_data' AS _source_name, c.source_path AS _source_ref,
+  c.as_of AS _ingested_at, c.batch_id AS _batch_id,
+  sha2(concat_ws('||', `Date-Time`, Latitude, Longitude, Depth, Magnitude,
+                Location, Month, Year), 256) AS _row_hash,
+  to_json(named_struct('Date-Time', `Date-Time`, 'Latitude', Latitude,
+    'Longitude', Longitude, 'Depth', Depth, 'Magnitude', Magnitude,
+    'Location', Location, 'Month', Month, 'Year', Year),
+    map('ignoreNullFields', 'false')) AS source_signature
+FROM earthquake_raw CROSS JOIN earthquake_config c;
+-- COMMAND ----------
+-- Identical typed source signatures only; hash ambiguity is a pre-write stop rule.
+-- Repeated raw rows remain in immutable landing and counts, not extra Bronze rows.
+CREATE OR REPLACE TEMP VIEW earthquake_bronze_candidate AS
+SELECT `Date-Time`, Latitude, Longitude, Depth, Magnitude, Location, Month, Year,
+  _source_name, _source_ref, _ingested_at, _batch_id, _row_hash,
+  count(*) AS raw_occurrences
+FROM earthquake_bronze_observations
+GROUP BY ALL;
