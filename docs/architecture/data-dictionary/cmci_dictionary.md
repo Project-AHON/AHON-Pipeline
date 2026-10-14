@@ -36,7 +36,7 @@ CMCI complements hazard datasets by describing local competitiveness, capacity, 
 ## Bronze: `ahon.bronze.cmci_raw_indicator_batch_html`
 
 - **One row is:** one CMCI source request containing one or more LGUs, all configured years, and all configured indicators
-- **Loaded by:** `src/sql/01_bronze_ingest/cmci_batch_ingest.py`
+- **Loaded by:** `src/sql/datasets/cmci/bronze/cmci_batch_ingest.py`
 - **Row hash covers:** the raw request arrays, expected and returned counts, raw response HTML, and response hash; excludes the five standard provenance columns
 
 | Column | Type | Description | Notes |
