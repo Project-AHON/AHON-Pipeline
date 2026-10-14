@@ -12,3 +12,17 @@ builtins = ["spark", "dbutils", "display"]
 
 [tool.ruff.lint]
 ignore = ["EXE002"]
+[project]
+name = "project-ahon"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+dependencies = [
+    "openpyxl==3.1.5",
+]
+
+[tool.ruff]
+builtins = ["spark", "dbutils"]
+
+[tool.databricks.environment]
+environment_version = "6"
