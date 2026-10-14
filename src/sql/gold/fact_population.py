@@ -14,7 +14,7 @@ from functools import reduce
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
-from pyspark.sql.types import ArrayType, StructField, StructType, StringType
+from pyspark.sql.types import ArrayType, StringType, StructField, StructType
 
 dbutils.widgets.text("census_year", "2024")
 CENSUS_YEAR = dbutils.widgets.get("census_year")
