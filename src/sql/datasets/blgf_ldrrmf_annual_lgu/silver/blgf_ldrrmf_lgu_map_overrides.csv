@@ -1,0 +1,20 @@
+province,lgu_name,lgu_type,psgc_code,reason
+MAGUINDANAO,MAGUINDANAO,Province,,Province split into Maguindanao del Norte and del Sur in 2022; the old province has no current PSGC code
+North Cotabato,Cotabato City,City,1908703000,Independent city; BLGF lists it under North Cotabato in FY2019 (checked 2026-10-12)
+Sarangani,Cotabato City,City,1908703000,Independent city; BLGF lists it under Sarangani in FY2018 (checked 2026-10-12)
+Misamis Occidental,Ozamis City,City,1004210000,PSGC spells it City of Ozamiz
+South Cotabato,Korondal City,City,1206306000,BLGF typo for City of Koronadal (FY2018)
+Bulacan,Baliuag,Municipality,0301403000,Now City of Baliwag; BLGF spelling Baliuag
+Cebu,Cordoba,Municipality,0702220000,PSGC spells it Cordova
+Lanao Del Sur,Bumbaran,Municipality,1903637000,Renamed Amai Manabilang
+Maguindanao,Shariff Saydona Mustahpa,Municipality,1908821000,BLGF typo for Shariff Saydona Mustapha
+Masbate,Pio V. Corpuz,Municipality,0504116000,PSGC spells it Pio V. Corpus
+Masbate,Pio V. Corpuz (Limbuhan),Municipality,0504116000,PSGC spells it Pio V. Corpus
+Northern Samar,Lavesares,Municipality,0804811000,PSGC spells it Lavezares
+Rizal,Pililia,Municipality,0405810000,BLGF typo for Pililla
+Zamboanga Del Norte,Bacungan,Municipality,0907226000,PSGC name Leon T. Postigo (formerly Bacungan)
+Zamboanga Del Norte,Bacungan (Leon B. Postigo),Municipality,0907226000,PSGC name Leon T. Postigo (formerly Bacungan)
+Zamboanga Del Sur,Vincenzo Sagun,Municipality,0907341000,PSGC name Vincenzo A. Sagun
+Zamboanga Sibugay,Roseller T. Lim,Municipality,0908312000,PSGC name Roseller Lim
+Maguindanao,Datu Montawal,Municipality,1908815000,PSGC Q2_2024 still uses the old name Pagagawan
+Maguindanao Del Sur,Datu Montawal,Municipality,1908815000,PSGC Q2_2024 still uses the old name Pagagawan

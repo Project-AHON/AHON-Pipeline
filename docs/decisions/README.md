@@ -41,3 +41,4 @@ if it changes, write a new record and mark the old one
 | [0005](0005-CMCI-locality-mapping-and-incremental-ingestion) | CMCI mapping and ingestion | Accepted |
 | [0006](0006-cmci-mapping-and-ingestion.md) | CMCI mapping and ingestion | Accepted |
 | [0007](0007-silver-provenance-and-dq-flag.md) | Silver keeps provenance columns and marks data quality problems in one column | Proposed |
+| [0008](0008-ldrrmf-psgc-matching-in-silver.md) | Match LDRRMF to PSGC codes in silver through a reference map | Proposed |
