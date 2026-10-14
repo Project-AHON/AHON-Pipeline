@@ -8,4 +8,7 @@ dependencies = [
 ]
 
 [tool.ruff]
-builtins = ["spark"]
+builtins = ["spark", "dbutils", "display"]
+
+[tool.ruff.lint]
+ignore = ["EXE002"]

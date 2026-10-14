@@ -10,6 +10,13 @@ Population is a barangay total, not an exposed-population measure.
 - Population: the `Bgy` rows of `ahondev.silver.psa_psgc` for the chosen API period, read from the `populations_json` field for the chosen census year.
 - Parent codes: `ahondev.gold.dim_lgu`, joined on `barangay_code = psgc_code`.
 
+## Parameters
+
+| Widget | Default | Description |
+| --- | --- | --- |
+| `census_year` | `2024` | Census year to extract from `populations_json` |
+| `source_version` | `Q2_2024` | API period filter on `psa_psgc._api_period` |
+
 ## Columns
 
 | Column | Type | Description |
