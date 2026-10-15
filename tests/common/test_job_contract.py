@@ -1,6 +1,7 @@
 """Verify the deployed DAG and runtime asset contracts, beyond bundle schema validation."""
 
 import ast
+import json
 from pathlib import Path
 
 import yaml
@@ -104,6 +105,13 @@ def test_operational_settings_have_no_committed_defaults():
             for flag in ["--source-period", "--census-year", "--start-year", "--end-year", "--source-file", "--expected-rows", "--expected-profile"]:
                 if flag in params:
                     assert params[params.index(flag) + 1].startswith("${var.")
+
+
+def test_configuration_template_matches_the_bundle_without_private_values():
+    config = yaml.safe_load((ROOT / "databricks.yml").read_text())
+    template = json.loads((ROOT / "config/variable-overrides.example.json").read_text())
+    assert set(template) == set(config["variables"])
+    assert all(value is None for value in template.values())
 
 
 def test_cmci_definition_asset_is_explicit_and_packaged():

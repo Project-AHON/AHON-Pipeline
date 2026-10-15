@@ -1,5 +1,7 @@
 # AHON-Pipeline
 
+For a fresh checkout, follow the [start-to-finish configuration guide](docs/operations/configuration.md). Its blank template covers every required bundle input; credentials and target settings stay local.
+
 Project AHON is a data-driven disaster and hazard monitoring platform designed to provide actionable insights that strengthen disaster preparedness and decision-making.
 
 The executable batch pipeline covers PSGC/LGU references, city/municipality census population, separate PXWeb source totals, selected CMCI indicators, BLGF disaster funding, PHIVOLCS observations and OSM infrastructure features. The analytical geographic unit is a city or municipality; the canonical population fact is keyed by `(psgc_code, population_year)`. Native source observations remain available for lineage. Risk, vulnerability, preparedness and priority scores remain withheld until their methodology is supported.
