@@ -16,7 +16,7 @@ The supported runtime contracts are now the following pages. The older CMCI and 
 | --- | --- |
 | [PSGC](psa_psgc_data.md) | Raw observations and current snapshot cleaning |
 | [LGU dimension](dim_lgu.md) | One selected snapshot and standardized hierarchy |
-| [Barangay population](fact_population.md) | Barangay × census year, NULL preservation |
+| [City/municipality population](fact_population.md) | City/municipality PSGC × census year, NULL preservation |
 | [Population sources](psa_population.md) | Separate PXWeb administrative totals and dispositions |
 | [CMCI](cmci_dictionary.md) | Reviewed identities, selected long-form indicators and coverage |
 | [Funding fact](fact_ldrrmf.md) | Original reporting unit × fiscal year, pesos and ratios |

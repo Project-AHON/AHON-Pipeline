@@ -36,7 +36,7 @@ def verify_delivery_replay(spark, args):
     )).where("_seed = 1").drop("_seed"))
     reference = spark.createDataFrame(reference.collect(), reference.schema)
     fiscal = spark.createDataFrame(fiscal.collect(), fiscal.schema)
-    population = module("delivery_population", "src/sql/datasets/psa_psgc/silver/clean_barangay_population.py")
+    population = module("delivery_population", "src/sql/datasets/psa_psgc/silver/clean_city_population.py")
     timestamp = datetime.now(timezone.utc)
     scopes = []
     for index, value in enumerate((3000, 4000)):
@@ -44,8 +44,8 @@ def verify_delivery_replay(spark, args):
         scopes.append(current)
         observed_at = timestamp + timedelta(seconds=index)
         changed = reference.withColumn("populations_json", F.when(
-            F.col("psgc_code") == "0100101001",
-            F.lit(json.dumps([{"population": str(value), "year": "2024", "psgc": "0100101001"}]))
+            F.lpad(F.col("psgc_code"), 10, "0") == "0100101000",
+            F.lit(json.dumps([{"population": str(value), "year": "2024", "psgc": "0100101000"}]))
         ).otherwise(F.col("populations_json")))
         changed = delivery(changed, current.batch_id, observed_at)
         upsert(spark, changed, f"{args.catalog}.bronze.psa_psgc", ["_observation_id"])

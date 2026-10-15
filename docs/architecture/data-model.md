@@ -4,8 +4,8 @@
 
 | Table | Grain / unique business key | Meaning |
 | --- | --- | --- |
-| `gold.fact_population` | barangay × census year; `(barangay_code, population_year)` | Resident count; NULL remains missing; carries snapshot and source lineage |
-| `gold.fact_population_total` | PXWeb hierarchical source geography × 2024 census year; deterministic `population_fact_key` | National/region/province/city-municipality observations kept separately from barangay counts; contextual mapping and DQ flags |
+| `gold.fact_population` | city/municipality × census year; `(psgc_code, population_year)` | Direct CITY/MUN source measurement; missing records/values remain NULL; full LGU/year grid |
+| `gold.fact_population_total` | PXWeb hierarchical source geography × census year; deterministic `population_fact_key` | Separate source context, not the canonical city/municipality analysis fact; contextual mapping and DQ flags |
 | `gold.fact_cmci_indicator` | `(psgc_code, year, indicator_code)` | Source indicator measurement; missing or invalid latest values are NULL; reviewed source identity retained |
 | `gold.dim_cmci_indicator` | `indicator_code` | Existing 35-code label/pillar metadata; `metric_version=selected_35_v1` identifies the selected subset |
 | `gold.fact_ldrrmf` | original BLGF reporting entity × fiscal year; `(fiscal_year, region, province, lgu_name, lgu_type)` | Separate 70%/30% amounts and totals in pesos; utilization ratios; contextual geographic disposition |

@@ -7,8 +7,8 @@ flowchart LR
   Setup --> PSGCIngest[PSGC raw landing and Bronze]
   PSGCIngest --> PSGCSilver[PSGC Silver and DQ]
   PSGCSilver --> Dimension[Existing dim_lgu]
-  PSGCSilver --> Population[Barangay census Silver]
-  Dimension --> PopulationFact[Barangay population fact and coverage]
+  PSGCSilver --> Population[City and municipality census Silver]
+  Dimension --> PopulationFact[City and municipality population fact]
   Population --> PopulationFact
   Setup --> PX[PXWeb landing, Bronze and Silver]
   PX --> PXFact[Separate population totals fact]
@@ -27,6 +27,8 @@ flowchart LR
 ```
 
 Raw landing batches are immutable. Bronze records retain source columns and row/file/run provenance. Silver types, validates and disposition records; deterministic selection preserves raw predecessors. Gold owns explicit fact/dimension grains. Platinum holds query-specific coverage and component views. GX evaluates full-input rule metrics computed by Spark. DQ results and GX JSON evidence are recorded in `monitoring.dq_result` before a blocking error stops dependent tasks.
+
+The analytical geographic unit is city/municipality. Population uses direct source totals at that level, keyed by PSGC/census year; source barangays are not analysis rows. Indicator and financial facts retain their necessary indicator/fiscal detail, while raw event/features remain unassigned to LGUs until supported. See decision 0012 for the population schema migration boundary.
 
 The dimension is a current snapshot, not a historical SCD. Changing its selected period is guarded. No absence-based deletion, automatic schema replacement or name-only geographic assignment is part of the supported workflow. Schema differences require separate review; fresh development catalogs permit safe verification.
 

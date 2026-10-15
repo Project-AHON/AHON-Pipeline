@@ -115,15 +115,19 @@ $batch = Read-Host 'Stable delivery batch ID'
 databricks bundle run ahon_pipeline -t dev --profile $profile --params "catalog=$sourceCatalog,batch_id=$batch" --only +osm_silver,+ldrrmf_bronze,+population_silver,+earthquake_bronze
 
 # After supplying the approved PSA token and source profiles:
-databricks bundle run ahon_pipeline -t dev --profile $profile --only +barangay_population_gold
+databricks bundle run ahon_pipeline -t dev --profile $profile --only +population_gold
 
 # After every source prerequisite is available:
 databricks bundle run ahon_pipeline -t dev --profile $profile
 ```
 
-PSGC Bronze→Silver precedes the existing `dim_lgu`, embedded barangay population and contextual reference lookups. Gold waits for its validated Silver and dimension. OSM runs its own extract→Bronze→Silver chain. Earthquake observation Silver requires the selected PSGC reference for candidate reporting; event Gold is not scheduled. Independent component tasks depend only on their own outputs. All edges use `ALL_SUCCESS`.
+PSGC Bronze→Silver precedes the existing `dim_lgu`, direct city/municipality census population and contextual reference lookups. Gold waits for its validated Silver and dimension. OSM runs its own extract→Bronze→Silver chain. Earthquake observation Silver requires the selected PSGC reference for candidate reporting; event Gold is not scheduled. Independent component tasks depend only on their own outputs. All edges use `ALL_SUCCESS`.
 
 CMCI reviewed mapping columns are `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`. Codes are unique ten-digit strings, source names one-to-one, reviewed must be true, and period must match the selected dimension. The development PSGC secret reference is configured and live authentication has passed. Real approved CMCI mappings remain unavailable; synthetic mappings are test data and must not be used as production evidence.
+
+## Population grain migration
+
+The canonical Gold population key is now `(psgc_code, population_year)` for cities/municipalities. `psgc_population_silver` reads direct CITY/MUN measurements and `population_gold` materializes the reference grid. The old barangay target is guarded and never overwritten. Existing catalogs with that schema require a reviewed rebuild or a separate catalog/cutover, including `platinum.population_components` and its consumers. Do not deploy the new writer against an old target expecting automatic evolution. Native PSGC barangay arrays remain available for lineage.
 
 ## Replay and corrections
 
@@ -137,4 +141,4 @@ Standard PSGC, PXWeb, BLGF and CMCI observation IDs include delivery batch ID, s
 
 Blocking checks persist to `monitoring.dq_result` before dependent tasks fail or skip. Inspect the failed task, source lineage and row disposition/rejects; correct source or reviewed mapping in a new batch and rerun the affected branch. Facts stay at the prior accepted state on a block; inspect latest DQ status before treating them as current. No absence-based deletion or automatic schema evolution occurs.
 
-`data_quality` only accepts an isolated `ahon_integration_*` catalog. It runs the actual transformations on synthetic data, including same-batch replay, invalid values, geographic cardinality, NULL populations, partial aggregation, financial ratios and valid→invalid→reverted CMCI values. Use a fresh catalog for a new complete suite or after failure: fixtures intentionally retain correction history. The suite has zero automatic retries and replays individual transformations explicitly. It does not establish scientific validity or prove access to every real source.
+`data_quality` only accepts an isolated `ahon_integration_*` catalog. It runs the actual transformations on synthetic data, including same-batch replay, invalid values, geographic cardinality, city/year grain, absent/NULL population measurements, financial ratios and valid→invalid→reverted CMCI values. Use a fresh catalog for a new complete suite or after failure: fixtures intentionally retain correction history. The suite has zero automatic retries and replays individual transformations explicitly. It does not establish scientific validity or prove access to every real source.

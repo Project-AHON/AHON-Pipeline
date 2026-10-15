@@ -208,7 +208,7 @@ resources:
         run_if: ALL_SUCCESS
         depends_on:
         - task_key: psgc_silver
-      - task_key: barangay_population_silver
+      - task_key: psgc_population_silver
         spark_python_task:
           python_file: ../../src/sql/common/launch.py
           source: WORKSPACE
@@ -216,7 +216,7 @@ resources:
           - --repo-root
           - ${workspace.file_path}
           - --entry-point
-          - src/sql/datasets/psa_psgc/silver/clean_barangay_population.py
+          - src/sql/datasets/psa_psgc/silver/clean_city_population.py
           - --catalog
           - '{{job.parameters.catalog}}'
           - --source-volume
@@ -233,7 +233,7 @@ resources:
         run_if: ALL_SUCCESS
         depends_on:
         - task_key: psgc_silver
-      - task_key: barangay_population_gold
+      - task_key: population_gold
         spark_python_task:
           python_file: ../../src/sql/common/launch.py
           source: WORKSPACE
@@ -262,7 +262,7 @@ resources:
         run_if: ALL_SUCCESS
         depends_on:
         - task_key: dim_lgu
-        - task_key: barangay_population_silver
+        - task_key: psgc_population_silver
       - task_key: population_extract
         spark_python_task:
           python_file: ../../src/sql/common/launch.py
@@ -960,7 +960,7 @@ resources:
         retry_on_timeout: false
         run_if: ALL_SUCCESS
         depends_on:
-        - task_key: barangay_population_gold
+        - task_key: population_gold
       - task_key: funding_components
         spark_python_task:
           python_file: ../../src/sql/common/launch.py

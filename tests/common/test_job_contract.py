@@ -49,7 +49,7 @@ def test_independent_sources_are_not_blocked_by_cmci_or_earthquake():
     for name in ["psgc_extract", "population_extract", "ldrrmf_extract", "earthquake_extract", "osm_extract"]:
         assert dependencies[name] == {"setup"}
     assert dependencies["ldrrmf_gold"] == {"ldrrmf_silver", "dim_lgu"}
-    assert dependencies["barangay_population_gold"] == {"barangay_population_silver", "dim_lgu"}
+    assert dependencies["population_gold"] == {"psgc_population_silver", "dim_lgu"}
     assert dependencies["earthquake_silver"] == {"earthquake_bronze", "psgc_silver"}
     assert not any("earthquake_gold" == task for task in dependencies)
 

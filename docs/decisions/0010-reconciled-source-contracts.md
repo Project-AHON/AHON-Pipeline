@@ -3,6 +3,7 @@
 - Status: Proposed for team review; implemented locally on `feature/pipeline-reconciliation`
 - Date: 2026-10-14
 - Baseline: `4d82f6b5010c715ed14eca490c5415692e8fc34e`
+- Population grain superseded by [0012](0012-city-municipality-analysis-grain.md) following the user's city/municipality requirement; other contracts remain applicable
 
 The executable path follows `resources/jobs/ahon_job.yml`. This decision updates the implementation portions of decisions 0005, 0006 CMCI Silver, 0007 DAB, 0008 CMCI Gold, and 0009 CMCI quality; their historical rationale remains available in Git. It does not establish a scientific risk model.
 

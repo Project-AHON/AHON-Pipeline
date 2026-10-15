@@ -5,3 +5,5 @@
 Columns: `source_period`, `psgc_code`, `area_name`, `geographic_level`, `region_code`, `province_code`, `municipality_code`, `barangay_code` (all strings). Levels are `REG`, `PROV`, `CITY`, `MUN`, `BGY`, `SGU`, `SUBMUN`. Hierarchy codes are standardized PSGC prefixes from Silver; they describe the selected snapshot and must not be assumed to be an independent current province or city record without checking the dimension. Barangay code is populated only for BGY.
 
 The key is `psgc_code`; a snapshot tag does not introduce historical dimension grain. The job checks source/target uniqueness and types, rejects a target carrying a different snapshot, and upserts changed attributes. It does not delete absent entities. A new snapshot requires separate review or a fresh development catalog. Geographic joins must check period, level and cardinality.
+
+The dimension retains all native geographic levels for reference and contextual mapping. This does not set the analytical fact grain: the canonical population fact and LGU analysis use only CITY/MUN identities, as specified in decision 0012.

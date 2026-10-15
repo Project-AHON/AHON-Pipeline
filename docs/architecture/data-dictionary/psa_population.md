@@ -1,6 +1,6 @@
 # PSA population sources
 
-Two distinct source contracts are supported. Embedded PSGC records produce barangay/census facts through `silver.psgc_population_clean`; see [fact_population](fact_population.md).
+Two distinct source contracts are supported. Embedded PSGC CITY/MUN records produce city/municipality census facts through `silver.psgc_city_population_clean`; see [fact_population](fact_population.md).
 
 PXWeb OpenSTAT table `0241A6DPUP1.px` supplies the 2024 hierarchical urban-population CSV. The fixed source profile is 1,744 rows: one national, 18 regional, 118 province-group and 1,607 city/municipality observations. Province groups can include independent-city groupings and are not necessarily 118 statutory provinces. Dot indentation defines the source hierarchy; it is not inferred from locality names.
 
@@ -8,4 +8,4 @@ PXWeb OpenSTAT table `0241A6DPUP1.px` supplies the 2024 hierarchical urban-popul
 
 `silver.psa_population_clean` carries source lineage unchanged, builds the hierarchical geographic path, and adds typed totals (BIGINT people), rural population (`total - urban`), `percent_urban` DOUBLE (0–100), census year, `geo_level` 0–3, region, province, city/municipality, `_processed_at` and `has_dq_issues`. Invalid or missing numeric values remain NULL, current flagged rows stay visible, and historical rejects are retained in `silver.psa_population_reject`. The latest source observation updates `(geographic_location, census_year)` without deleting absence.
 
-`gold.fact_population_total` retains the source geographic path × census year and a stable SHA-256 `population_fact_key`. It carries candidate code arrays, selected reference period and `mapping_status`. Only a single city/municipality match with region + province + locality context yields `psgc_code`; unmatched and aggregate rows remain. There are no barangays in this source. Do not sum across administrative levels or add these values to the separate barangay fact. Counts are residents, not earthquake exposure.
+`gold.fact_population_total` retains the source geographic path × census year and a stable SHA-256 `population_fact_key`. It carries candidate code arrays, selected reference period and `mapping_status`. Only a single city/municipality match with region + province + locality context yields `psgc_code`; unmatched and aggregate rows remain. There are no barangays in this source. Do not sum across administrative levels or add these values to the canonical city/municipality fact. Counts are residents, not earthquake exposure.

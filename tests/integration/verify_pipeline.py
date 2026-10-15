@@ -82,9 +82,11 @@ def verify(spark, args):
     names = [
         ("0100000000", "Region fixture", "REG", None),
         ("0100100000", "Province fixture", "PROV", None),
-        ("100101000", "Town fixture 1/", "MUN", None),
+        ("100101000", "Town fixture 1/", "MUN", json.dumps([{"population": "1200", "year": "2024", "psgc": "0100101000"}])),
         ("0100101001", "Barangay fixture", "BGY", json.dumps([{"population": "1,200", "year": "2024", "psgc": "0100101001"}])),
         ("0100101002", "Missing fixture", "BGY", json.dumps([{"population": "-", "year": "2024", "psgc": "0100101002"}])),
+        ("0100102000", "Missing city fixture", "CITY", json.dumps([{"population": "-", "year": "2024", "psgc": "0100102000"}])),
+        ("0100103000", "No census fixture", "MUN", None),
         ("0100109999", "Unknown fixture", "UNKNOWN", None),
     ]
 
@@ -101,9 +103,9 @@ def verify(spark, args):
     upsert(spark, reference_frame(names), f"{args.catalog}.bronze.psa_psgc", ["_observation_id"])
     for relative in ["src/sql/datasets/psa_psgc/silver/psa_psgc_clean.py", "src/sql/gold/dim_lgu.py"]:
         invoke("src/sql/common/run_python.py", args, ["--file", relative])
-    assert spark.table("gold.dim_lgu").count() == 5
+    assert spark.table("gold.dim_lgu").count() == 7
     assert spark.table("silver.psa_psgc_reject").count() == 1
-    pop = module("barangay_population_verify", "src/sql/datasets/psa_psgc/silver/clean_barangay_population.py")
+    pop = module("city_population_verify", "src/sql/datasets/psa_psgc/silver/clean_city_population.py")
     scope = SimpleNamespace(**vars(args), source_period="Q2_2024", metric_version="fixture_v1")
     pop.transform(spark, scope)
     invoke("src/sql/common/run_python.py", args, ["--file", "src/sql/gold/fact_population.py"])
@@ -113,17 +115,26 @@ def verify(spark, args):
         invoke("src/sql/common/run_python.py", args, ["--file", "src/sql/gold/fact_population.py"])
         assert before == set(map(tuple, spark.table("gold.fact_population").collect()))
     assert spark.table("gold.fact_population").where("population IS NULL AND disposition = 'missing_population'").count() == 1
+    assert spark.table("gold.fact_population").where("population IS NULL AND disposition = 'missing_census_observation'").count() == 1
+    assert spark.table("gold.fact_population").where("geographic_level NOT IN ('CITY','MUN')").count() == 0
     invoke("src/sql/common/run_sql.py", args, ["--file", "src/sql/platinum/population_components.sql"])
-    assert spark.table("platinum.population_components").where("available_population_subtotal = 1200 AND complete_population_total IS NULL").count() == 1
+    assert spark.table("platinum.population_components").where("population = 1200 AND coverage_status = 'AVAILABLE'").count() == 1
+    assert spark.table("platinum.population_components").where("coverage_status = 'MISSING'").count() == 2
 
-    # Source correction updates the stable barangay/census key and keeps two Bronze observations.
-    corrected = reference_frame([(*names[3][:3], json.dumps([{"population": "1300", "year": "2024", "psgc": "0100101001"}]))])
+    # Source correction updates the stable city/census key without creating another fact.
+    corrected = reference_frame([(*names[2][:3], json.dumps([{"population": "1300", "year": "2024", "psgc": "0100101000"}]))])
     upsert(spark, corrected, f"{args.catalog}.bronze.psa_psgc", ["_observation_id"])
     invoke("src/sql/common/run_python.py", args, ["--file", "src/sql/datasets/psa_psgc/silver/psa_psgc_clean.py"])
     pop.transform(spark, scope)
     invoke("src/sql/common/run_python.py", args, ["--file", "src/sql/gold/fact_population.py"])
     assert spark.table("gold.fact_population").where("population = 1300").count() == 1
-    assert spark.table("gold.fact_population").count() == 2
+    assert spark.table("gold.fact_population").count() == 3
+    if args.population_only:
+        print(json.dumps({'status': 'PASS', 'catalog': args.catalog, 'checks': [
+            'city/municipality census grain', 'barangays excluded from Gold',
+            'missing measurements and absent census records remain NULL',
+            'same-batch replay and source correction preserve the city business key']}))
+        return
 
     # Financial warnings survive into facts. Zero budgets return NULL; overspending is not clipped.
     fiscal_rows = [("Region fixture", "Province fixture", "Town fixture", "Municipality", 0., 0., 0., 0., 0., 0., "fixture/FY2023-LDRRMF-by-LGU.xlsx"),
@@ -216,8 +227,8 @@ def verify(spark, args):
     assert evidence.where("get_json_object(validation_result, '$.meta.engine') <> 'great_expectations'").count() == 0
     assert evidence.where("disposition = 'BLOCKED' AND get_json_object(validation_result, '$.success') = 'false'").count() > 0
     print(json.dumps({'status':'PASS', 'catalog':args.catalog, 'checks':[
-        'PSGC leading zeros, snapshot, unknown dispositions', 'barangay grain and source correction',
-        'NULL population and partial aggregation', 'funding ratio edges and SQL replay',
+        'PSGC leading zeros, snapshot, unknown dispositions', 'city/municipality grain and source correction',
+        'NULL population and missing city coverage', 'funding ratio edges and SQL replay',
         'CMCI response validation, valid-invalid-reverted corrections, missingness and coverage',
         'changed CMCI definition blocks without altering facts',
         'older PSGC and funding deliveries preserve newer corrections',
@@ -231,4 +242,5 @@ if __name__ == '__main__':
     arguments = parser(__doc__)
     arguments.add_argument('--existing-definition-check', action='store_true',
                            help='Check only the definition guard against completed synthetic fixtures')
+    arguments.add_argument('--population-only', action='store_true', help='Verify only city/municipality census processing on fresh synthetic fixtures')
     verify(SparkSession.builder.getOrCreate(), arguments.parse_args())

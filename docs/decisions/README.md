@@ -48,3 +48,4 @@ if it changes, write a new record and mark the old one
 | [0009 earthquake](0009-earthquake-observations-and-locality-candidates.md) | Earthquake observations and locality candidates | Proposed |
 | [0010](0010-reconciled-source-contracts.md) | Executable source and analytical contracts | Proposed for review, locally implemented |
 | [0011](0011-shared-gx-quality-gates.md) | Shared GX quality gates and explicit production identity | Implemented at user request; pending team review |
+| [0012](0012-city-municipality-analysis-grain.md) | City/municipality analysis and population fact grain | Implemented at user request; supersedes 0010's population grain |

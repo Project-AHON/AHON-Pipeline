@@ -20,6 +20,6 @@ The job validates the requested completed delivery, allowing a later correction 
 
 ## Downstream and verification
 
-`gold.dim_lgu` is the existing canonical dimension, gated by the selected snapshot. The former `reference.lgu_master` loader is retired. Embedded population arrays feed [barangay population](fact_population.md); other datasets use contextual reference lookups with explicit periods.
+`gold.dim_lgu` is the existing canonical dimension, gated by the selected snapshot. The former `reference.lgu_master` loader is retired. City/municipality population arrays feed `silver.psgc_city_population_clean` and the [canonical population fact](fact_population.md). Barangay observations remain in the source layers; they are not canonical analytical rows. Other datasets use contextual reference lookups with explicit periods.
 
 See the [dimension dictionary](dim_lgu.md), [source inventory](../source-to-target.md), [runbook](../../operations/runbook.md) and [development verification evidence](../../operations/validation.md). Live PSA authentication, extraction, Bronze and Silver passed on 2026-10-15. The four configured snapshots landed 175,079 Bronze observations and produced 175,067 Silver rows, with one warning rule and no blocking checks. These are geographic reference observations across snapshots, not population totals or exposure measures.

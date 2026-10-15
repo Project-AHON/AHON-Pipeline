@@ -1,9 +1,27 @@
 # fact_population
 
-Target: `<catalog>.gold.fact_population`. Grain: one barangay per census year; unique key `(barangay_code, population_year)`. This retains PR #91's source/grain, with corrected runtime contracts. `population_key` is deterministic `xxhash64` of the business key and is not a publisher identifier.
+Target: `<catalog>.gold.fact_population`. Grain: one city/municipality per census year; unique business key `(psgc_code, population_year)`. `population_key` is deterministic `xxhash64` of that key. Only `CITY`/`MUN` records are analytical population rows. This explicitly replaces the earlier PR #91 barangay-grain contract following the user's correction; see [decision 0012](../../decisions/0012-city-municipality-analysis-grain.md).
 
-Source: `silver.psgc_population_clean`, parsed from embedded PSGC `populations_json` for a selected API snapshot. `population_year` is the census reference year, separate from `source_period`. Region/municipality/province codes come from the same-snapshot `gold.dim_lgu`; codes are strings with leading zeros.
+Source: direct city/municipality population arrays in PSGC Silver, typed by `datasets/psa_psgc/silver/clean_city_population.py` into `silver.psgc_city_population_clean`. Its key is `(psgc_code, population_year, _api_period)`. The census year is independent of the API snapshot. Source codes, raw values, years, reported population PSGC, missing/invalid dispositions and provenance remain in Silver. Historical invalid rows are warned; invalid values in the selected Gold year block publication.
 
-Columns: `population_key` BIGINT; `barangay_code`, `barangay_name`, `municipality_code`, `province_code`, `region_code` STRING; `population` BIGINT (people, nullable); `population_year` INT; `disposition`, `source_period`, `_source_ref`, `_row_hash`, `_batch_id` STRING; `_ingested_at` TIMESTAMP. `province_code` may be NULL. Missing source values remain NULL with `missing_population`; invalid values block Gold and remain visible in Silver.
+Gold starts from every city/municipality in the selected `gold.dim_lgu` snapshot and left joins the configured census year. It uses the city's reported measurement directly. It does not sum barangays or combine administrative levels. A reported missing value yields `missing_population`; absence of a city/year source record yields `missing_census_observation`. Both retain NULL population, never zero.
 
-The dimension must be unique before joining, and joined count must equal the source count. MERGE upserts changed business values without deleting absent observations; target schema/key mismatch stops. Existing NOT NULL populations or different schemas need reviewed migration. This count is not exposed population. Do not load PXWeb administrative totals into this table; those use `fact_population_total`.
+A typed measurement is eligible only while its source row hash matches the current PSGC City/MUN observation. If a newer source array removes that census year, the older typed record stays in Silver for audit but cannot appear as a current Gold value. A stale-observation warning records that disposition without deleting history.
+
+| Columns | Type / meaning |
+| --- | --- |
+| `psgc_code,area_name,geographic_level` | STRING; city/municipality identity and label |
+| `region_code,province_code` | STRING; selected reference hierarchy; province may be NULL |
+| `population_year` | INT; configured census reference year |
+| `population` | BIGINT; reported residents, nullable |
+| `source_period` | STRING; selected PSGC snapshot |
+| `disposition` | STRING; accepted, missing_population or missing_census_observation |
+| `coverage_status` | STRING; AVAILABLE or MISSING for the city-level measurement |
+| `_source_ref,_batch_id` | STRING; source observation lineage; NULL if no observation exists |
+| `_ingested_at` | TIMESTAMP; source observation ingestion time, nullable for absent records |
+| `population_key` | BIGINT; stable city/year surrogate key |
+| `_row_hash,_processed_at` | Deterministic value/lineage digest and time of an accepted change |
+
+GX validates source and target uniqueness, selected snapshot, valid dispositions, nonnegative measurements, reference coverage and exactly one row per expected city/year. Missing measurements produce warnings. MERGE updates changed values and preserves same-batch replay timestamps; no absent key is deleted.
+
+Existing barangay-grain targets trigger `city_population_schema_requires_migration` before a write. Use a fresh catalog or reviewed rebuild/cutover; no automatic schema migration or table deletion occurs. `platinum.population_components` exposes the same city/year grain. PXWeb hierarchy rows remain a separate source contract in `fact_population_total` and are not added to these values. Resident counts are not earthquake-exposed population.

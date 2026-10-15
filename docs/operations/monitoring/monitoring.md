@@ -5,7 +5,7 @@ All supported sources use the shared GX Core quality gates in `src/sql/common/qu
 | Dataset | Rule families |
 | --- | --- |
 | PSGC / LGU reference | Valid code strings, snapshot selection, unique geographic keys, lookup cardinality and explicit rejects |
-| Population sources | Census/year keys, missing versus invalid values, dimension alignment, source accounting and aggregation coverage |
+| Population sources | City/municipality/census keys, missing versus invalid or absent observations, dimension alignment, source accounting and full LGU/year grid |
 | CMCI | Reviewed mapping identity, parser accounting, indicator keys, current invalid corrections and reviewed definition/version |
 | BLGF LDRRMF | Original entity/year uniqueness, required amounts, component totals, year range, map/dimension alignment and retained financial warnings |
 | PHIVOLCS | Observation identity, typed invalid records, source accounting and locality-candidate cardinality; exposure assignment remains withheld |
