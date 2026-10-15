@@ -27,6 +27,7 @@ def test_every_task_has_packaged_executable_assets_and_bounded_retries():
         seen = set()
         for task in job["tasks"]:
             count += 1
+            assert task["task_key"] not in seen, f"Duplicate task key in {file}: {task['task_key']}"
             assert task["run_if"] == "ALL_SUCCESS"
             assert task["max_retries"] in (0, "${var.task_retries}")
             assert task["environment_key"] in envs
@@ -41,6 +42,33 @@ def test_every_task_has_packaged_executable_assets_and_bounded_retries():
             if "--file" in args:
                 assert (ROOT / args[args.index("--file") + 1]).is_file()
     assert count == 32
+
+
+def test_batch_jobs_use_standard_compute_without_duplicate_execution():
+    for _, name, job in jobs():
+        assert job["performance_target"] == "STANDARD"
+        executions = set()
+        for task in job["tasks"]:
+            args = task["spark_python_task"]["parameters"]
+            # Launcher/runner reuse is expected; repeating the same stage or writer is not.
+            identity = tuple(args[args.index(flag) + 1] if flag in args else None
+                             for flag in ("--entry-point", "--file", "--stage"))
+            assert identity not in executions, f"Duplicate execution in {name}: {task['task_key']}"
+            executions.add(identity)
+
+
+def test_population_sources_keep_their_own_silver_and_gold_files():
+    graph = next(job for _, name, job in jobs() if name == "ahon_pipeline")
+    tasks = {task["task_key"]: task for task in graph["tasks"]}
+    for key, writer, source in [
+        ("population_gold", "src/sql/gold/fact_population.py", "psgc_population_silver"),
+        ("population_total_gold", "src/sql/gold/build_fact_population_total.py", "population_silver"),
+    ]:
+        args = tasks[key]["spark_python_task"]["parameters"]
+        entry = args[args.index("--file" if "--file" in args else "--entry-point") + 1]
+        assert entry == writer
+        assert {dep["task_key"] for dep in tasks[key]["depends_on"]} == {source, "dim_lgu"}
+    assert (ROOT / "src/sql/gold/fact_population_candidate.sql").is_file()
 
 
 def test_independent_sources_are_not_blocked_by_cmci_or_earthquake():

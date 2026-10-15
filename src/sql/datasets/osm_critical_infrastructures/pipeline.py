@@ -106,7 +106,9 @@ def silver(spark, args):
         if row.geometry_wkt_raw:
             original = wkt.loads(row.geometry_wkt_raw)
             if not original.is_empty and original.is_valid:
-                converter = transformers.setdefault(row.source_crs, Transformer.from_crs(row.source_crs, 4326, always_xy=True))
+                if row.source_crs not in transformers:
+                    transformers[row.source_crs] = Transformer.from_crs(row.source_crs, 4326, always_xy=True)
+                converter = transformers[row.source_crs]
                 projected = transform(converter.transform, original)
                 geometry = projected.wkt
                 if projected.geom_type == 'Point':

@@ -2,6 +2,22 @@
 
 The supported executable graph is `resources/jobs/ahon_job.yml`. See the [inventory](../architecture/source-to-target.md) for dataset grains, dependencies, PR reuse and external blockers. No production deployment or execution is authorized by this task.
 
+## Keep the job and files consistent
+
+Deploy the bundle from the reviewed checkout; do not replace its job YAML with an older workspace export. The reviewed `main` at `4d82f6b` still has a placeholder `resources/jobs/ahon_job.yml`; the executable graph and city/municipality correction are on `feature/pipeline-reconciliation` pending PR review. A workspace job does not update automatically when local files change: deploy that same checkout before running it.
+
+| Older export reference | Supported path or behavior |
+| --- | --- |
+| Personal `/Workspace/Users/...` paths and a fixed warehouse ID | Bundle-relative launcher plus `${workspace.file_path}`; SQL runs through the existing Spark runner |
+| `load_population` / `clean_population` notebook tasks | `datasets/psa_population/bronze/load_psa_population.py` and `silver/clean_psa_population.py`, executed as Python files |
+| PXWeb Silver followed by `fact_population.py` | PXWeb feeds `gold/build_fact_population_total.py`; PSGC CITY/MUN census Silver feeds `gold/fact_population.py` |
+| `cmci_common.py`, CMCI-specific setup files and `earthquake_contract.py` as tasks | Helpers/legacy entry points are not processing stages; use the shared setup and stage entry points already wired in the bundle |
+| `run_earthquake` and `fact_earthquake` calling the same script | One observation processing chain; event Gold remains withheld pending its identity/methodology contract |
+
+Keep serverless batch jobs in `STANDARD`, one concurrent writer and bounded retries. No schedules or additional jobs are needed for this review. Select only affected branches when a runtime check is necessary, and reuse a completed batch ID for replay. OSM coordinate conversion reuses one transformer per source CRS instead of constructing one per feature. These reduce unnecessary work; actual spend still depends on data size and the selected workspace.
+
+Run `python -m pytest tests/common/test_job_contract.py -q` locally before deployment. It checks all task assets, dependency ordering, unique task keys/executions, the two population source paths, packaged GX environments and batch compute settings without starting cloud compute.
+
 ## Configure explicit inputs
 
 `databricks.yml` declares required bundle variables with no committed defaults. Provide them through an ignored `.databricks/bundle/<target>/variable-overrides.json`. Scalar values also support `BUNDLE_VAR_<name>` environment variables or CLI `--var` arguments. The complex `run_as` identity must be supplied in the override JSON; the CLI does not accept complex values through environment variables. Never commit workspace identifiers, credentials or a developer's verification settings. The prepared development input file is available in the isolated checkout, excluded by `.gitignore`.
