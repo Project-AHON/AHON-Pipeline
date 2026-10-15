@@ -59,20 +59,25 @@ FROM silver.blgf_ldrrmf_annual_lgu_clean AS s;
 --   Rules: same row count as silver, unique key, one row per PSGC code per year, every psgc_code exists in dim_lgu,
 --   match_confidence between 0 and 1.
 -- What to expect: one line of true values.
-SELECT
-  assert_true(count(*) = (SELECT count(*) FROM silver.blgf_ldrrmf_annual_lgu_clean), 'Gold row count differs from silver'),
-  assert_true(count(DISTINCT ldrrmf_fact_key) = count(*), 'ldrrmf_fact_key is not unique'),
-  -- Two BLGF spellings can map to one PSGC code (for example Pio V. Corpuz); this makes sure they never share a year,
-  -- so no LGU is counted twice in one fiscal year
-  assert_true(
-    (SELECT count(*) FROM (SELECT psgc_code, fiscal_year FROM fact_candidate WHERE psgc_code IS NOT NULL
-                           GROUP BY psgc_code, fiscal_year HAVING count(*) > 1)) = 0,
-    'An LGU appears more than once in the same fiscal year'),
-  assert_true(
-    count_if(psgc_code IS NOT NULL AND psgc_code NOT IN (SELECT psgc_code FROM gold.dim_lgu)) = 0,
-    'A psgc_code is not in dim_lgu'),
-  assert_true(count_if(match_confidence NOT BETWEEN 0 AND 1) = 0, 'match_confidence is outside 0 to 1')
-FROM fact_candidate;
+WITH metrics AS (
+  SELECT count(*) AS rows, count(*) - count(DISTINCT ldrrmf_fact_key) AS duplicate_keys,
+    count_if(psgc_code IS NOT NULL AND psgc_code NOT IN (SELECT psgc_code FROM gold.dim_lgu)) AS missing_lgu,
+    count_if(match_confidence NOT BETWEEN 0 AND 1) AS invalid_confidence,
+    count_if(source_period IS NULL OR source_period NOT IN (SELECT DISTINCT source_period FROM gold.dim_lgu)) AS invalid_period
+  FROM fact_candidate
+), rules AS (
+  SELECT 'gold_row_accounting' AS check_id,
+    abs(rows - (SELECT count(*) FROM silver.blgf_ldrrmf_annual_lgu_clean)) AS failed_count FROM metrics
+  UNION ALL SELECT 'unique_fact_key', duplicate_keys FROM metrics
+  UNION ALL SELECT 'nonempty_funding_source', CASE WHEN rows = 0 THEN 1L ELSE 0L END FROM metrics
+  UNION ALL SELECT 'unique_matched_lgu_year', count(*) FROM
+    (SELECT psgc_code,fiscal_year FROM fact_candidate WHERE psgc_code IS NOT NULL
+      GROUP BY psgc_code,fiscal_year HAVING count(*) > 1)
+  UNION ALL SELECT 'dimension_reference', missing_lgu FROM metrics
+  UNION ALL SELECT 'confidence_bounds', invalid_confidence FROM metrics
+  UNION ALL SELECT 'dimension_snapshot_alignment', invalid_period FROM metrics
+)
+SELECT check_id, 'gold.fact_ldrrmf' AS table_name, failed_count, 'ERROR' AS severity FROM rules;
 
 -- COMMAND ----------
 

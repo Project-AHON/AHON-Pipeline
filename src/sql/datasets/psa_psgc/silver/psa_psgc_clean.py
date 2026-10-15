@@ -52,8 +52,8 @@ if run_id:
     # Each completed PSA delivery contains the validated four whole API snapshots.
     # Prior invalid observations stay in Bronze/rejects and cannot permanently poison a correction.
     bronze = bronze.where(F.col("_batch_id") == run_id)
-    if not bronze.limit(1).count():
-        raise ValueError("No PSGC observations for the requested completed delivery batch")
+    check(spark, CATALOG, run_id, "selected_delivery_nonempty", BRONZE_TABLE,
+          int(not bronze.limit(1).count()))
 
 
 # ============================================================
@@ -162,13 +162,8 @@ def assert_unique(df, keys, name):
         .filter(F.col("count") > 1)
     )
 
-    if duplicates.limit(1).count() > 0:
-        print(f"Duplicates found in {name}:")
-        duplicates.show(20, truncate=False)
-
-        raise ValueError(
-            f"'{name}' is not unique on {keys}."
-        )
+    check(spark, CATALOG, run_id or "interactive", "unique_" + "_".join(keys),
+          name, duplicates.count())
 
     return df
 
@@ -250,17 +245,8 @@ invalid_standardized = cleaned.filter(
     | (~F.col("psgc_code").rlike(r"^[0-9]{10}$"))
 )
 
-if invalid_standardized.limit(1).count() > 0:
-    invalid_standardized.select(
-        "psgc_code",
-        "area_name",
-        "geographic_level",
-        "_api_period",
-    ).show(20, truncate=False)
-
-    raise ValueError(
-        "Some Silver PSGC codes are not exactly 10 numeric digits."
-    )
+check(spark, CATALOG, run_id or "interactive", "standardized_psgc_codes", SILVER_TABLE,
+      invalid_standardized.count())
 
 print("PSGC codes standardized to 10 digits in Silver.")
 
@@ -704,14 +690,8 @@ bad_silver_codes = silver.filter(
     ~F.col("psgc_code").rlike(r"^[0-9]{10}$")
 )
 
-if bad_silver_codes.limit(1).count() > 0:
-    bad_silver_codes.select(
-        "psgc_code", "geographic_level", "_api_period"
-    ).show(20, truncate=False)
-
-    raise ValueError(
-        "Final Silver output contains non-10-digit PSGC codes."
-    )
+check(spark, CATALOG, run_id or "interactive", "typed_psgc_codes", SILVER_TABLE,
+      bad_silver_codes.count())
 
 print(f"Silver records prepared: {silver.count():,}")
 
@@ -785,17 +765,8 @@ else:
         .filter(F.col("count") > 1)
     )
 
-    if target_duplicates.limit(1).count() > 0:
-        print(
-            "Existing Silver records have duplicate keys after "
-            "10-digit normalization:"
-        )
-        target_duplicates.show(20, truncate=False)
-
-        raise ValueError(
-            "Resolve existing Silver key collisions before merging. "
-            "No merge was performed."
-        )
+    check(spark, CATALOG, run_id or "interactive", "normalized_target_keys", SILVER_TABLE,
+          target_duplicates.count())
 
     target = DeltaTable.forName(spark, SILVER_TABLE)
 
@@ -878,18 +849,8 @@ remaining_bad_codes = final_silver.filter(
     ~F.col("psgc_code").cast("string").rlike(r"^[0-9]{10}$")
 )
 
-if remaining_bad_codes.limit(1).count() > 0:
-    remaining_bad_codes.select(
-        "psgc_code",
-        "area_name",
-        "geographic_level",
-        "_api_period",
-    ).show(20, truncate=False)
-
-    raise ValueError(
-        "Post-merge validation failed: Silver contains codes "
-        "that are not exactly 10 digits."
-    )
+check(spark, CATALOG, run_id or "interactive", "written_psgc_codes", SILVER_TABLE,
+      remaining_bad_codes.count())
 
 print("PASS: All Silver PSGC codes are exactly 10 digits.")
 

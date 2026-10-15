@@ -4,11 +4,12 @@ The supported executable graph is `resources/jobs/ahon_job.yml`. See the [invent
 
 ## Configure explicit inputs
 
-`databricks.yml` declares required bundle variables with no committed defaults. Provide them through an ignored `.databricks/bundle/dev/variable-overrides.json`, `BUNDLE_VAR_<name>` environment variables, or CLI `--var` arguments. Never commit workspace identifiers, credentials or a developer's verification settings. The task's prepared local input file is available in the isolated checkout, excluded by `.gitignore`.
+`databricks.yml` declares required bundle variables with no committed defaults. Provide them through an ignored `.databricks/bundle/<target>/variable-overrides.json`. Scalar values also support `BUNDLE_VAR_<name>` environment variables or CLI `--var` arguments. The complex `run_as` identity must be supplied in the override JSON; the CLI does not accept complex values through environment variables. Never commit workspace identifiers, credentials or a developer's verification settings. The prepared development input file is available in the isolated checkout, excluded by `.gitignore`.
 
 | Inputs | What to supply |
 | --- | --- |
 | `catalog`, `workspace_root`, `source_volume` | Fresh development catalog, isolated workspace state/files root, raw volume name |
+| `run_as` | Explicit identity object: `{"user_name":"<approved-user>"}` or `{"service_principal_name":"<approved-application-id>"}`. Use the actual approved production identity for production |
 | `environment_version`, job/task timeouts, task retries/retry interval, `max_concurrent_runs` | Settings supported in your selected workspace. Use one concurrent writer and bounded retries; the staged fixture job deliberately has zero automatic retries |
 | `source_period`, `census_year` | Approved PSGC snapshot and actual population reference year; do not equate the two periods |
 | `psgc_api_base_url`, `psgc_expected_rows`, PSA secret scope/key | Approved API base, JSON snapshot→expected-count profile, existing token secret names |
@@ -36,6 +37,56 @@ databricks bundle run data_quality -t dev --profile $profile
 ```
 
 To validate `prod` without deploying it, supply that target's required variables and run `databricks bundle validate --strict -t prod --profile $profile`. No target is default; schedules are absent. The development target implements reproducible bundle testing in a personal workspace, not a shared development environment. The setup task creates the selected catalog if permitted, schemas, monitoring DQ results and raw volume. It never rebuilds existing incompatible schemas.
+
+## Enter the PSGC token locally
+
+PSGC requires a PSA-issued API token. The Databricks profile authenticates the secret-management command. Run these commands in your own terminal; the token is entered only at the CLI's interactive prompt:
+
+```powershell
+$profile = Read-Host 'Databricks profile'
+$scope = Read-Host 'PSGC secret scope name'
+$key = Read-Host 'PSGC token key name'
+# Run create-scope only when creating a new scope:
+databricks secrets create-scope $scope --profile $profile
+databricks secrets put-secret $scope $key --profile $profile
+# Confirm key metadata without printing the value:
+databricks secrets list-secrets $scope --profile $profile
+$env:BUNDLE_VAR_psgc_secret_scope = $scope
+$env:BUNDLE_VAR_psgc_secret_key = $key
+```
+
+For reuse across terminal sessions, place only the scope and key names in the appropriate ignored override JSON as `psgc_secret_scope` and `psgc_secret_key`. Do not place the token in that file, command arguments, repository files or chat. Re-running `put-secret` for an existing key rotates its value. The extractor reads the secret at execution time; an empty secret or failed API request blocks publication. Redirects are rejected, and token-bearing request exceptions are sanitized.
+
+The job's configured `run_as` identity needs READ on the scope. If it differs from the scope owner, an authorized scope manager can grant that specific approved identity access:
+
+```powershell
+$principal = Read-Host 'Approved job user name or service principal application ID'
+databricks secrets put-acl $scope $principal READ --profile $profile
+```
+
+After loading the other explicit development inputs, deploy and test the PSGC branch in a fresh delivery:
+
+```powershell
+databricks bundle validate --strict -t dev --profile $profile
+databricks bundle deploy -t dev --profile $profile
+databricks bundle run ahon_pipeline -t dev --profile $profile --only +psgc_silver
+```
+
+The default new run ID creates a new delivery and exercises the token. Replaying an already completed delivery validates its landed files and does not re-fetch the source. See [Databricks secret commands](https://docs.databricks.com/aws/en/dev-tools/cli/reference/secrets-commands) for scope and ACL requirements.
+
+## Production activation
+
+Supply `.databricks/bundle/prod/variable-overrides.json` with the approved production catalog, a workspace root distinct from development, volume, run identity, source windows/profiles, token secret names and reviewed CMCI mapping. Use one concurrent writer (`max_concurrent_runs` set to 1), bounded retries/timeouts, and the intended CMCI source scope. Give the run identity only its required catalog/schema/volume and secret permissions. Do not use synthetic mappings as production references.
+
+Only `ahon_pipeline` and `catalog_setup` are included in `prod`; `data_quality` is scoped to `dev`. Production validation does not certify runtime permissions or source credentials. This task validates production configuration and exercises development; production deployment/execution still requires separate authorization. Schedules remain absent.
+
+## GX quality gates
+
+All supported datasets share `src/sql/common/quality.py` with pinned GX Core. Spark computes rule metrics over the full candidate dataset, including key uniqueness, invalid values, reference coverage, period alignment and cardinality. GX evaluates those bounded metrics with `ExpectColumnValuesToBeBetween(failed_count, 0, 0)`. This is aggregate validation of the complete input, without collecting a growing source table into pandas or duplicating transformations in GX. Financial SQL returns the same named rule metrics instead of using SQL assertions as its DQ engine.
+
+ERROR failures persist as BLOCKED and raise before dependent writes; WARN failures persist and preserve flagged rows. GX import/runtime failures stop execution, with no non-GX fallback. File integrity, request authentication, parsing structure and incompatible-schema guards remain fail-fast ingestion/write contracts.
+
+`monitoring.dq_result` keeps its existing keys/counts/severity/status and adds nullable `validation_result STRING` containing GX expectation configuration, success and version as JSON. The only automatic migration adds that audit column when absent; existing monitoring rows remain and have NULL evidence until their checks rerun. Dataset schemas are not evolved. No additional DQ job, result store, Data Docs site or GX Cloud service is needed.
 
 ## Local checks
 

@@ -20,7 +20,7 @@ from runtime import (
 
 def extract_period(token, period, target, session, api_base_url, expected_rows, timeout):
     origin = urlparse(api_base_url)
-    if origin.scheme != "https" or not origin.hostname or origin.username or origin.password:
+    if origin.scheme != "https" or not origin.hostname or origin.username or origin.password or origin.query or origin.fragment:
         raise ValueError("Expected an approved HTTPS PSA API URL without credentials")
     url = f"{api_base_url.rstrip('/')}/{period}/all"
     rows = 0
@@ -35,7 +35,7 @@ def extract_period(token, period, target, session, api_base_url, expected_rows, 
             if url in seen:
                 raise ValueError("Pagination cycle")
             seen.add(url)
-            response = session.get(url, params={"token": token}, timeout=timeout)
+            response = session.get(url, params={"token": token}, timeout=timeout, allow_redirects=False)
             if response.status_code != 200:
                 raise RuntimeError(
                     f"PSGC request failed with HTTP {response.status_code}"
@@ -74,13 +74,15 @@ def main():
     args = arguments.parse_args()
     if not args.secret_scope or not args.secret_key:
         raise ValueError("PSA extraction requires an existing approved token secret scope and key")
+    if args.request_timeout <= 0:
+        raise ValueError("PSGC request timeout must be positive")
     destination = batch_path(args, "psa_psgc")
     if batch_is_complete(destination):
         completed_batch(destination)
         return
     token = DBUtils(SparkSession.builder.getOrCreate()).secrets.get(
         args.secret_scope, args.secret_key
-    )
+    ).strip()
     if not token:
         raise ValueError("PSGC API secret is empty")
     try:

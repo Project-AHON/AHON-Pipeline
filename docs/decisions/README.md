@@ -47,3 +47,4 @@ if it changes, write a new record and mark the old one
 | [0009 CMCI](0009-cmci-great-expectations-data-quality.md) | Prior CMCI GX quality workflow | Implementation update proposed in 0010 |
 | [0009 earthquake](0009-earthquake-observations-and-locality-candidates.md) | Earthquake observations and locality candidates | Proposed |
 | [0010](0010-reconciled-source-contracts.md) | Executable source and analytical contracts | Proposed for review, locally implemented |
+| [0011](0011-shared-gx-quality-gates.md) | Shared GX quality gates and explicit production identity | Implemented at user request; pending team review |

@@ -24,9 +24,11 @@ import unicodedata
 from pathlib import Path
 
 import pandas as pd
+from quality import check, upsert
 
 # Settings: change here if the team renames anything
 CATALOG = globals().get("PIPELINE_CATALOG")
+RUN_ID = globals().get("PIPELINE_RUN_ID", "interactive")
 BRONZE_TABLE = f"{CATALOG}.bronze.blgf_ldrrmf_annual_lgu"
 PSGC_TABLE = f"{CATALOG}.silver.psa_psgc_clean"  # see read_psgc()
 PSGC_PERIOD = globals().get(
@@ -255,10 +257,9 @@ def read_psgc(spark):
         )
         .toPandas()
     )
-    if dim["psgc_code"].duplicated().any():
-        raise ValueError("Selected PSGC snapshot has duplicate codes")
-    if dim.empty:
-        raise ValueError(f"No rows in {PSGC_TABLE} for _api_period = {PSGC_PERIOD}")
+    check(spark, CATALOG, RUN_ID, "funding_snapshot_unique", PSGC_TABLE,
+          int(dim["psgc_code"].duplicated().sum()))
+    check(spark, CATALOG, RUN_ID, "funding_snapshot_nonempty", PSGC_TABLE, int(dim.empty))
     dim = dim[dim["geographic_level"].isin(["PROV", "CITY", "MUN"])]
     province_names = dict(
         zip(
@@ -317,24 +318,17 @@ if __name__ == "__main__":
     result = build_map(blgf, read_psgc(spark), read_overrides(overrides_path))
 
     # Every BLGF LGU must appear exactly once in the map, or the silver join would add or lose rows
-    if result.duplicated(subset=KEY_COLUMNS).any():
-        raise ValueError("The map has the same BLGF LGU twice")
+    check(spark, CATALOG, RUN_ID, "funding_map_unique", MAP_TABLE,
+          int(result.duplicated(subset=KEY_COLUMNS).sum()))
 
     schema = (
         "region string, province string, lgu_name string, lgu_type string, first_year int, last_year int, "
         "psgc_code string, psgc_name string, match_method string, match_status string, candidate_count int"
     )
     records = result.astype(object).where(result.notna(), None).values.tolist()
-    from quality import upsert
-
-    if (
-        spark.catalog.tableExists(MAP_TABLE)
-        and spark.table(MAP_TABLE)
-        .where(F.col("source_period") != PSGC_PERIOD)
-        .limit(1)
-        .count()
-    ):
-        raise ValueError("Mapping snapshot change requires reviewed migration")
+    if spark.catalog.tableExists(MAP_TABLE):
+        check(spark, CATALOG, RUN_ID, "funding_mapping_snapshot", MAP_TABLE,
+              spark.table(MAP_TABLE).where(F.col("source_period").isNull() | (F.col("source_period") != PSGC_PERIOD)).count())
     frame = (
         spark.createDataFrame(records, schema)
         .withColumn("source_period", F.lit(PSGC_PERIOD))

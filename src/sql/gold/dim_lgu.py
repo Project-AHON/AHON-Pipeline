@@ -10,6 +10,7 @@ Silver remains the source of truth for cleaned area names and hierarchy codes.
 
 from delta.tables import DeltaTable
 from pyspark.sql import functions as F
+from quality import check, unique
 
 # ============================================================
 # 1. CONFIGURATION
@@ -24,6 +25,7 @@ SOURCE_PERIOD = dbutils.widgets.get("source_period")
 SOURCE_TABLE = f"{CATALOG}.silver.psa_psgc_clean"
 GOLD_SCHEMA = f"{CATALOG}.gold"
 TARGET_TABLE = f"{GOLD_SCHEMA}.dim_lgu"
+RUN_ID = globals().get("PIPELINE_RUN_ID", "interactive")
 
 DIMENSION_COLUMNS = [
     "source_period",
@@ -76,10 +78,8 @@ if missing_columns:
 # so dim_lgu has one current-state row per PSGC geographic entity.
 snapshot_df = source_df.filter(F.col("_api_period") == SOURCE_PERIOD)
 
-if snapshot_df.limit(1).count() == 0:
-    raise ValueError(
-        f"No Silver records found for API period {SOURCE_PERIOD}."
-    )
+check(spark, CATALOG, RUN_ID, "selected_snapshot_nonempty", SOURCE_TABLE,
+      int(not snapshot_df.limit(1).count()))
 
 # Check the source grain BEFORE selecting or deduplicating records.
 # Do not silently discard conflicting records with dropDuplicates().
@@ -90,15 +90,8 @@ source_duplicate_codes = (
     .filter(F.col("count") > 1)
 )
 
-if source_duplicate_codes.limit(1).count() > 0:
-    print(
-        f"Duplicate PSGC codes found in Silver for {SOURCE_PERIOD}:"
-    )
-    source_duplicate_codes.show(20, truncate=False)
-    raise ValueError(
-        "The selected Silver snapshot is not unique by psgc_code. "
-        "Resolve duplicate source records before building dim_lgu."
-    )
+check(spark, CATALOG, RUN_ID, "selected_snapshot_unique", SOURCE_TABLE,
+      source_duplicate_codes.count())
 
 dim_lgu = (
     snapshot_df
@@ -135,12 +128,7 @@ invalid_required = dim_lgu.filter(
     | F.col("geographic_level").isNull()
 )
 
-if invalid_required.limit(1).count() > 0:
-    invalid_required.show(20, truncate=False)
-    raise ValueError(
-        "dim_lgu contains invalid PSGC codes, missing area names, "
-        "or missing geographic levels."
-    )
+check(spark, CATALOG, RUN_ID, "required_geographic_values", TARGET_TABLE, invalid_required.count())
 
 duplicate_codes = (
     dim_lgu
@@ -149,9 +137,7 @@ duplicate_codes = (
     .filter(F.col("count") > 1)
 )
 
-if duplicate_codes.limit(1).count() > 0:
-    duplicate_codes.show(20, truncate=False)
-    raise ValueError("Duplicate PSGC codes found in dim_lgu source.")
+check(spark, CATALOG, RUN_ID, "dimension_source_unique", TARGET_TABLE, duplicate_codes.count())
 
 
 # ============================================================
@@ -182,8 +168,9 @@ if not spark.catalog.tableExists(TARGET_TABLE):
 
 else:
     target_df = spark.table(TARGET_TABLE)
-    if "source_period" in target_df.columns and target_df.where(F.col("source_period") != SOURCE_PERIOD).limit(1).count():
-        raise ValueError("Changing the active dimension snapshot requires reviewed migration")
+    if "source_period" in target_df.columns:
+        check(spark, CATALOG, RUN_ID, "dimension_snapshot_requires_review", TARGET_TABLE,
+              target_df.where(F.col("source_period").isNull() | (F.col("source_period") != SOURCE_PERIOD)).count())
 
     missing_target_columns = [
         column for column in DIMENSION_COLUMNS
@@ -199,8 +186,7 @@ else:
 
     if {f.name: f.dataType for f in target_df.schema if f.name in DIMENSION_COLUMNS} != {f.name: f.dataType for f in dim_lgu.select(*DIMENSION_COLUMNS).schema}:
         raise ValueError("Existing dimension types require reviewed migration")
-    if target_df.groupBy("psgc_code").count().where("count > 1").limit(1).count():
-        raise ValueError("Existing dimension has duplicate keys")
+    unique(spark, CATALOG, RUN_ID, target_df, ["psgc_code"], TARGET_TABLE)
 
     target = DeltaTable.forName(spark, TARGET_TABLE)
 

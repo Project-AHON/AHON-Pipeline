@@ -14,6 +14,7 @@ from functools import reduce
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
+from quality import check, unique
 
 dbutils.widgets.text("census_year", "")
 CENSUS_YEAR = dbutils.widgets.get("census_year")
@@ -27,6 +28,7 @@ GOLD_CATALOG = globals().get("PIPELINE_CATALOG", dbutils.widgets.get("catalog"))
 SOURCE_TABLE = f"{GOLD_CATALOG}.silver.psgc_population_clean"
 DIM_TABLE = f"{GOLD_CATALOG}.gold.dim_lgu"
 TARGET_TABLE = f"{GOLD_CATALOG}.gold.fact_population"
+RUN_ID = globals().get("PIPELINE_RUN_ID", "interactive")
 KEY_COLS = ["barangay_code", "population_year"]
 FACT_SCHEMA = (
     "population_key BIGINT NOT NULL, "
@@ -80,13 +82,10 @@ def load_source(spark: SparkSession) -> DataFrame:
     require_columns(silver, SOURCE_TABLE, SOURCE_REQUIRED)
     bgy = silver.filter((sf.col("_api_period") == SOURCE_VERSION)
                         & (sf.col("population_year") == int(CENSUS_YEAR)))
-    if bgy.limit(1).count() == 0:
-        fail(
-            f"No barangay (Bgy) rows in {SOURCE_TABLE} "
-            f"for API period {SOURCE_VERSION}"
-        )
-    if bgy.where("disposition NOT IN ('accepted', 'missing_population')").limit(1).count():
-        fail("Invalid barangay census observations must be resolved in Silver")
+    check(spark, GOLD_CATALOG, RUN_ID, "census_source_nonempty", SOURCE_TABLE,
+          int(not bgy.limit(1).count()))
+    check(spark, GOLD_CATALOG, RUN_ID, "accepted_population_dispositions", SOURCE_TABLE,
+          bgy.where("disposition IS NULL OR disposition NOT IN ('accepted', 'missing_population')").count())
     return bgy.select("barangay_code", "barangay_name", "population", "population_year",
                       "disposition", sf.col("_api_period").alias("source_period"),
                       "_source_ref", "_row_hash", "_ingested_at", "_batch_id")
@@ -96,10 +95,9 @@ def load_dim(spark: SparkSession) -> DataFrame:
     """Read the barangay rows of dim_lgu."""
     dim = spark.table(DIM_TABLE)
     require_columns(dim, DIM_TABLE, DIM_REQUIRED)
-    if dim.groupBy("psgc_code").count().where("count > 1").limit(1).count():
-        fail("dim_lgu has duplicate PSGC keys; join would fan out")
-    if dim.where(sf.col("source_period") != SOURCE_VERSION).limit(1).count():
-        fail("Population and dimension snapshots differ")
+    unique(spark, GOLD_CATALOG, RUN_ID, dim, ["psgc_code"], DIM_TABLE)
+    check(spark, GOLD_CATALOG, RUN_ID, "census_dimension_snapshot", DIM_TABLE,
+          dim.where(sf.col("source_period").isNull() | (sf.col("source_period") != SOURCE_VERSION)).count())
     return dim.filter(sf.col("geographic_level") == "BGY").select(
         sf.col("psgc_code").cast("string").alias("barangay_code"),
         "municipality_code",
@@ -116,12 +114,8 @@ def join_to_dim(source: DataFrame, dim: DataFrame) -> DataFrame:
 def assert_joined(joined: DataFrame, source_count: int) -> None:
     """Fail if any source barangay has no dim_lgu match."""
     joined_count = joined.count()
-    if joined_count != source_count:
-        missing = source_count - joined_count
-        fail(
-            f"{missing:,} source barangays have no dim_lgu match; "
-            f"source={source_count:,}, joined={joined_count:,}"
-        )
+    check(joined.sparkSession, GOLD_CATALOG, RUN_ID, "census_join_cardinality", TARGET_TABLE,
+          abs(joined_count - source_count))
 
 
 def build_fact(joined: DataFrame) -> DataFrame:
@@ -136,21 +130,16 @@ def assert_valid_fact(fact: DataFrame) -> None:
     null_rows = fact.filter(
         reduce(lambda a, b: a | b, [sf.col(c).isNull() for c in required])
     )
-    if null_rows.limit(1).count():
-        null_rows.show(20, truncate=False)
-        fail("fact_population has null values in required columns")
-    if fact.filter(sf.col("population") < 0).limit(1).count():
-        fail("fact_population has negative population values")
-    duplicates = fact.groupBy(*KEY_COLS).count().filter("count > 1")
-    if duplicates.limit(1).count():
-        duplicates.show(20, truncate=False)
-        fail("Duplicate (barangay_code, population_year) in fact_population")
+    spark = fact.sparkSession
+    check(spark, GOLD_CATALOG, RUN_ID, "required_census_values", TARGET_TABLE, null_rows.count())
+    check(spark, GOLD_CATALOG, RUN_ID, "nonnegative_population", TARGET_TABLE,
+          fact.filter(sf.col("population") < 0).count())
+    unique(spark, GOLD_CATALOG, RUN_ID, fact, KEY_COLS, TARGET_TABLE)
 
 
 def upsert_fact(spark: SparkSession, fact: DataFrame) -> None:
     """Create the fact table if missing, then upsert on the grain keys."""
     spark.sql(f"CREATE TABLE IF NOT EXISTS {TARGET_TABLE} ({FACT_SCHEMA})")
-    from quality import unique
     unique(spark, GOLD_CATALOG, globals().get("PIPELINE_RUN_ID", "interactive"),
            spark.table(TARGET_TABLE), KEY_COLS, TARGET_TABLE)
     expected = {f.name: f.dataType for f in fact.schema}

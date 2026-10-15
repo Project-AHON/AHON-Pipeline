@@ -3,6 +3,9 @@ bundle:
 include:
 - resources/jobs/*.yml
 variables:
+  run_as:
+    type: complex
+    description: Explicit job identity object with user_name or service_principal_name; production must use its approved identity
   catalog:
     description: Catalog to process; use a fresh isolated catalog for development verification
   source_volume:
@@ -103,10 +106,12 @@ sync:
   - resources/cmci_indicators.csv
   exclude:
   - notebooks/**
+  - .local/**
+  - .databricks/**
+  - '**/__pycache__/**'
 workspace:
   root_path: ${var.workspace_root}
-run_as:
-  user_name: ${workspace.current_user.userName}
+run_as: ${var.run_as}
 targets:
   dev:
     mode: development

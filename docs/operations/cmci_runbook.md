@@ -1,6 +1,6 @@
 # CMCI execution
 
-Use `src/sql/datasets/cmci/pipeline.py` and the CMCI branch of `resources/jobs/ahon_job.yml`. The prior `cmci_*_gx` workflow and hardcoded 1,634-LGU completeness gates are historical implementations, not configured jobs. Data quality is enforced directly before dependent outputs; no Great Expectations package is required by the supported path.
+Use `src/sql/datasets/cmci/pipeline.py` and the CMCI branch of `resources/jobs/ahon_job.yml`. The prior `cmci_*_gx` workflow and hardcoded 1,634-LGU completeness gates are historical implementations. The supported path now uses the shared GX quality gates described in the [main runbook](runbook.md#gx-quality-gates), with reviewed scope and no separate CMCI DQ job.
 
 Provide a reviewed CSV and matching `source_period`; see the [main runbook](runbook.md) for the exact schema, deployment and selective-execution commands. Run mode and test size are explicit caller inputs; no source scope is embedded in code. Direct script execution with `--run-mode full` selects all reviewed mappings. Requested source years are explicit, and the response must validate the approved source window.
 

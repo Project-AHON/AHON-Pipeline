@@ -12,7 +12,9 @@ def jobs():
     files = list((ROOT / "resources/jobs").glob("*.yml"))
     assert len(files) == 3
     for file in files:
-        for name, job in yaml.safe_load(file.read_text())["resources"]["jobs"].items():
+        content = yaml.safe_load(file.read_text())
+        resources = content.get("resources", content.get("targets", {}).get("dev", {}).get("resources", {}))
+        for name, job in resources["jobs"].items():
             yield file, name, job
 
 
@@ -84,3 +86,15 @@ def test_cmci_definition_asset_is_explicit_and_packaged():
     for task in pipeline["tasks"]:
         if task["task_key"].startswith("cmci_"):
             assert "--indicator-file" in task["spark_python_task"]["parameters"]
+
+
+def test_gx_is_installed_in_every_task_environment_and_fixtures_are_dev_only():
+    for _, _, job in jobs():
+        for environment in job['environments']:
+            assert 'great_expectations==1.24.0' in environment['spec']['dependencies']
+    fixtures = yaml.safe_load((ROOT / 'resources/jobs/data_quality.yml').read_text())
+    assert set(fixtures) == {'targets'}
+    assert set(fixtures['targets']) == {'dev'}
+    config = yaml.safe_load((ROOT / 'databricks.yml').read_text())
+    assert config['run_as'] == '${var.run_as}'
+    assert config['variables']['run_as']['type'] == 'complex'

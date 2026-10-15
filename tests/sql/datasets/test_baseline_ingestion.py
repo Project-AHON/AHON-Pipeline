@@ -155,9 +155,10 @@ def test_earthquake_month_range_and_structure(extracts):
 
 def test_bundle_tasks_use_existing_files_and_have_no_cycles():
     import yaml
-    for resource in (ROOT / "resources").glob("*.job.yml"):
+    for resource in (ROOT / "resources/jobs").glob("*.yml"):
         config = yaml.safe_load(resource.read_text())
-        for job in config["resources"]["jobs"].values():
+        resources = config.get("resources", config.get("targets", {}).get("dev", {}).get("resources", {}))
+        for job in resources["jobs"].values():
             tasks = job["tasks"]
             seen = set()
             for task in tasks:
@@ -165,10 +166,33 @@ def test_bundle_tasks_use_existing_files_and_have_no_cycles():
                 seen.add(task["task_key"])
                 if "spark_python_task" in task:
                     file = task["spark_python_task"]["python_file"]
-                    assert (ROOT / "resources" / file).resolve().is_file()
+                    assert (resource.parent / file).resolve().is_file()
                     params = task["spark_python_task"]["parameters"]
                     if "--file" in params:
                         assert (ROOT / params[params.index("--file") + 1]).is_file()
+
+
+def test_psgc_redirect_is_rejected_without_exposing_token(extracts, tmp_path):
+    session = Mock()
+    session.get.return_value = Mock(status_code=302)
+    with pytest.raises(RuntimeError, match="HTTP 302") as failure:
+        extracts['psgc'].extract_period('synthetic-secret', 'fixture_period', tmp_path / 'source.jsonl',
+                                       session, 'https://approved.invalid/psgc', 1, 10)
+    assert 'synthetic-secret' not in str(failure.value)
+    assert session.get.call_args.kwargs['allow_redirects'] is False
+
+
+@pytest.mark.parametrize('base', [
+    'https://user:password@approved.invalid/psgc',
+    'https://approved.invalid/psgc?token=embedded',
+    'https://approved.invalid/psgc#fragment',
+])
+def test_psgc_base_url_cannot_embed_credentials_or_query(extracts, tmp_path, base):
+    session = Mock()
+    with pytest.raises(ValueError, match='approved HTTPS'):
+        extracts['psgc'].extract_period('synthetic-secret', 'fixture_period', tmp_path / 'source.jsonl',
+                                       session, base, 1, 10)
+    session.get.assert_not_called()
 
 
 def test_interrupted_completion_marker_can_be_repaired(tmp_path):
@@ -185,9 +209,10 @@ def test_wired_sql_is_valid_and_each_section_is_one_statement():
     import sqlglot
     import sqlparse
     import yaml
-    for resource in (ROOT / "resources").glob("*.job.yml"):
+    for resource in (ROOT / "resources/jobs").glob("*.yml"):
         config = yaml.safe_load(resource.read_text())
-        for job in config["resources"]["jobs"].values():
+        resources = config.get("resources", config.get("targets", {}).get("dev", {}).get("resources", {}))
+        for job in resources["jobs"].values():
             for task in job["tasks"]:
                 params = task.get("spark_python_task", {}).get("parameters", [])
                 if "--file" in params:

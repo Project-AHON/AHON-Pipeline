@@ -207,6 +207,10 @@ def verify(spark, args):
         raise AssertionError('Blocking checks must raise')
     assert before == set(map(tuple, spark.table('gold.fact_population').collect()))
     check(spark, args.catalog, args.batch_id, 'pipeline_integration', 'synthetic_fixtures', 0)
+    evidence = spark.table('monitoring.dq_result')
+    assert evidence.where("validation_result IS NULL").count() == 0
+    assert evidence.where("get_json_object(validation_result, '$.meta.engine') <> 'great_expectations'").count() == 0
+    assert evidence.where("disposition = 'BLOCKED' AND get_json_object(validation_result, '$.success') = 'false'").count() > 0
     print(json.dumps({'status':'PASS', 'catalog':args.catalog, 'checks':[
         'PSGC leading zeros, snapshot, unknown dispositions', 'barangay grain and source correction',
         'NULL population and partial aggregation', 'funding ratio edges and SQL replay',

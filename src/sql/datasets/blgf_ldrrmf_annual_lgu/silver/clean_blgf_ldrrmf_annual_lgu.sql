@@ -19,7 +19,8 @@
 -- Catalog selected by runner.
 
 -- Corrections across distinct ingestions are versioned; contradictory rows in one batch have no winner.
-SELECT assert_true(count(*) = 0, 'Conflicting BLGF LGU-year observations in one ingestion')
+SELECT 'conflicting_delivery_reports' AS check_id,
+  'bronze.blgf_ldrrmf_annual_lgu' AS table_name, count(*) AS failed_count, 'ERROR' AS severity
 FROM (
   SELECT regexp_extract(_source_ref, 'FY([0-9]{4})', 1), trim(region), trim(province),
     trim(lgu_name), trim(lgu_type), _ingested_at, _batch_id
@@ -106,26 +107,31 @@ WHEN NOT MATCHED THEN INSERT *;
 --   Rules: row count, amounts not NULL, unique key, valid year, valid LGU type, total = sum of parts,
 --   every LGU is in the map (if not, rerun build_blgf_ldrrmf_lgu_map.py).
 -- What to expect: one line of true values. Any error here means silver was not replaced: fix the cause and rerun the file.
-SELECT
-  assert_true(count(*) = (SELECT count(*) FROM (SELECT DISTINCT regexp_extract(_source_ref, 'FY([0-9]{4})', 1), region, province, lgu_name, lgu_type FROM bronze.blgf_ldrrmf_annual_lgu WHERE _batch_id = :batch_id)), 'Silver row count differs from requested bronze delivery'),
-  assert_true(
+WITH metrics AS (
+  SELECT count(*) AS rows,
     count_if(ldrrmf_70pct_appropriation IS NULL OR ldrrmf_70pct_expenditure IS NULL
-             OR qrf_30pct_appropriation IS NULL OR qrf_30pct_expenditure IS NULL
-             OR total_appropriation IS NULL OR total_expenditure IS NULL) = 0,
-    'An amount is NULL'),
-  -- DISTINCT over whole rows treats NULL as a value (count(DISTINCT a, b) would skip rows with a NULL)
-  assert_true(
-    count(*) = (SELECT count(*) FROM (SELECT DISTINCT fiscal_year, region, province, lgu_name, lgu_type FROM silver_candidate)),
-    'Silver has duplicate LGU-year keys'),
-  -- Update the year range here and in the check file when a new fiscal year is loaded
-  assert_true(count_if(fiscal_year IS NULL OR fiscal_year NOT BETWEEN :min_year AND :max_year) = 0, 'fiscal_year is missing or outside the configured fiscal-year window'),
-  assert_true(count_if(lgu_type IS NULL OR lgu_type NOT IN ('Province', 'City', 'Municipality')) = 0, 'lgu_type is not Province, City or Municipality'),
-  assert_true(
+      OR qrf_30pct_appropriation IS NULL OR qrf_30pct_expenditure IS NULL
+      OR total_appropriation IS NULL OR total_expenditure IS NULL) AS missing_amounts,
+    count_if(fiscal_year IS NULL OR fiscal_year NOT BETWEEN :min_year AND :max_year) AS invalid_year,
+    count_if(lgu_type IS NULL OR lgu_type NOT IN ('Province','City','Municipality')) AS invalid_type,
     count_if(total_appropriation <> ldrrmf_70pct_appropriation + qrf_30pct_appropriation
-             OR total_expenditure <> ldrrmf_70pct_expenditure + qrf_30pct_expenditure) = 0,
-    'A total is not the sum of its two parts'),
-  assert_true(count_if(NOT _in_lgu_map) = 0, 'An LGU is missing from reference.blgf_ldrrmf_lgu_map: rerun build_blgf_ldrrmf_lgu_map.py')
-FROM silver_candidate;
+      OR total_expenditure <> ldrrmf_70pct_expenditure + qrf_30pct_expenditure) AS inconsistent_totals,
+    count_if(NOT _in_lgu_map) AS missing_map
+  FROM silver_candidate
+), rules AS (
+  SELECT 'delivery_row_accounting' AS check_id,
+    abs(rows - (SELECT count(*) FROM (SELECT DISTINCT regexp_extract(_source_ref, 'FY([0-9]{4})', 1),
+      region, province, lgu_name, lgu_type FROM bronze.blgf_ldrrmf_annual_lgu WHERE _batch_id = :batch_id))) AS failed_count FROM metrics
+  UNION ALL SELECT 'missing_amounts', missing_amounts FROM metrics
+  UNION ALL SELECT 'nonempty_delivery', CASE WHEN rows = 0 THEN 1L ELSE 0L END FROM metrics
+  UNION ALL SELECT 'unique_report_year', rows - (SELECT count(*) FROM
+    (SELECT DISTINCT fiscal_year,region,province,lgu_name,lgu_type FROM silver_candidate)) FROM metrics
+  UNION ALL SELECT 'configured_fiscal_window', invalid_year FROM metrics
+  UNION ALL SELECT 'valid_reporting_type', invalid_type FROM metrics
+  UNION ALL SELECT 'component_totals', inconsistent_totals FROM metrics
+  UNION ALL SELECT 'reference_map_coverage', missing_map FROM metrics
+)
+SELECT check_id, 'silver.blgf_ldrrmf_annual_lgu_clean' AS table_name, failed_count, 'ERROR' AS severity FROM rules;
 
 -- COMMAND ----------
 

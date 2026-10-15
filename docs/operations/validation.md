@@ -4,11 +4,11 @@ Development work started from `main` commit `4d82f6b5010c715ed14eca490c5415692e8
 
 ## Local and bundle checks
 
-- 60 pytest tests passed, covering immutable landing and repair, source parsing, conservative matching, schema checks, task assets, DAG edges and parameter contracts.
+- 80 pytest tests passed, covering immutable landing and repair, source parsing, conservative matching, schema checks, task assets, DAG edges, real GX expectations, severity/failure behavior and token-safe transport guards.
 - Ruff, Python compilation, repository YAML lint and `git diff --check` passed.
-- The public-PyPI dependency lock resolved 40 packages and passed offline `uv lock --check`.
+- The public-PyPI dependency lock resolved 68 packages including pinned GX Core and passed offline `uv lock --check`.
 - Both `dev` and `prod` passed strict bundle validation with explicit local inputs. Production validation checked the bundle schema using the selected development workspace; it does not certify production permissions or deploy resources there.
-- All 32 configured tasks across the three existing job files reference existing assets. The main graph has 30 tasks, with no schedule.
+- All 32 development tasks across the three existing job files reference existing assets. Production contains the 30-task main graph and standalone setup; the fixture job is development-only. No schedule is configured.
 
 Operational values have no committed defaults. The ignored local override file records the selected development settings. Source definitions, expected profiles and windows are inputs; fixed schema/parsing rules and pinned dependencies are reproducibility contracts.
 
@@ -18,6 +18,7 @@ The user selected workspace `7474651621867565`. Actual source runs used an isola
 
 - [Initial source run 49333559656243](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/783455110112861/runs/49333559656243?o=7474651621867565): SUCCESS.
 - [Replay 728254180109582](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/783455110112861/runs/728254180109582?o=7474651621867565): SUCCESS with explicit source and execution settings.
+- [GX replay 544688810964582](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/783455110112861/runs/544688810964582?o=7474651621867565): SUCCESS. All 16 current source-branch check results contain GX evidence, with no blocking failures. Existing monitoring rows were preserved while the audit column was added; earlier failures in unselected branches remain historical records. Filter by the current attempt's `checked_at` range and selected branches when reviewing a partial replay.
 
 | Table | Rows | Distinct observation IDs | Latest replay inserted / updated / deleted |
 | --- | ---: | ---: | --- |
@@ -31,6 +32,10 @@ The user selected workspace `7474651621867565`. Actual source runs used an isola
 Counts and distinct IDs were read through the existing SQL warehouse. Delta history independently showed zero changed rows in all six latest MERGEs, preserving lineage and processing values. These counts describe the selected source deliveries, not event deduplication, LGU exposure or a scientific score. BLGF and OSM assets were pinned to HF commit `9273d4b4d5af6d2a14e52451c45ac70a6e3012f5`.
 
 ## Databricks transformations on synthetic fixtures
+
+[GX run 657452296951740](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/988399241764698/runs/657452296951740?o=7474651621867565) succeeded in fresh catalog `ahon_integration_gx_20261015013052`. It repeated the source correction, replay, financial edge, CMCI definition and blocking-failure scenarios below using the shared GX engine. The suite also asserted that every recorded check contained GX validation evidence and that a deliberate blocking failure contained `success: false` while preserving the accepted target. Together with the actual-source GX replay above, this verifies the shared DQ path across PSGC, population, LDRRMF, CMCI, earthquake observations and OSM. Live PSGC authentication and the reviewed production CMCI mapping remain external prerequisites.
+
+The following runs established the transformation behavior before the GX change:
 
 [Run 195096659742537](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/988399241764698/runs/195096659742537?o=7474651621867565) succeeded in `ahon_integration_20261014_r3`. It exercised the actual Silver, dimension, fact and component entry points with deliberately synthetic source records:
 

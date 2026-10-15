@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 import sqlparse
-from quality import check, ensure_monitoring
+from quality import QualityError, check, ensure_monitoring
 from runtime import parser
 
 
@@ -99,6 +99,8 @@ def main():
                         result.collect()  # Force evaluation of every blocking assertion.
                     else:
                         result.show(25, truncate=False)
+            except QualityError:
+                raise
             except Exception:
                 check(
                     spark,

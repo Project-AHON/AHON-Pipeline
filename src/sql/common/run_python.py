@@ -22,7 +22,7 @@ def main():
     from types import SimpleNamespace
 
     from pyspark.sql import SparkSession
-    from quality import check, ensure_monitoring
+    from quality import QualityError, check, ensure_monitoring
 
     p = parser(__doc__)
     p.add_argument("--file", required=True)
@@ -53,6 +53,8 @@ def main():
                 "PIPELINE_OVERRIDES_FILE": args.overrides_file,
             },
         )
+    except QualityError:
+        raise
     except Exception:
         check(spark, args.catalog, args.batch_id, "python_transformation", args.file, 1)
         raise
