@@ -9,6 +9,7 @@ What each table and column in the pipeline means. One page per dataset, plus one
 | [blgf_ldrrmf_annual_lgu](blgf_ldrrmf_annual_lgu.md) | `blgf_ldrrmf_annual_lgu` | bronze |
 | [psa_population](psa_population.md) | `psa_population` | bronze, silver |
 | [philvolcs_earthquake_data](philvolcs_earthquake_data.md) | `philvolcs_earthquake_data`, `philvolcs_earthquake_data_clean` | bronze, silver |
+| [dq_results](dq_results.md) | `monitoring.dq_results` | monitoring |
 
 
 ## How to add a page
