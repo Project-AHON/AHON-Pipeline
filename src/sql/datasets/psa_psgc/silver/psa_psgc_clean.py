@@ -16,7 +16,7 @@ Main behavior:
     - Builds province_name and province_city using code-based joins.
     - Handles City of Isabela and Basilan.
     - Uses an idempotent Delta MERGE.
-    - Preserves history unless DELETE_MISSING is enabled.
+    - Retains absent keys and prevents older deliveries replacing newer corrections.
 """
 
 from delta.tables import DeltaTable
@@ -34,9 +34,6 @@ CATALOG = dbutils.widgets.get("catalog")
 BRONZE_TABLE = f"{CATALOG}.bronze.psa_psgc"
 SILVER_SCHEMA = f"{CATALOG}.silver"
 SILVER_TABLE = f"{SILVER_SCHEMA}.psa_psgc_clean"
-
-# Keep False to preserve historical records.
-DELETE_MISSING = False
 
 # Standardize codes only in Silver.
 PAD_CODES_TO_10 = True
@@ -717,7 +714,7 @@ if not spark.catalog.tableExists(SILVER_TABLE):
     (
         silver.write
         .format("delta")
-        .mode("overwrite")
+        .mode("error")
         .saveAsTable(SILVER_TABLE)
     )
 
@@ -781,9 +778,10 @@ else:
 
     # Update only rows whose Bronze hash changed. The null-safe
     # comparison also handles rows where either hash is NULL.
-    change_condition = (
-        " OR ".join(f"NOT(t.`{c}` <=> s.`{c}`)" for c in silver.columns if c not in {"_processed_at", "_ingested_at", "_batch_id"})
-    )
+    change_condition = "s._ingested_at >= t._ingested_at AND (" + " OR ".join(
+        f"NOT(t.`{c}` <=> s.`{c}`)" for c in silver.columns
+        if c not in {"_processed_at", "_ingested_at", "_batch_id"}
+    ) + ")"
 
     merge = (
         target.alias("t")
@@ -796,23 +794,6 @@ else:
         )
         .whenNotMatchedInsertAll()
     )
-
-    if DELETE_MISSING:
-        raise ValueError("Absence-based deletion is disabled without a verified complete-snapshot contract")
-        periods = [
-            row["_api_period"]
-            for row in silver.select("_api_period").distinct().collect()
-        ]
-
-        if periods:
-            in_list = ", ".join(
-                "'" + period.replace("'", "''") + "'"
-                for period in periods
-            )
-
-            merge = merge.whenNotMatchedBySourceDelete(
-                condition=f"t._api_period IN ({in_list})"
-            )
 
     merge.execute()
 

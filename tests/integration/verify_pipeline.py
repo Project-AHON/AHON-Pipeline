@@ -195,6 +195,10 @@ def verify(spark, args):
         assert spark.table('silver.philvolcs_earthquake_observation_clean').where("candidate_status='single_candidate'").count() == 2
         assert spark.table('silver.philvolcs_earthquake_reject').count() == 1
 
+    # Older delivery replay must never roll back a newer accepted source correction.
+    from verify_delivery_replay import verify_delivery_replay
+    verify_delivery_replay(spark, args)
+
     # Cardinality and failure propagation: duplicated dimension never reaches a dependent fact write.
     before = set(map(tuple, spark.table('gold.fact_population').collect()))
     spark.table('gold.dim_lgu').unionByName(spark.table('gold.dim_lgu')).createOrReplaceTempView('duplicate_dimension_fixture')
@@ -216,6 +220,7 @@ def verify(spark, args):
         'NULL population and partial aggregation', 'funding ratio edges and SQL replay',
         'CMCI response validation, valid-invalid-reverted corrections, missingness and coverage',
         'changed CMCI definition blocks without altering facts',
+        'older PSGC and funding deliveries preserve newer corrections',
         'earthquake duplicate observations, invalid retention and withheld assignment',
         'blocking failure propagation and preserved target']}))
 

@@ -102,14 +102,10 @@ def main():
             except QualityError:
                 raise
             except Exception:
-                check(
-                    spark,
-                    args.catalog,
-                    args.batch_id,
-                    f"sql_statement_{index}",
-                    args.file,
-                    1,
-                )
+                try:
+                    check(spark, args.catalog, args.batch_id, "sql_execution", args.file, 1)
+                except QualityError:
+                    pass  # Preserve the original SQL error after recording GX evidence.
                 raise
             if "assert_true" in statement.lower():
                 check(
@@ -120,6 +116,7 @@ def main():
                     args.file,
                     0,
                 )
+    check(spark, args.catalog, args.batch_id, "sql_execution", args.file, 0)
     print(
         json.dumps(
             {

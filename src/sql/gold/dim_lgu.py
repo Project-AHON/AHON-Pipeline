@@ -160,7 +160,7 @@ if not spark.catalog.tableExists(TARGET_TABLE):
         .select(*DIMENSION_COLUMNS)
         .write
         .format("delta")
-        .mode("overwrite")
+        .mode("error")
         .saveAsTable(TARGET_TABLE)
     )
     print(f"Created Gold dimension: {TARGET_TABLE}")

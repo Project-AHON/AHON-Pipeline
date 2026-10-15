@@ -11,6 +11,8 @@ Hazard describes the earthquake process; exposure describes people/assets in aff
 
 `platinum.population_components` has one selected city/municipality × census year row. `available_population_subtotal = SUM(nonmissing barangay population)` is a partial count in people. `complete_population_total` is populated only when measured and observed barangay counts equal the dimension's expected count. It is not exposed population.
 
+Each census year present in the fact is paired with every city/municipality in the same selected snapshot. An LGU with no census observations remains visible with zero observed/measured barangay counts, NULL population totals and `PARTIAL_OR_MISSING` coverage. A missing measurement is never converted to a zero population.
+
 `platinum.funding_components` retains each original funding report. Ratios are `expenditure / appropriation`; zero denominator yields NULL. Ratios above one remain above one with a warning. Missing financial fields or inconsistent component totals block Gold; prior accepted outputs remain until recovery and must be read alongside the latest DQ run. Funding utilization alone does not establish preparedness.
 
 `platinum.cmci_pillar_coverage` counts available versus expected selected indicators by LGU/year/pillar. Counts and `COMPLETE`/`INSUFFICIENT_DATA` describe completeness of the selected subset, not official CMCI pillar completeness or a capacity score. The Gold `raw_score` is the portal's numeric value; units, polarity and official scoring remain unspecified. Invalid latest corrections are withheld as NULL rather than exposing an older accepted value as current.

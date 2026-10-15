@@ -33,10 +33,13 @@ $catalog = Read-Host 'Fresh development catalog'
 $env:BUNDLE_VAR_catalog = $catalog
 databricks bundle validate --strict -t dev --profile $profile
 databricks bundle deploy -t dev --profile $profile
-databricks bundle run data_quality -t dev --profile $profile
+$fixtureCatalog = Read-Host 'Fresh isolated fixture catalog beginning ahon_integration_'
+databricks bundle run data_quality -t dev --profile $profile --params "catalog=$fixtureCatalog"
 ```
 
 To validate `prod` without deploying it, supply that target's required variables and run `databricks bundle validate --strict -t prod --profile $profile`. No target is default; schedules are absent. The development target implements reproducible bundle testing in a personal workspace, not a shared development environment. The setup task creates the selected catalog if permitted, schemas, monitoring DQ results and raw volume. It never rebuilds existing incompatible schemas.
+
+Keep the configured development `catalog` for live-source processing. Pass a separate fresh `ahon_integration_*` catalog explicitly for fixture runs; never point live ingestion at completed synthetic fixtures. The fixture guard refuses a source catalog. The prepared private development configuration uses the verified source catalog; fixture commands need the explicit catalog override shown above.
 
 ## Enter the PSGC token locally
 
@@ -120,11 +123,13 @@ databricks bundle run ahon_pipeline -t dev --profile $profile
 
 PSGC Bronze→Silver precedes the existing `dim_lgu`, embedded barangay population and contextual reference lookups. Gold waits for its validated Silver and dimension. OSM runs its own extract→Bronze→Silver chain. Earthquake observation Silver requires the selected PSGC reference for candidate reporting; event Gold is not scheduled. Independent component tasks depend only on their own outputs. All edges use `ALL_SUCCESS`.
 
-CMCI reviewed mapping columns are `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`. Codes are unique ten-digit strings, source names one-to-one, reviewed must be true, and period must match the selected dimension. Actual token scope/key and real approved mappings were unavailable in the selected workspace; synthetic mappings are test data and must not be used as production evidence.
+CMCI reviewed mapping columns are `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`. Codes are unique ten-digit strings, source names one-to-one, reviewed must be true, and period must match the selected dimension. The development PSGC secret reference is configured and live authentication has passed. Real approved CMCI mappings remain unavailable; synthetic mappings are test data and must not be used as production evidence.
 
 ## Replay and corrections
 
 The default batch ID is the job run ID. Task retries reuse it. To replay a completed delivery, use the same batch ID and task selection. Identical same-batch observations retain first lineage and unchanged Silver/Gold processing timestamps. Source corrections use a new batch ID.
+
+PSGC and LDRRMF Silver only update an existing business key when the candidate's first-ingested timestamp is at least as recent as the accepted row. Replaying an older completed delivery cannot roll back a newer correction. This is delivery ordering, not proof of a publisher's scientific reference date; source snapshot/year fields remain separate. New keys are retained without absence-based deletion. Initial PSGC Silver and dimension creation fail if a competing writer has already created the table.
 
 Standard PSGC, PXWeb, BLGF and CMCI observation IDs include delivery batch ID, source file digest and raw row hash. A new delivery can legitimately repeat previously seen bytes, permitting a source-value reversion after a later correction. Earlier file-only identity tables are guarded: use a fresh catalog or reviewed migration. Earthquake and OSM retain their explicit file/ordinal observation contracts separately.
 

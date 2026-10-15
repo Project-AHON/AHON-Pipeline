@@ -141,7 +141,8 @@ SELECT check_id, 'silver.blgf_ldrrmf_annual_lgu_clean' AS table_name, failed_cou
 CREATE TABLE IF NOT EXISTS silver.blgf_ldrrmf_annual_lgu_clean USING DELTA AS SELECT * EXCEPT (_in_lgu_map) FROM silver_candidate WHERE false;
 -- COMMAND ----------
 MERGE INTO silver.blgf_ldrrmf_annual_lgu_clean t USING (SELECT * EXCEPT (_in_lgu_map) FROM silver_candidate) s ON t.fiscal_year <=> s.fiscal_year AND t.region <=> s.region AND t.province <=> s.province AND t.lgu_name <=> s.lgu_name AND t.lgu_type <=> s.lgu_type
-WHEN MATCHED AND (NOT(t._row_hash <=> s._row_hash) OR NOT(t.psgc_code <=> s.psgc_code) OR NOT(t.source_period <=> s.source_period)) THEN UPDATE SET *
+WHEN MATCHED AND s._ingested_at >= t._ingested_at
+  AND (NOT(t._row_hash <=> s._row_hash) OR NOT(t.psgc_code <=> s.psgc_code) OR NOT(t.source_period <=> s.source_period)) THEN UPDATE SET *
 WHEN NOT MATCHED THEN INSERT *;
 
 -- COMMAND ----------

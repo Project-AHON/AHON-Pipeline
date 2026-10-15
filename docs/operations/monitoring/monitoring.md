@@ -15,6 +15,8 @@ Each check is keyed by `(run_id, check_id, table_name)` in `<catalog>.monitoring
 
 PASS means the expectation succeeded. WARN means an expectation failed at warning severity and flagged rows remain visible. BLOCKED means an error-level expectation failed and a `QualityError` stops dependent writes. The result is persisted before the exception. A GX dependency/runtime failure stops the task; it never becomes an unvalidated pass.
 
+The Python and SQL launchers also record an execution marker for unexpected runtime failures, then preserve the original exception so the task log identifies its cause. A successful retry resets that marker to PASS. Named GX failures keep their original rule identity. For a partial run or a failed attempt followed by recovery, review the selected task status and current `checked_at` interval rather than treating all historical delivery checks as current failures.
+
 File-integrity, authentication, parsing-structure and incompatible-schema guards remain ingestion/write contracts. A failed delivery is not deleted to conceal it. Inspect the task's GX result, source/reject lineage and selected period, correct the source or reviewed mapping, then run a new delivery. Read prior accepted facts together with the latest DQ state.
 
 See the [runbook](../runbook.md#gx-quality-gates) for the single additive monitoring-column upgrade, token entry, deployment, replay and production prerequisites. The fixture job is development-only; there is no additional GX service, result store or DQ orchestration layer.

@@ -4,7 +4,7 @@ Development work started from `main` commit `4d82f6b5010c715ed14eca490c5415692e8
 
 ## Local and bundle checks
 
-- 80 pytest tests passed, covering immutable landing and repair, source parsing, conservative matching, schema checks, task assets, DAG edges, real GX expectations, severity/failure behavior and token-safe transport guards.
+- 83 pytest tests passed, covering immutable landing and repair, source parsing, conservative matching, schema checks, task assets, DAG edges, real GX expectations, severity/failure behavior, token-safe transport guards, preservation/recovery of runtime errors and LGUs with no population measurements.
 - Ruff, Python compilation, repository YAML lint and `git diff --check` passed.
 - The public-PyPI dependency lock resolved 68 packages including pinned GX Core and passed offline `uv lock --check`.
 - Both `dev` and `prod` passed strict bundle validation with explicit local inputs. Production validation checked the bundle schema using the selected development workspace; it does not certify production permissions or deploy resources there.
@@ -31,9 +31,21 @@ The user selected workspace `7474651621867565`. Actual source runs used an isola
 
 Counts and distinct IDs were read through the existing SQL warehouse. Delta history independently showed zero changed rows in all six latest MERGEs, preserving lineage and processing values. These counts describe the selected source deliveries, not event deduplication, LGU exposure or a scientific score. BLGF and OSM assets were pinned to HF commit `9273d4b4d5af6d2a14e52451c45ac70a6e3012f5`.
 
+### Live PSGC authentication and reference processing
+
+[PSGC run 512402624830874](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/783455110112861/runs/512402624830874?o=7474651621867565) succeeded after the user configured the token in Databricks Secrets. Setup, extraction, Bronze and Silver all passed. Four complete configured snapshots produced 175,079 Bronze observations and 175,067 Silver reference rows. At initial PSGC branch completion, the delivery recorded 15 PASS rules, one WARN rule and no BLOCKED rule. Later reference-dependent runs reuse its delivery ID and record their own checks. The selected snapshot contains explicit population records for 2015, 2020 and 2024; census year remains a separate configuration input.
+
+The secret value was never retrieved by the local coding agent or written into repository configuration. Only scope/key metadata is configured. This verifies live PSA access; production still requires its approved identity, permissions and secret reference.
+
+[Reference/population run 714585178062145](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/783455110112861/runs/714585178062145?o=7474651621867565) succeeded using that completed delivery, after native population Silver had succeeded in run 28732734704355. The selected dimension contains 43,760 entities. The 2024 barangay fact contains 41,593 rows and distinct surrogate keys; 12 missing population measurements remain NULL. The initial dimension attempt in run 28732734704355 exposed an unsupported Spark Connect write-mode alias introduced during this review. It was corrected to `error`; the successful run also verified that the unexpected-execution failure marker recovered to PASS. The delivery then had no BLOCKED checks and no missing GX evidence. Initial coverage output exposed LGUs without observations being omitted; the component query was corrected to include the full same-snapshot LGU/year grid.
+
+[Coverage run 431074094031300](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/783455110112861/runs/431074094031300?o=7474651621867565) succeeded with the corrected component SQL. The existing development SQL warehouse independently verified all 1,642 same-snapshot cities/municipalities: 1,611 COMPLETE and 31 PARTIAL_OR_MISSING. This includes 20 LGUs with no observations, all retaining NULL population totals rather than invented zeros. A portable SQL regression also exercises entirely absent observations, NULL measurements and multiple census years. The prepared private development default now points to the live-source catalog; fixture executions require a separate explicit `ahon_integration_*` catalog.
+
 ## Databricks transformations on synthetic fixtures
 
-[GX run 657452296951740](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/988399241764698/runs/657452296951740?o=7474651621867565) succeeded in fresh catalog `ahon_integration_gx_20261015013052`. It repeated the source correction, replay, financial edge, CMCI definition and blocking-failure scenarios below using the shared GX engine. The suite also asserted that every recorded check contained GX validation evidence and that a deliberate blocking failure contained `success: false` while preserving the accepted target. Together with the actual-source GX replay above, this verifies the shared DQ path across PSGC, population, LDRRMF, CMCI, earthquake observations and OSM. Live PSGC authentication and the reviewed production CMCI mapping remain external prerequisites.
+[Older-delivery replay run 653710300874370](https://dbc-74becaaa-f34b.cloud.databricks.com/?o=7474651621867565#job/1024028664834828/run/653710300874370) succeeded against completed synthetic fixtures. It processed two distinct corrected deliveries for PSGC census records and financial reports, then replayed the older delivery. Silver and Gold values, processing timestamps and lineage all remained identical to the newer accepted state. This verifies the added ingestion-time update guards; the check is also part of the regular development fixture suite.
+
+[GX run 657452296951740](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/988399241764698/runs/657452296951740?o=7474651621867565) succeeded in fresh catalog `ahon_integration_gx_20261015013052`. It repeated the source correction, replay, financial edge, CMCI definition and blocking-failure scenarios below using the shared GX engine. The suite also asserted that every recorded check contained GX validation evidence and that a deliberate blocking failure contained `success: false` while preserving the accepted target. Together with the actual-source GX replay above, this verifies the shared DQ path across PSGC, population, LDRRMF, CMCI, earthquake observations and OSM. Live PSGC authentication was subsequently verified above; the reviewed production CMCI mapping remains an external prerequisite.
 
 The following runs established the transformation behavior before the GX change:
 
@@ -54,6 +66,6 @@ The initial verification attempt failed on a missing sibling-module import after
 
 ## Limits and execution
 
-Actual PSA extraction is blocked by unavailable approved token secrets. Actual CMCI ingestion is blocked by the absence of a reviewed mapping for the selected snapshot. Real-source reference-dependent facts were therefore not claimed as verified; synthetic mappings remain test data. Event Gold, spatial exposure, vulnerability, preparedness scores and priority rankings require approved source identities and scientific methodology.
+Actual CMCI ingestion is blocked by the absence of a reviewed mapping for the selected snapshot. Live PSA reference processing has passed; runtime claims for downstream facts are limited to the specific runs recorded here. Synthetic mappings remain test data. Event Gold, spatial exposure, vulnerability, preparedness scores and priority rankings require approved source identities and scientific methodology.
 
 Use the [development runbook](runbook.md) for explicit configuration, exact validation/deployment commands, independent task selection, replay and correction recovery. The [inventory](../architecture/source-to-target.md) records PR reuse/exclusions and every supported source contract. The [analytical contract](../architecture/metrics.md) maps the four business questions to available evidence and missing inputs.

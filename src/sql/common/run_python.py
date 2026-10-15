@@ -56,8 +56,12 @@ def main():
     except QualityError:
         raise
     except Exception:
-        check(spark, args.catalog, args.batch_id, "python_transformation", args.file, 1)
+        try:
+            check(spark, args.catalog, args.batch_id, "python_transformation", args.file, 1)
+        except QualityError:
+            pass  # Preserve the original runtime error after recording GX evidence.
         raise
+    check(spark, args.catalog, args.batch_id, "python_transformation", args.file, 0)
 
 
 if __name__ == "__main__":

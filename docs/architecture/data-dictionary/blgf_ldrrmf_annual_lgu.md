@@ -25,10 +25,10 @@ The row hash covers the four source labels and six amounts. Observation identity
 
 Missing amounts, invalid years/types, inconsistent totals, missing reference-map entries and conflicting same-delivery business keys block the accepted Silver write. Invalid rows are retained in `silver.blgf_ldrrmf_annual_lgu_reject` before blocking. Negative values, zero appropriations and expenditure above appropriation remain visible with `has_dq_issues`. `psgc_code` is populated only for an accepted match; `psgc_match_status,psgc_match_method,source_period` preserve geographic disposition. Bronze lineage and `_processed_at` trace accepted outputs.
 
-Silver validates the requested delivery and merges business keys without deleting absent reports. Unchanged records retain processing timestamps; schema changes require review. Province and municipality reports must not be summed together as independent population or hazard evidence.
+Silver validates the requested delivery and merges business keys without deleting absent reports. An older first-ingested delivery cannot replace a newer accepted correction for the same reporting entity/year. Unchanged records retain processing timestamps; schema changes require review. Province and municipality reports must not be summed together as independent population or hazard evidence.
 
 ## Facts and limits
 
 [gold.fact_ldrrmf](fact_ldrrmf.md) retains each original reporting entity/year with separate fund components. `platinum.funding_components` exposes these amounts and ratios. Utilization is expenditure divided by appropriation; zero denominators return NULL and overspending is not clipped. These figures do not establish preparedness or spending effectiveness.
 
-Actual source ingestion and replay were verified for 11,434 rows. Reference mapping, financial edge cases and Gold transformations were exercised with synthetic fixtures; complete real-source Gold execution awaits the approved PSA reference prerequisite. See the [inventory](../source-to-target.md) and [runbook](../../operations/runbook.md).
+Actual source ingestion and replay were verified for 11,434 rows. Reference mapping, financial edge cases and Gold transformations were exercised with synthetic fixtures. Live PSA reference ingestion has since passed; this does not by itself certify every financial mapping or real-source Gold result. See the [inventory](../source-to-target.md), [validation evidence](../../operations/validation.md) and [runbook](../../operations/runbook.md).

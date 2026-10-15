@@ -16,10 +16,10 @@ Code-based lookups in the same snapshot derive `region_psgc,province_psgc,citymu
 
 Invalid codes are retained in `silver.psa_psgc_code_reject` and block the delivery. Unknown or missing levels are retained in `silver.psa_psgc_reject` with a DQ warning. Conflicting tied business-key observations block instead of selecting an arbitrary winner; superseded observations remain in Bronze and are counted. Reference uniqueness and join cardinality are checked before writing.
 
-The job validates the requested completed delivery, allowing a later correction without erasing previous rejected observations. Silver merges business keys without absence-based deletion or schema evolution. Replay leaves unchanged processing timestamps. Incompatible existing schemas require a fresh catalog or reviewed migration.
+The job validates the requested completed delivery, allowing a later correction without erasing previous rejected observations. Silver merges business keys without absence-based deletion or schema evolution. An older first-ingested observation cannot replace a newer accepted row. Replay leaves unchanged processing timestamps. Incompatible existing schemas require a fresh catalog or reviewed migration.
 
 ## Downstream and verification
 
 `gold.dim_lgu` is the existing canonical dimension, gated by the selected snapshot. The former `reference.lgu_master` loader is retired. Embedded population arrays feed [barangay population](fact_population.md); other datasets use contextual reference lookups with explicit periods.
 
-See the [dimension dictionary](dim_lgu.md), [source inventory](../source-to-target.md), [runbook](../../operations/runbook.md) and development verification evidence. Actual PSA extraction remains blocked by unavailable approved token secrets; synthetic runtime tests demonstrate transformations, code preservation, rejects and cardinality without claiming live API validation.
+See the [dimension dictionary](dim_lgu.md), [source inventory](../source-to-target.md), [runbook](../../operations/runbook.md) and [development verification evidence](../../operations/validation.md). Live PSA authentication, extraction, Bronze and Silver passed on 2026-10-15. The four configured snapshots landed 175,079 Bronze observations and produced 175,067 Silver rows, with one warning rule and no blocking checks. These are geographic reference observations across snapshots, not population totals or exposure measures.
