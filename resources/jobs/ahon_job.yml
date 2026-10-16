@@ -1,7 +1,953 @@
----
-# Export the main job code here.
-# Procedure: Jobs & Pipelines -> Jobs -> Hamburger button in upper-right ->
-# Edit as YAML -> Copy and paste code into this file
-
-# If any ${var.cluster_id} or ${var.warehouse_id} shows up in the code,
-# declare these as variables in databricks.yml
+resources:
+  jobs:
+    Clone_of_dev_jess_manuel_ahon_pipeline:
+      name: Clone of [dev jess_manuel] ahon_pipeline
+      timeout_seconds: 14400
+      tasks:
+        - task_key: setup
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_sql.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/00_setup/00_catalog_schema_setup.sql
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: earthquake_extract
+          depends_on:
+            - task_key: setup
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/philvolcs_earthquake/extract/philvolcs_earthquake_ingest.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --start-month
+              - 2024-01
+              - --end-month
+              - 2024-01
+              - --archive-url-template
+              - https://earthquake.phivolcs.dost.gov.ph/EQLatest-Monthly/{year}/{year}_{month_name}.html
+              - --latest-url
+              - https://earthquake.phivolcs.dost.gov.ph/
+              - --request-timeout
+              - "60"
+              - --source-timezone
+              - Asia/Manila
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: earthquake
+        - task_key: earthquake_bronze
+          depends_on:
+            - task_key: earthquake_extract
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/philvolcs_earthquake/observation_pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - bronze
+              - --source-period
+              - Q2_2024
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: ldrrmf_extract
+          depends_on:
+            - task_key: setup
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/blgf_ldrrmf_annual_lgu/extract/extract_blgf_ldrrmf_annual_lgu.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --hf-repo
+              - Jess-Christine/Project-AHON
+              - --hf-revision
+              - 9273d4b4d5af6d2a14e52451c45ac70a6e3012f5
+              - --expected-rows
+              - '{"2018":1513,"2019":1566,"2020":1612,"2021":1637,"2022":1683,"2023":1707,"2024":1716}'
+              - --file-pattern
+              - FY{year}-LDRRMF-by-LGU.xlsx
+              - --hf-folder
+              - data/ldrrmf
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: files
+        - task_key: ldrrmf_bronze
+          depends_on:
+            - task_key: ldrrmf_extract
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/blgf_ldrrmf_annual_lgu/bronze/load_blgf_ldrrmf_annual_lgu.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --expected-rows
+              - '{"2018":1513,"2019":1566,"2020":1612,"2021":1637,"2022":1683,"2023":1707,"2024":1716}'
+              - --file-pattern
+              - FY{year}-LDRRMF-by-LGU.xlsx
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: files
+        - task_key: osm_extract
+          depends_on:
+            - task_key: setup
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/osm_critical_infrastructures/pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - extract
+              - --hf-repo
+              - Jess-Christine/Project-AHON
+              - --hf-revision
+              - 9273d4b4d5af6d2a14e52451c45ac70a6e3012f5
+              - --hf-folder
+              - data/critical-infrastructures
+              - --shapefile-stems
+              - '["schools","hospitals","police_station","fire_station"]'
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: osm
+        - task_key: osm_bronze
+          depends_on:
+            - task_key: osm_extract
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/osm_critical_infrastructures/pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - bronze
+              - --hf-repo
+              - Jess-Christine/Project-AHON
+              - --hf-revision
+              - 9273d4b4d5af6d2a14e52451c45ac70a6e3012f5
+              - --hf-folder
+              - data/critical-infrastructures
+              - --shapefile-stems
+              - '["schools","hospitals","police_station","fire_station"]'
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: osm
+        - task_key: osm_silver
+          depends_on:
+            - task_key: osm_bronze
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/osm_critical_infrastructures/pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - silver
+              - --hf-repo
+              - Jess-Christine/Project-AHON
+              - --hf-revision
+              - 9273d4b4d5af6d2a14e52451c45ac70a6e3012f5
+              - --hf-folder
+              - data/critical-infrastructures
+              - --shapefile-stems
+              - '["schools","hospitals","police_station","fire_station"]'
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: osm
+        - task_key: population_extract
+          depends_on:
+            - task_key: setup
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/psa_population/extract/extract_psa_population.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --source-file
+              - 0241A6DPUP1.csv
+              - --census-year
+              - "2024"
+              - --expected-profile
+              - "[1, 18, 118, 1607]"
+              - --api-url
+              - https://openstat.psa.gov.ph/PXWeb/api/v1/en/DB/1A/PO_2024/0241A6DPUP1.px
+              - --request-timeout
+              - "60"
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: population
+        - task_key: population_bronze
+          depends_on:
+            - task_key: population_extract
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/psa_population/bronze/load_psa_population.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --source-file
+              - 0241A6DPUP1.csv
+              - --census-year
+              - "2024"
+              - --expected-profile
+              - "[1, 18, 118, 1607]"
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: population_silver
+          depends_on:
+            - task_key: population_bronze
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/psa_population/silver/clean_psa_population.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --source-file
+              - 0241A6DPUP1.csv
+              - --census-year
+              - "2024"
+              - --expected-profile
+              - "[1, 18, 118, 1607]"
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: psgc_extract
+          depends_on:
+            - task_key: setup
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/psa_psgc/extract/psa_psgc_ingest.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --secret-scope
+              - ahon
+              - --secret-key
+              - psgc-api-token
+              - --api-base-url
+              - https://classification.psa.gov.ph/psgc
+              - --expected-rows
+              - '{"Q2_2024":43762,"April_2024":43761,"Q4_2023":43758,"Q2_2021":43798}'
+              - --request-timeout
+              - "60"
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: psgc
+        - task_key: psgc_bronze
+          depends_on:
+            - task_key: psgc_extract
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/psa_psgc/bronze/psa_psgc.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --expected-rows
+              - '{"Q2_2024":43762,"April_2024":43761,"Q4_2023":43758,"Q2_2021":43798}'
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: psgc
+        - task_key: psgc_silver
+          depends_on:
+            - task_key: psgc_bronze
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_python.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/datasets/psa_psgc/silver/psa_psgc_clean.py
+              - --source-period
+              - Q2_2024
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: dim_lgu
+          depends_on:
+            - task_key: psgc_silver
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_python.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/gold/dim_lgu.py
+              - --source-period
+              - Q2_2024
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: cmci_extract
+          depends_on:
+            - task_key: setup
+            - task_key: dim_lgu
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/cmci/pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - extract
+              - --mapping-file
+              - /Volumes/ahon_dev_job_735696377477443/reference/source/cmci_lgu_map_20261015.csv
+              - --source-period
+              - Q2_2024
+              - --start-year
+              - "2014"
+              - --end-year
+              - "2024"
+              - --test-lgu-limit
+              - "5"
+              - --metric-version
+              - selected_35_v1
+              - --portal-url
+              - https://cmci.dti.gov.ph/data-portal.php
+              - --process-url
+              - https://cmci.dti.gov.ph/data-portal-process.php
+              - --request-timeout
+              - "60"
+              - --request-batch-size
+              - "10"
+              - --request-delay
+              - "1"
+              - --http-retries
+              - "3"
+              - --http-backoff
+              - "2"
+              - --indicator-file
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/resources/cmci_indicators.csv
+              - --run-mode
+              - test
+              - --user-agent
+              - AHON-Pipeline
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: cmci
+        - task_key: cmci_bronze
+          depends_on:
+            - task_key: cmci_extract
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/cmci/pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - bronze
+              - --mapping-file
+              - /Volumes/ahon_dev_job_735696377477443/reference/source/cmci_lgu_map_20261015.csv
+              - --source-period
+              - Q2_2024
+              - --start-year
+              - "2014"
+              - --end-year
+              - "2024"
+              - --test-lgu-limit
+              - "5"
+              - --metric-version
+              - selected_35_v1
+              - --indicator-file
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/resources/cmci_indicators.csv
+              - --run-mode
+              - test
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: cmci
+        - task_key: cmci_silver
+          depends_on:
+            - task_key: cmci_bronze
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/cmci/pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - silver
+              - --mapping-file
+              - /Volumes/ahon_dev_job_735696377477443/reference/source/cmci_lgu_map_20261015.csv
+              - --source-period
+              - Q2_2024
+              - --start-year
+              - "2014"
+              - --end-year
+              - "2024"
+              - --test-lgu-limit
+              - "5"
+              - --metric-version
+              - selected_35_v1
+              - --indicator-file
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/resources/cmci_indicators.csv
+              - --run-mode
+              - test
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: cmci
+        - task_key: cmci_gold
+          depends_on:
+            - task_key: cmci_silver
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/cmci/pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - gold
+              - --mapping-file
+              - /Volumes/ahon_dev_job_735696377477443/reference/source/cmci_lgu_map_20261015.csv
+              - --source-period
+              - Q2_2024
+              - --start-year
+              - "2014"
+              - --end-year
+              - "2024"
+              - --test-lgu-limit
+              - "5"
+              - --metric-version
+              - selected_35_v1
+              - --indicator-file
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/resources/cmci_indicators.csv
+              - --run-mode
+              - test
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: cmci
+        - task_key: cmci_platinum
+          depends_on:
+            - task_key: cmci_gold
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/cmci/pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - platinum
+              - --mapping-file
+              - /Volumes/ahon_dev_job_735696377477443/reference/source/cmci_lgu_map_20261015.csv
+              - --source-period
+              - Q2_2024
+              - --start-year
+              - "2014"
+              - --end-year
+              - "2024"
+              - --test-lgu-limit
+              - "5"
+              - --metric-version
+              - selected_35_v1
+              - --indicator-file
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/resources/cmci_indicators.csv
+              - --run-mode
+              - test
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: cmci
+        - task_key: population_total_gold
+          depends_on:
+            - task_key: population_silver
+            - task_key: dim_lgu
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/gold/build_fact_population_total.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --source-period
+              - Q2_2024
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: earthquake_silver
+          depends_on:
+            - task_key: earthquake_bronze
+            - task_key: psgc_silver
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/philvolcs_earthquake/observation_pipeline.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --stage
+              - silver
+              - --source-period
+              - Q2_2024
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: earthquake_components
+          depends_on:
+            - task_key: earthquake_silver
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_sql.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/platinum/earthquake_components.sql
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: ldrrmf_mapping
+          depends_on:
+            - task_key: ldrrmf_bronze
+            - task_key: psgc_silver
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_python.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/build_blgf_ldrrmf_lgu_map.py
+              - --source-period
+              - Q2_2024
+              - --overrides-file
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/blgf_ldrrmf_lgu_map_overrides.csv
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: files
+        - task_key: ldrrmf_silver
+          depends_on:
+            - task_key: ldrrmf_mapping
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_sql.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/clean_blgf_ldrrmf_annual_lgu.sql
+              - --min-year
+              - "2018"
+              - --max-year
+              - "2024"
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: ldrrmf_gold
+          depends_on:
+            - task_key: ldrrmf_silver
+            - task_key: dim_lgu
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_sql.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/gold/build_fact_ldrrmf.sql
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: funding_components
+          depends_on:
+            - task_key: ldrrmf_gold
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_sql.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/platinum/funding_components.sql
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: psgc_population_silver
+          depends_on:
+            - task_key: psgc_silver
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/datasets/psa_psgc/silver/clean_city_population.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --source-period
+              - Q2_2024
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: population_gold
+          depends_on:
+            - task_key: dim_lgu
+            - task_key: psgc_population_silver
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_python.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/gold/fact_population.py
+              - --source-period
+              - Q2_2024
+              - --census-year
+              - "2024"
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+        - task_key: population_components
+          depends_on:
+            - task_key: population_gold
+          spark_python_task:
+            python_file: /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair/src/sql/common/launch.py
+            parameters:
+              - --repo-root
+              - /Workspace/Users/jess.manuel@ftwfoundation.org/AHON-Job-735696377477443/releases/20261015-repair
+              - --entry-point
+              - src/sql/common/run_sql.py
+              - --catalog
+              - "{{job.parameters.catalog}}"
+              - --source-volume
+              - source
+              - --batch-id
+              - "{{job.parameters.batch_id}}"
+              - --file
+              - src/sql/platinum/population_components.sql
+            source: WORKSPACE
+          max_retries: 1
+          min_retry_interval_millis: 30000
+          timeout_seconds: 3600
+          environment_key: core
+      tags:
+        aidevkit_project: ai-dev-kit
+        dev: jess_manuel
+        project: ahon
+      queue:
+        enabled: true
+      parameters:
+        - name: batch_id
+          default: "{{job.run_id}}"
+        - name: catalog
+          default: ahon_dev_job_735696377477443
+      environments:
+        - environment_key: cmci
+          spec:
+            dependencies:
+              - beautifulsoup4==4.14.3
+              - requests==2.32.5
+              - great_expectations==1.24.0
+              - pandas==2.3.3
+            environment_version: "6"
+        - environment_key: core
+          spec:
+            dependencies:
+              - sqlparse==0.5.3
+              - great_expectations==1.24.0
+              - pandas==2.3.3
+            environment_version: "6"
+        - environment_key: earthquake
+          spec:
+            dependencies:
+              - pandas==2.3.3
+              - requests==2.32.5
+              - lxml==6.1.3
+              - great_expectations==1.24.0
+            environment_version: "6"
+        - environment_key: files
+          spec:
+            dependencies:
+              - pandas==2.3.3
+              - openpyxl==3.1.5
+              - huggingface_hub==2.2.0
+              - great_expectations==1.24.0
+            environment_version: "6"
+        - environment_key: osm
+          spec:
+            dependencies:
+              - geopandas==1.1.1
+              - pyogrio==0.11.1
+              - shapely==2.1.2
+              - pyproj==3.7.0
+              - huggingface_hub==2.2.0
+              - great_expectations==1.24.0
+              - pandas==2.3.3
+            environment_version: "6"
+        - environment_key: population
+          spec:
+            dependencies:
+              - requests==2.32.5
+              - great_expectations==1.24.0
+              - pandas==2.3.3
+            environment_version: "6"
+        - environment_key: psgc
+          spec:
+            dependencies:
+              - requests==2.32.5
+              - great_expectations==1.24.0
+              - pandas==2.3.3
+            environment_version: "6"
+      performance_target: STANDARD
