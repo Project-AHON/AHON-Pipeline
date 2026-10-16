@@ -1,8 +1,8 @@
 """
 AHON Gold dim_lgu transformation.
 
-Source: ahondev.silver.psa_psgc
-Target: ahondev.gold.dim_lgu
+Source: <catalog>.silver.psa_psgc_clean
+Target: <catalog>.gold.dim_lgu
 
 Creates one geographic dimension from a single approved PSGC snapshot.
 Silver remains the source of truth for cleaned area names and hierarchy codes.
@@ -10,23 +10,25 @@ Silver remains the source of truth for cleaned area names and hierarchy codes.
 
 from delta.tables import DeltaTable
 from pyspark.sql import functions as F
-
+from quality import check, unique
 
 # ============================================================
 # 1. CONFIGURATION
 # ============================================================
 
-dbutils.widgets.text("gold_catalog", "ahondev")
-GOLD_CATALOG = dbutils.widgets.get("gold_catalog")
+dbutils.widgets.text("catalog", "")
+CATALOG = dbutils.widgets.get("catalog")
 
-dbutils.widgets.text("source_period", "Q2_2024")
+dbutils.widgets.text("source_period", "")
 SOURCE_PERIOD = dbutils.widgets.get("source_period")
 
-SOURCE_TABLE = f"{GOLD_CATALOG}.silver.psa_psgc"
-GOLD_SCHEMA = f"{GOLD_CATALOG}.gold"
+SOURCE_TABLE = f"{CATALOG}.silver.psa_psgc_clean"
+GOLD_SCHEMA = f"{CATALOG}.gold"
 TARGET_TABLE = f"{GOLD_SCHEMA}.dim_lgu"
+RUN_ID = globals().get("PIPELINE_RUN_ID", "interactive")
 
 DIMENSION_COLUMNS = [
+    "source_period",
     "psgc_code",
     "area_name",
     "geographic_level",
@@ -48,19 +50,18 @@ source_df = spark.table(SOURCE_TABLE)
 
 required_source_columns = [
     "psgc_code",
-    "geographic_name",
+    "area_name",
     "geographic_level",
-    "region_code",
-    "province_code",
-    "municipality_code",
+    "region_psgc",
+    "province_psgc",
+    "citymun_psgc",
     "_api_period",
 ]
 
-source_columns = set(source_df.columns)
 missing_columns = [
     column
     for column in required_source_columns
-    if column not in source_columns
+    if column not in source_df.columns
 ]
 
 if missing_columns:
@@ -77,10 +78,8 @@ if missing_columns:
 # so dim_lgu has one current-state row per PSGC geographic entity.
 snapshot_df = source_df.filter(F.col("_api_period") == SOURCE_PERIOD)
 
-if snapshot_df.limit(1).count() == 0:
-    raise ValueError(
-        f"No Silver records found for API period {SOURCE_PERIOD}."
-    )
+check(spark, CATALOG, RUN_ID, "selected_snapshot_nonempty", SOURCE_TABLE,
+      int(not snapshot_df.limit(1).count()))
 
 # Check the source grain BEFORE selecting or deduplicating records.
 # Do not silently discard conflicting records with dropDuplicates().
@@ -91,31 +90,26 @@ source_duplicate_codes = (
     .filter(F.col("count") > 1)
 )
 
-if source_duplicate_codes.limit(1).count() > 0:
-    print(
-        f"Duplicate PSGC codes found in Silver for {SOURCE_PERIOD}:"
-    )
-    source_duplicate_codes.show(20, truncate=False)
-    raise ValueError(
-        "The selected Silver snapshot is not unique by psgc_code. "
-        "Resolve duplicate source records before building dim_lgu."
-    )
+check(spark, CATALOG, RUN_ID, "selected_snapshot_unique", SOURCE_TABLE,
+      source_duplicate_codes.count())
 
 dim_lgu = (
     snapshot_df
     .select(
+        F.lit(SOURCE_PERIOD).alias("source_period"),
         F.col("psgc_code").cast("string").alias("psgc_code"),
-        F.col("geographic_name").alias("area_name"),
+        F.col("area_name").alias("area_name"),
         F.col("geographic_level").alias("geographic_level"),
 
-        F.col("region_code").alias("region_code"),
-        F.col("province_code").alias("province_code"),
-        F.col("municipality_code").alias("municipality_code"),
+        # These hierarchy fields use standardized codes derived in Silver.
+        F.col("region_psgc").alias("region_code"),
+        F.col("province_psgc").alias("province_code"),
+        F.col("citymun_psgc").alias("municipality_code"),
 
-        # For Bgy rows, barangay_code stores the full 10-digit PSGC code.
+        # For BGY rows, barangay_code stores the full 10-digit PSGC code.
         # It is NULL for all other geographic levels.
         F.when(
-            F.col("geographic_level") == "Bgy",
+            F.col("geographic_level") == "BGY",
             F.col("psgc_code").cast("string"),
         ).otherwise(F.lit(None).cast("string")).alias("barangay_code"),
     )
@@ -134,12 +128,7 @@ invalid_required = dim_lgu.filter(
     | F.col("geographic_level").isNull()
 )
 
-if invalid_required.limit(1).count() > 0:
-    invalid_required.show(20, truncate=False)
-    raise ValueError(
-        "dim_lgu contains invalid PSGC codes, missing area names, "
-        "or missing geographic levels."
-    )
+check(spark, CATALOG, RUN_ID, "required_geographic_values", TARGET_TABLE, invalid_required.count())
 
 duplicate_codes = (
     dim_lgu
@@ -148,9 +137,7 @@ duplicate_codes = (
     .filter(F.col("count") > 1)
 )
 
-if duplicate_codes.limit(1).count() > 0:
-    duplicate_codes.show(20, truncate=False)
-    raise ValueError("Duplicate PSGC codes found in dim_lgu source.")
+check(spark, CATALOG, RUN_ID, "dimension_source_unique", TARGET_TABLE, duplicate_codes.count())
 
 
 # ============================================================
@@ -173,7 +160,7 @@ if not spark.catalog.tableExists(TARGET_TABLE):
         .select(*DIMENSION_COLUMNS)
         .write
         .format("delta")
-        .mode("overwrite")
+        .mode("error")
         .saveAsTable(TARGET_TABLE)
     )
     print(f"Created Gold dimension: {TARGET_TABLE}")
@@ -181,11 +168,13 @@ if not spark.catalog.tableExists(TARGET_TABLE):
 
 else:
     target_df = spark.table(TARGET_TABLE)
+    if "source_period" in target_df.columns:
+        check(spark, CATALOG, RUN_ID, "dimension_snapshot_requires_review", TARGET_TABLE,
+              target_df.where(F.col("source_period").isNull() | (F.col("source_period") != SOURCE_PERIOD)).count())
 
-    target_columns = set(target_df.columns)
     missing_target_columns = [
         column for column in DIMENSION_COLUMNS
-        if column not in target_columns
+        if column not in target_df.columns
     ]
 
     if missing_target_columns:
@@ -194,6 +183,10 @@ else:
             f"Missing columns: {missing_target_columns}. "
             "Review the schema before migrating it."
         )
+
+    if {f.name: f.dataType for f in target_df.schema if f.name in DIMENSION_COLUMNS} != {f.name: f.dataType for f in dim_lgu.select(*DIMENSION_COLUMNS).schema}:
+        raise ValueError("Existing dimension types require reviewed migration")
+    unique(spark, CATALOG, RUN_ID, target_df, ["psgc_code"], TARGET_TABLE)
 
     target = DeltaTable.forName(spark, TARGET_TABLE)
 
@@ -209,6 +202,7 @@ else:
             "target.psgc_code = source.psgc_code",
         )
         .whenMatchedUpdate(
+            condition=" OR ".join(f"NOT(target.`{column}` <=> source.`{column}`)" for column in update_columns),
             set={column: f"source.{column}" for column in update_columns}
         )
         .whenNotMatchedInsert(

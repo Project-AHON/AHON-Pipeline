@@ -15,7 +15,7 @@
 #        name_only         same name anywhere in the country (needs review)
 #        old_name          the PSGC "old name" inside the same province (needs review; psa_psgc_clean has no
 #                          old names, so this rule finds nothing for now)
-#   4. Writes the map (overwrite) and prints the match summary.
+#   4. Merges the map without deleting absent rows and prints the match summary.
 # Only "matched" rows give silver a PSGC code. A "needs_review" row becomes "matched" once someone checks it
 # and adds it to blgf_ldrrmf_lgu_map_overrides.csv.
 
@@ -24,14 +24,18 @@ import unicodedata
 from pathlib import Path
 
 import pandas as pd
+from quality import check, upsert
 
 # Settings: change here if the team renames anything
-CATALOG = "ahon_dev"
+CATALOG = globals().get("PIPELINE_CATALOG")
+RUN_ID = globals().get("PIPELINE_RUN_ID", "interactive")
 BRONZE_TABLE = f"{CATALOG}.bronze.blgf_ldrrmf_annual_lgu"
 PSGC_TABLE = f"{CATALOG}.silver.psa_psgc_clean"  # see read_psgc()
-PSGC_PERIOD = "Q2_2024"  # the snapshot gold.dim_lgu uses; keep the two the same
+PSGC_PERIOD = globals().get(
+    "PIPELINE_PERIOD"
+)  # the snapshot gold.dim_lgu uses; keep the two the same
 MAP_TABLE = f"{CATALOG}.reference.blgf_ldrrmf_lgu_map"
-OVERRIDES_FILE = "blgf_ldrrmf_lgu_map_overrides.csv"  # next to this script, or a full path (for example a workspace file path)
+OVERRIDES_FILE = globals().get("PIPELINE_OVERRIDES_FILE")  # next to this script, or a full path (for example a workspace file path)
 
 KEY_COLUMNS = ["region", "province", "lgu_name", "lgu_type"]
 
@@ -65,7 +69,9 @@ def name_key(value):
     # Repair broken ñ before comparing: PSGC has "Ã±" and the BLGF FY2019 file has "Ãƒâ€˜" (title-cased "ãƒâ€˜" or "ã‘")
     for broken in BROKEN_ENYE:
         text = text.replace(broken, "n")
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().upper()
+    text = (
+        unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().upper()
+    )
     text = re.sub(r"\(.*?\)", " ", text)
     for pattern, full in WORD_FORMS:
         text = re.sub(pattern, full, text)
@@ -82,7 +88,9 @@ def province_keys(value):
 
 def blgf_level(lgu_type):
     # BLGF "LGU TYPE" to the PSGC geographic level
-    return {"PROVINCE": "Prov", "CITY": "City", "MUNICIPALITY": "Mun"}.get(str(lgu_type).strip().upper())
+    return {"PROVINCE": "Prov", "CITY": "City", "MUNICIPALITY": "Mun"}.get(
+        str(lgu_type).strip().upper()
+    )
 
 
 def pick(candidates, level):
@@ -98,42 +106,92 @@ def pick(candidates, level):
 def match_one(row, psgc, overrides):
     # Returns psgc_code, psgc_name, match_method, match_status, candidate_count for one BLGF LGU
     level = blgf_level(row["lgu_type"])
-    override_key = (name_key(row["province"]), name_key(row["lgu_name"]), str(row["lgu_type"]).strip().upper())
+    override_key = (
+        name_key(row["province"]),
+        name_key(row["lgu_name"]),
+        str(row["lgu_type"]).strip().upper(),
+    )
 
     # 1. A person already checked this LGU
     if override_key in overrides:
         code = overrides[override_key]
         hit = psgc[psgc["psgc_code"] == code]
         if code and len(hit) == 0:
-            raise ValueError(f"Override for {override_key} uses a PSGC code that is not in the PSGC table: {code}")
+            raise ValueError(
+                f"Override for {override_key} uses a PSGC code that is not in the PSGC table: {code}"
+            )
         name = hit["name"].iloc[0] if code else None
-        return code or None, name, "override", "matched" if code else "unmatched", len(hit)
+        return (
+            code or None,
+            name,
+            "override",
+            "matched" if code else "unmatched",
+            len(hit),
+        )
 
     lgu_key = name_key(row["lgu_name"])
 
     # Province rows: compare with PSGC provinces only
     if level == "Prov":
-        hits = psgc[(psgc["level"] == "Prov") & psgc["key"].isin(province_keys(row["lgu_name"]))]
+        hits = psgc[
+            (psgc["level"] == "Prov") & psgc["key"].isin(province_keys(row["lgu_name"]))
+        ]
         if len(hits) == 1:
-            return hits["psgc_code"].iloc[0], hits["name"].iloc[0], "province_name", "matched", 1
-        return None, None, "province_name", "ambiguous" if len(hits) > 1 else "unmatched", len(hits)
+            return (
+                hits["psgc_code"].iloc[0],
+                hits["name"].iloc[0],
+                "province_name",
+                "matched",
+                1,
+            )
+        return (
+            None,
+            None,
+            "province_name",
+            "ambiguous" if len(hits) > 1 else "unmatched",
+            len(hits),
+        )
 
     lgus = psgc[psgc["level"].isin(["City", "Mun"])]
     in_province = lgus["province_key"].isin(province_keys(row["province"]))
 
     steps = [
         ("province_name", lgus[in_province & (lgus["key"] == lgu_key)], "matched"),
-        ("no_province_name", lgus[(lgus["province_key"] == "") & (lgus["key"] == lgu_key)], "matched"),
+        (
+            "no_province_name",
+            lgus[(lgus["province_key"] == "") & (lgus["key"] == lgu_key)],
+            "needs_review",
+        ),
         ("name_only", lgus[lgus["key"] == lgu_key], "needs_review"),
-        ("old_name", lgus[in_province & (lgus["old_key"] == lgu_key) & (lgus["old_key"] != "")], "needs_review"),
+        (
+            "old_name",
+            lgus[in_province & (lgus["old_key"] == lgu_key) & (lgus["old_key"] != "")],
+            "needs_review",
+        ),
     ]
     found_several = 0
     for method, candidates, status in steps:
+        if len(candidates) > 1:
+            return (None, None, method, "ambiguous", len(candidates))
         candidates = pick(candidates, level)
         if len(candidates) == 1:
-            return candidates["psgc_code"].iloc[0], candidates["name"].iloc[0], method, status, 1
+            if candidates["level"].iloc[0] != level:
+                status = "needs_review"
+            return (
+                candidates["psgc_code"].iloc[0],
+                candidates["name"].iloc[0],
+                method,
+                status,
+                1,
+            )
         found_several = max(found_several, len(candidates))
-    return None, None, None, "ambiguous" if found_several > 1 else "unmatched", found_several
+    return (
+        None,
+        None,
+        None,
+        "ambiguous" if found_several > 1 else "unmatched",
+        found_several,
+    )
 
 
 def build_map(blgf, psgc, overrides):
@@ -155,11 +213,28 @@ def read_overrides(path):
     # An empty psgc_code means "checked, no PSGC code" (for example the pre-2022 Maguindanao province row).
     # Stop if the file is missing: without it, every checked LGU silently falls back to "unmatched"
     if not Path(path).exists():
-        raise FileNotFoundError(f"Overrides file not found: {Path(path).resolve()}. Put blgf_ldrrmf_lgu_map_overrides.csv there "
-                                "or set OVERRIDES_FILE to its full path.")
+        raise FileNotFoundError(
+            f"Overrides file not found: {Path(path).resolve()}. Put blgf_ldrrmf_lgu_map_overrides.csv there "
+            "or set OVERRIDES_FILE to its full path."
+        )
     table = pd.read_csv(path, dtype=str).fillna("")
+    keys = [
+        (name_key(r.province), name_key(r.lgu_name), r.lgu_type.strip().upper())
+        for r in table.itertuples()
+    ]
+    targets = {}
+    for key, code in zip(keys, table.psgc_code.str.strip()):
+        if key in targets and targets[key] != code:
+            raise ValueError("Override keys collide with conflicting targets after normalization")
+        targets[key] = code
+    if (table["reason"].str.strip() == "").any():
+        raise ValueError("Each override requires reviewed evidence")
     return {
-        (name_key(r.province), name_key(r.lgu_name), r.lgu_type.strip().upper()): r.psgc_code.strip()
+        (
+            name_key(r.province),
+            name_key(r.lgu_name),
+            r.lgu_type.strip().upper(),
+        ): r.psgc_code.strip()
         for r in table.itertuples()
     }
 
@@ -174,24 +249,40 @@ def read_psgc(spark):
     dim = (
         spark.table(PSGC_TABLE)
         .where(f"_api_period = '{PSGC_PERIOD}'")
-        .selectExpr("psgc_code", "area_name", "geographic_level", "province_psgc AS province_code")
+        .selectExpr(
+            "psgc_code",
+            "area_name",
+            "geographic_level",
+            "province_psgc AS province_code",
+        )
         .toPandas()
     )
-    if dim.empty:
-        raise ValueError(f"No rows in {PSGC_TABLE} for _api_period = {PSGC_PERIOD}")
+    check(spark, CATALOG, RUN_ID, "funding_snapshot_unique", PSGC_TABLE,
+          int(dim["psgc_code"].duplicated().sum()))
+    check(spark, CATALOG, RUN_ID, "funding_snapshot_nonempty", PSGC_TABLE, int(dim.empty))
     dim = dim[dim["geographic_level"].isin(["PROV", "CITY", "MUN"])]
-    province_names = dict(zip(dim.loc[dim["geographic_level"] == "PROV", "psgc_code"],
-                              dim.loc[dim["geographic_level"] == "PROV", "area_name"]))
+    province_names = dict(
+        zip(
+            dim.loc[dim["geographic_level"] == "PROV", "psgc_code"],
+            dim.loc[dim["geographic_level"] == "PROV", "area_name"],
+        )
+    )
     is_province = dim["geographic_level"] == "PROV"
-    return pd.DataFrame({
-        "psgc_code": dim["psgc_code"],
-        "name": dim["area_name"],
-        "level": dim["geographic_level"].map({"PROV": "Prov", "CITY": "City", "MUN": "Mun"}),
-        # Provinces have no parent. A city whose province_code is not a PROV row (an HUC, an NCR city) gets None
-        "province_name": [None if prov else province_names.get(code)
-                          for prov, code in zip(is_province, dim["province_code"])],
-        "old_name": None,
-    }).reset_index(drop=True)
+    return pd.DataFrame(
+        {
+            "psgc_code": dim["psgc_code"],
+            "name": dim["area_name"],
+            "level": dim["geographic_level"].map(
+                {"PROV": "Prov", "CITY": "City", "MUN": "Mun"}
+            ),
+            # Provinces have no parent. A city whose province_code is not a PROV row (an HUC, an NCR city) gets None
+            "province_name": [
+                None if prov else province_names.get(code)
+                for prov, code in zip(is_province, dim["province_code"])
+            ],
+            "old_name": None,
+        }
+    ).reset_index(drop=True)
 
 
 if __name__ == "__main__":
@@ -205,31 +296,51 @@ if __name__ == "__main__":
         spark.table(BRONZE_TABLE)
         .select(
             *[F.trim(c).alias(c) for c in KEY_COLUMNS],
-            F.regexp_extract("_source_ref", r"FY(\d{4})", 1).cast("int").alias("fiscal_year"),
+            F.regexp_extract("_source_ref", r"FY(\d{4})", 1)
+            .cast("int")
+            .alias("fiscal_year"),
         )
         .groupBy(*KEY_COLUMNS)
-        .agg(F.min("fiscal_year").alias("first_year"), F.max("fiscal_year").alias("last_year"))
+        .agg(
+            F.min("fiscal_year").alias("first_year"),
+            F.max("fiscal_year").alias("last_year"),
+        )
         .toPandas()
     )
 
-    overrides_path = Path(__file__).parent / OVERRIDES_FILE if "__file__" in globals() else Path(OVERRIDES_FILE)
+    if not OVERRIDES_FILE:
+        raise ValueError("Supply the reviewed overrides-file explicitly through the Python job runner")
+    overrides_path = (
+        Path(__file__).parent / OVERRIDES_FILE
+        if "__file__" in globals()
+        else Path(OVERRIDES_FILE)
+    )
     result = build_map(blgf, read_psgc(spark), read_overrides(overrides_path))
 
     # Every BLGF LGU must appear exactly once in the map, or the silver join would add or lose rows
-    if result.duplicated(subset=KEY_COLUMNS).any():
-        raise ValueError("The map has the same BLGF LGU twice")
+    check(spark, CATALOG, RUN_ID, "funding_map_unique", MAP_TABLE,
+          int(result.duplicated(subset=KEY_COLUMNS).sum()))
 
     schema = (
         "region string, province string, lgu_name string, lgu_type string, first_year int, last_year int, "
         "psgc_code string, psgc_name string, match_method string, match_status string, candidate_count int"
     )
     records = result.astype(object).where(result.notna(), None).values.tolist()
-    (
+    if spark.catalog.tableExists(MAP_TABLE):
+        check(spark, CATALOG, RUN_ID, "funding_mapping_snapshot", MAP_TABLE,
+              spark.table(MAP_TABLE).where(F.col("source_period").isNull() | (F.col("source_period") != PSGC_PERIOD)).count())
+    frame = (
         spark.createDataFrame(records, schema)
+        .withColumn("source_period", F.lit(PSGC_PERIOD))
+        .withColumn("mapping_version", F.lit("blgf_context_v1"))
         .withColumn("_processed_at", F.current_timestamp())
-        .write.mode("overwrite")
-        .option("overwriteSchema", "true")
-        .saveAsTable(MAP_TABLE)
+    )
+    upsert(
+        spark,
+        frame,
+        MAP_TABLE,
+        KEY_COLUMNS,
+        "NOT(t.psgc_code <=> s.psgc_code) OR NOT(t.match_status <=> s.match_status) OR NOT(t.match_method <=> s.match_method) OR NOT(t.first_year <=> s.first_year) OR NOT(t.last_year <=> s.last_year)",
     )
 
     # Summary to read after each run: how many LGUs matched, by type and status
