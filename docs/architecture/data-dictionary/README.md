@@ -8,6 +8,8 @@ What each table and column in the pipeline means. One page per dataset, plus one
 | --- | --- | --- |
 | [blgf_ldrrmf_annual_lgu](blgf_ldrrmf_annual_lgu.md) | `blgf_ldrrmf_annual_lgu` | bronze |
 | [psa_population](psa_population.md) | `psa_population` | bronze, silver |
+| [philvolcs_earthquake_data](philvolcs_earthquake_data.md) | `philvolcs_earthquake_data`, `philvolcs_earthquake_data_clean` | bronze, silver |
+| [dq_results](dq_results.md) | `monitoring.dq_results` | monitoring |
 | [philvolcs_earthquake_data](philvolcs_earthquake_data.md) | `philvolcs_earthquake_observation`, `philvolcs_earthquake_observation_clean` | bronze, silver |
 
 The supported runtime contracts are now the following pages. The older CMCI and population DQ pages are explicitly marked historical; their prior table names and orchestration must not be used to deploy this branch.
