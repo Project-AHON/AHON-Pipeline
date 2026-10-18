@@ -21,10 +21,41 @@ The pipeline remains source extraction -> verified Volume delivery -> Bronze -> 
 
 ## Validation
 
-- Local Python suite: **105 passed**, using the installed GX 1.24.0 engine, including missing/invalid evidence, advisory vs blocking results, all-branch DAG coverage and repair of a prior audit failure.
-- Ruff: passed. YAML lint: passed. `pip check`: no broken requirements.
+- Local Python suite: **105 passed**, using installed GX 1.24.0, including missing/invalid evidence, advisory versus blocking results, all-branch DAG coverage and repair of a prior audit failure.
+- Ruff, YAML lint and `pip check`: passed.
 - Strict bundle validation: passed for `dev` and `prod`; production was not deployed or run.
-- Isolated live-source development job: `754394724958313`; run `335667093267745` (still running when this record was prepared). This is not yet a live-source pass.
-- Development catalog: `ahon_dev_pr97_gx_20261019`; CMCI verification is scoped to the existing reviewed five-LGU mapping, 2014-2024. PHIVOLCS is bounded to January 2024; the original pinned source revision and row profiles are retained.
+- [Real-source development run 335667093267745](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/754394724958313/runs/335667093267745?o=7474651621867565): **overall SUCCESS; all 31 tasks SUCCESS**, with no repair or automatic retries. Duration: 22.24 minutes, including serverless startup; this is evidence from one bounded development run, not a latency SLA.
+- Final audit: **PASS**, validating 108 upstream GX records and all six terminal outputs. Including its own checks, the run recorded **122 GX 1.24.0 results: 106 blocking checks PASS, 12 advisory checks PASS, four advisory checks WARN. Zero blocking failed rows.**
+- Isolated development catalog: `ahon_dev_pr97_gx_20261019`. CMCI uses the existing reviewed five-LGU mapping, 2014-2024; PHIVOLCS is January 2024. The pinned file-source revision and original source row profiles were preserved. This proves the complete process for that scope, not nationwide CMCI coverage or future publisher availability.
 
-A live-source pass will only be claimed after all 31 task results, the overall run and the GX audit are successful.
+### Observed warnings retained
+
+| Rule | Recorded rows | Interpretation |
+| --- | ---: | --- |
+| Missing city census population | 19 | Keep population NULL with its recorded disposition |
+| Flagged funding observations | 407 | Keep existing source-quality flags |
+| Unmatched funding geography | 235 | Keep unresolved PSGC values NULL |
+| Invalid PSGC geographic fields | 12 | Retain rejected observations and provenance |
+
+These are counts per rule and can overlap. They are not 673 distinct LGUs or source observations. No threshold was relaxed and no source data was fabricated to obtain success.
+
+### Independently verified outputs
+
+| Table/view | Rows |
+| --- | ---: |
+| `gold.dim_lgu` | 43,760 |
+| `gold.fact_population` | 1,642 |
+| `gold.fact_population_total` | 1,744 |
+| `gold.fact_ldrrmf` | 11,434 |
+| `gold.fact_cmci_indicator` | 1,925 |
+| `platinum.cmci_pillar_coverage` | 275 |
+| `platinum.population_components` | 1,642 |
+| `platinum.funding_components` | 10,880 |
+| `platinum.earthquake_observation_summary` | 1 |
+| `silver.osm_critical_infrastructures_clean` | 55,482 |
+
+The component views retain their established interpretation limits; these counts do not establish LGU risk or preparedness.
+
+### GitHub delivery
+
+The branch is pushed. Opening a draft PR was attempted, but the GitHub connector returned **403: Resource not accessible by integration**; GitHub CLI has no authenticated session. Review or open a PR from `feature/98-gx-end-to-end` into main using an account with PR write permission. PR #97 and the existing production/deployed pipeline were not merged, closed or overwritten.
