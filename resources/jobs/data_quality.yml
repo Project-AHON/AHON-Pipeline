@@ -1,7 +1,53 @@
----
-# Export the quality tests code here.
-# Procedure: Jobs & Pipelines -> Jobs -> Hamburger button in upper-right ->
-# Edit as YAML -> Copy and paste code into this file
-
-# If any ${var.cluster_id} or ${var.warehouse_id} shows up in the code,
-# declare these as variables in databricks.yml
+targets:
+  dev:
+    resources:
+      jobs:
+        data_quality:
+          name: ${bundle.name}_data_quality
+          max_concurrent_runs: ${var.max_concurrent_runs}
+          timeout_seconds: ${var.job_timeout_seconds}
+          performance_target: STANDARD
+          tags:
+            project: ${bundle.name}
+            aidevkit_project: ai-dev-kit
+          queue:
+            enabled: true
+          parameters:
+          - name: batch_id
+            default: '{{job.run_id}}'
+          - name: catalog
+            default: ${var.catalog}
+          environments:
+          - environment_key: files
+            spec:
+              environment_version: ${var.environment_version}
+              dependencies:
+              - pandas==2.3.3
+              - openpyxl==3.1.5
+              - huggingface_hub==2.2.0
+              - beautifulsoup4==4.14.3
+              - requests==2.32.5
+              - sqlparse==0.5.3
+              - great_expectations==1.24.0
+          tasks:
+          - task_key: verify
+            spark_python_task:
+              python_file: ../../src/sql/common/launch.py
+              source: WORKSPACE
+              parameters:
+              - --repo-root
+              - ${workspace.file_path}
+              - --entry-point
+              - tests/integration/verify_pipeline.py
+              - --catalog
+              - '{{job.parameters.catalog}}'
+              - --source-volume
+              - ${var.source_volume}
+              - --batch-id
+              - '{{job.parameters.batch_id}}'
+            environment_key: files
+            timeout_seconds: ${var.task_timeout_seconds}
+            max_retries: 0
+            min_retry_interval_millis: ${var.retry_interval_millis}
+            retry_on_timeout: false
+            run_if: ALL_SUCCESS

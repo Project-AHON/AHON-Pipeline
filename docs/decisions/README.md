@@ -38,8 +38,14 @@ if it changes, write a new record and mark the old one
 | [0002](0002-team-workflow.md) | Team workflow | Accepted |
 | [0003](0003-repository-structure-initial.md) | Repository structure | Accepted |
 | [0004](0004-source-file-landing-hugging-face.md) | Land source files through Hugging Face | Accepted |
-| [0005](0005-CMCI-locality-mapping-and-incremental-ingestion) | CMCI mapping and ingestion | Accepted |
-| [0006](0006-cmci-mapping-and-ingestion.md) | CMCI mapping and ingestion | Accepted |
+| [0005](0005-cmci-mapping-and-ingestion.md) | CMCI mapping and ingestion | Implementation update proposed in 0010 |
+| [0006](0006-cmci-silver.md) | CMCI Silver | Implementation update proposed in 0010 |
 | [0007](0007-silver-provenance-and-dq-flag.md) | Silver keeps provenance columns and marks data quality problems in one column | Proposed |
 | [0008](0008-ldrrmf-psgc-matching-in-silver.md) | Match LDRRMF to PSGC codes in silver through a reference map | Proposed |
-| [0012](0010-dq-gates-with-great-expectations.md) | Data quality gates with Great Expectations | Proposed |
+| [0007 DAB](0007-DAB-and-jobs.md) | Bundle and personal development workflow | Implementation update proposed in 0010 |
+| [0008 CMCI](0008-cmci-gold-analytical-model.md) | CMCI Gold model | Implementation update proposed in 0010 |
+| [0009 CMCI](0009-cmci-great-expectations-data-quality.md) | Prior CMCI GX quality workflow | Implementation update proposed in 0010 |
+| [0009 earthquake](0009-earthquake-observations-and-locality-candidates.md) | Earthquake observations and locality candidates | Proposed |
+| [0010](0010-reconciled-source-contracts.md) | Executable source and analytical contracts | Proposed for review, locally implemented |
+| [0011](0011-shared-gx-quality-gates.md) | Shared GX quality gates and explicit production identity | Implemented at user request; pending team review |
+| [0012](0012-city-municipality-analysis-grain.md) | City/municipality analysis and population fact grain | Implemented at user request; supersedes 0010's population grain |

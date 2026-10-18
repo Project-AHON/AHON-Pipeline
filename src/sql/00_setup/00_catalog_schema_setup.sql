@@ -1,19 +1,17 @@
--- Create the ahon catalog
-CREATE CATALOG IF NOT EXISTS ahon;
-
--- Create Bronze, Silver, Gold, and Quality  Schemas for Project AHON
-CREATE SCHEMA IF NOT EXISTS ahon.bronze;
-
-CREATE SCHEMA IF NOT EXISTS ahon.silver;
-
-CREATE SCHEMA IF NOT EXISTS ahon.gold;
-
-CREATE SCHEMA IF NOT EXISTS ahon.platinum;
-
-CREATE SCHEMA IF NOT EXISTS ahon.quality;
-
-CREATE SCHEMA IF NOT EXISTS ahon.reference;
-
-CREATE VOLUME IF NOT EXISTS ahon.reference.source;
-
-SHOW SCHEMAS IN ahon;
+-- Catalog is selected by the job runner. Existing catalog must be supplied.
+CREATE SCHEMA IF NOT EXISTS bronze;
+-- COMMAND ----------
+-- Catalog is selected by the job runner. Existing catalog must be supplied.
+CREATE SCHEMA IF NOT EXISTS silver;
+-- COMMAND ----------
+-- Catalog is selected by the job runner. Existing catalog must be supplied.
+CREATE SCHEMA IF NOT EXISTS gold;
+-- COMMAND ----------
+-- Catalog is selected by the job runner. Existing catalog must be supplied.
+CREATE SCHEMA IF NOT EXISTS platinum;
+-- COMMAND ----------
+-- Catalog is selected by the job runner. Existing catalog must be supplied.
+CREATE SCHEMA IF NOT EXISTS reference;
+-- COMMAND ----------
+-- Catalog is selected by the job runner. Existing catalog must be supplied.
+CREATE SCHEMA IF NOT EXISTS monitoring;

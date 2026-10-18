@@ -1,0 +1,36 @@
+indicator_code,indicator_name,pillar_name
+les,Local Economy Size,Economic Dynamism
+leg,Local Economy Growth,Economic Dynamism
+sle,Active Establishments in the Locality,Economic Dynamism
+job,Employment Generation,Economic Dynamism
+cnd,Compliance to National Directives,Government Efficiency
+pipu,Presence of Investment Promotion Unit,Government Efficiency
+bre,Compliance to ARTA Citizens Charter,Government Efficiency
+rat,Capacity to Generate Local Resource,Government Efficiency
+chs,Capacity of Health Services,Government Efficiency
+css,Capacity of School Services,Government Efficiency
+lgua,Recognition of Performance,Government Efficiency
+bpls,Getting Business Permits,Government Efficiency
+pao,Peace and Order,Government Efficiency
+sp,Social Protection,Government Efficiency
+road,Road Network,Infrastructure
+dtp,Distance to Ports,Infrastructure
+abu,Availability of Basic Utilities,Infrastructure
+trans,Transportation Vehicles,Infrastructure
+edu,Education,Infrastructure
+hea,Health,Infrastructure
+inv,LGU Investment,Infrastructure
+acc,Accommodation Capacity,Infrastructure
+ict,Information Technology Capacity,Infrastructure
+atm,Financial Technology Capacity,Infrastructure
+lup,Land Use Plan,Resiliency
+drrp,Disaster Risk Reduction Plan,Resiliency
+add,Annual Disaster Drill,Resiliency
+ews,Early Warning System,Resiliency
+drrmp,Budget for DRRMP,Resiliency
+lra,Local Risk Assessments,Resiliency
+ei,Emergency Infrastructure,Resiliency
+util,Utilities,Resiliency
+ep,Employed Population,Resiliency
+ss,Sanitary System,Resiliency
+intc,Internet Capability,Innovation

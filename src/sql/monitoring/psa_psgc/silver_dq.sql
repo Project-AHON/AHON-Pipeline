@@ -1,7 +1,7 @@
 
 -- ============================================================
 -- AHON: SILVER LAYER DATA QUALITY CHECKS
--- Table: ahon_dev.silver.psa_psgc_clean
+-- Table: silver.psa_psgc_clean
 --
 -- Output statuses: PASS / WARN / FAIL
 -- This script is read-only.
@@ -9,7 +9,7 @@
 
 WITH base AS (
     SELECT *
-    FROM ahon_dev.silver.psa_psgc_clean
+    FROM silver.psa_psgc_clean
 ),
 
 -- Independent cities are valid exceptions to conventional

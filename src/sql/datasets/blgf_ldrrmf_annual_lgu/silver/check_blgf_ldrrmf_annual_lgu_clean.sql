@@ -3,8 +3,7 @@
 -- Run after clean_blgf_ldrrmf_annual_lgu.sql. Import as a notebook: each query becomes its own cell.
 -- Check names in the comments are the ones in the data quality checks doc for this dataset.
 
--- Settings: one line to change between ahon_dev and ahon (clean_blgf_ldrrmf_annual_lgu.sql has its own)
-USE CATALOG ahon_dev;
+-- Catalog selected by SQL runner.
 
 -- COMMAND ----------
 
@@ -21,11 +20,11 @@ SELECT
   count(*) AS rows_in_silver,
   (
     -- row_count_matches_bronze
-    count(*) = (SELECT count(*) FROM bronze.blgf_ldrrmf_annual_lgu)
+    count(*) = (SELECT count(*) FROM (SELECT DISTINCT regexp_extract(_source_ref, "FY([0-9]{4})", 1), region, province, lgu_name, lgu_type FROM bronze.blgf_ldrrmf_annual_lgu))
     -- unique_lgu_year
     AND count(*) = (SELECT count(*) FROM (SELECT DISTINCT fiscal_year, region, province, lgu_name, lgu_type FROM silver.blgf_ldrrmf_annual_lgu_clean))
     -- fiscal_year_valid (update the year range here and in clean_blgf_ldrrmf_annual_lgu.sql when a new fiscal year is loaded)
-    AND count_if(fiscal_year NOT BETWEEN 2018 AND 2024 OR fiscal_year IS NULL) = 0
+    AND count_if(fiscal_year NOT BETWEEN :min_year AND :max_year OR fiscal_year IS NULL) = 0
     -- lgu_type_valid
     AND count_if(lgu_type NOT IN ('Province', 'City', 'Municipality') OR lgu_type IS NULL) = 0
     -- total_is_sum_of_parts
@@ -45,7 +44,7 @@ FROM silver.blgf_ldrrmf_annual_lgu_clean;
 -- What to expect: difference = 0 on every line, and only the types Province, City and Municipality.
 WITH b AS (
   SELECT try_cast(regexp_extract(_source_ref, 'FY(\\d{4})', 1) AS INT) AS fiscal_year,
-         trim(lgu_type) AS lgu_type, count(*) AS n
+         trim(lgu_type) AS lgu_type, count(DISTINCT region, province, lgu_name, lgu_type) AS n
   FROM bronze.blgf_ldrrmf_annual_lgu
   GROUP BY 1, 2
 ),
@@ -102,7 +101,7 @@ ORDER BY rule_code, fiscal_year, region, province, lgu_name;
 
 -- Check the PSGC codes in silver
 -- What it does: counts rows by match status and LGU type, and checks that psgc_code is filled exactly when the status is exact.
--- What to expect: every row 'exact' except the 5 old Maguindanao province rows (FY2018 to FY2022), and code_status_mismatch = 0.
+-- What to expect: unresolved contextual matches remain NULL, and code_status_mismatch = 0.
 SELECT
   psgc_match_status,
   lgu_type,

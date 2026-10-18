@@ -1,3 +1,5 @@
+> Historical prior implementation. For the supported runtime contract see [cmci_dictionary.md](../architecture/data-dictionary/cmci_dictionary.md) and [decision 0010](../decisions/0010-reconciled-source-contracts.md). The details below are retained for historical context and are not executable deployment instructions.
+
 # CMCI Dataset
 
 ## Purpose

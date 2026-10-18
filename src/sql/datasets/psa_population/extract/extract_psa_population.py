@@ -1,55 +1,40 @@
-"""Extract PSA 2024 census population data from the PXWeb API.
-
-The raw CSV is saved to a Unity Catalog volume, but only after the response
-passes basic validation, so a bad response never replaces a good extract.
-"""
+"""PSA OpenSTAT extract; source contract from PR #59, not a barangay source."""
 
 import csv
 import io
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 import requests
 
-# COMMAND ----------
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "common"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bronze"))
+from load_psa_population import source_parser
+from runtime import (
+    batch_is_complete,
+    batch_path,
+    completed_batch,
+    publish_batch,
+)
 
-# PXWeb API endpoint for the 2024 census table:
-# Total Population, Urban Population, and Percent Urban by geographic location
-API_BASE = "https://openstat.psa.gov.ph/PXWeb/api/v1/en"
-API_URL = f"{API_BASE}/DB/1A/PO_2024/0241A6DPUP1.px"
-
-# Destination: the source volume, one folder per dataset (naming standard)
-VOLUME_ROOT = Path("/Volumes/ahon/reference/source")
-DATASET_NAME = "psa_population"
-TARGET_PATH = VOLUME_ROOT / DATASET_NAME / "2024_population_urban.csv"
-
-REQUEST_TIMEOUT_SECONDS = 60
-
-# Columns the CSV header must contain before the file is saved
 REQUIRED_COLUMNS = (
     "Geographic Location",
     "Total Population",
     "Urban Population",
     "Percent Urban",
 )
-
-# POST query: select all geographic locations and all parameters, return as CSV
 QUERY_BODY: dict[str, Any] = {
     "query": [
         {
             "code": "Geographic Location",
             "selection": {"filter": "all", "values": ["*"]},
         },
-        {
-            "code": "Parameter",
-            "selection": {"filter": "all", "values": ["*"]},
-        },
+        {"code": "Parameter", "selection": {"filter": "all", "values": ["*"]}},
     ],
     "response": {"format": "csv"},
 }
-
-# COMMAND ----------
 
 
 class ExtractValidationError(ValueError):
@@ -61,18 +46,13 @@ def report(message: str) -> None:
     sys.stdout.write(f"{message}\n")
 
 
-def is_blank(value: str) -> bool:
-    """Return True for an empty, whitespace-only, or dots-only value."""
-    return not value.strip().lstrip(".").strip()
-
-
-def fetch_csv() -> requests.Response:
+def fetch_csv(api_url, timeout) -> requests.Response:
     """POST the PXWeb query and return the HTTP-validated response."""
     resp = requests.post(
-        API_URL,
+        api_url,
         json=QUERY_BODY,
         headers={"Accept": "text/csv"},
-        timeout=REQUEST_TIMEOUT_SECONDS,
+        timeout=timeout,
     )
     resp.raise_for_status()
     return resp
@@ -81,8 +61,10 @@ def fetch_csv() -> requests.Response:
 def to_utf8(content: bytes) -> bytes:
     """Return the content as UTF-8 bytes, converting from Latin-1 if needed.
 
-    PXWeb may send Latin-1 (accented place names) and the bronze loader reads
-    UTF-8 only. Latin-1 decoding never fails; validate_csv checks the result.
+    PXWeb may return Latin-1 instead of UTF-8 (for example, accented letters in
+    place names), and the bronze loader reads UTF-8 only. Latin-1 maps every
+    byte to a character, so the conversion never fails; validate_csv still
+    checks the structure afterwards.
     """
     try:
         content.decode("utf-8-sig")
@@ -91,31 +73,12 @@ def to_utf8(content: bytes) -> bytes:
     return content
 
 
-def check_rows(reader: csv.DictReader[str]) -> int:
-    """Return the data row count; raise on a malformed or incomplete row.
-
-    PXWeb marks missing values with dots, which count as empty here.
-    """
-    row_count = 0
-    for row_count, row in enumerate(reader, start=1):
-        # DictReader gives short rows None values and long rows a None key
-        if None in row or None in row.values():
-            msg = f"Malformed CSV row {row_count}"
-            raise ExtractValidationError(msg)
-        if any(is_blank(row[c]) for c in REQUIRED_COLUMNS):
-            msg = f"Data row {row_count} has an empty required value"
-            raise ExtractValidationError(msg)
-    if row_count == 0:
-        msg = "Response has a header but no data rows"
-        raise ExtractValidationError(msg)
-    return row_count
-
-
 def validate_csv(content: bytes) -> tuple[list[str], int]:
-    """Check that the response is a complete CSV with the expected structure.
+    """Check that the response is a non-empty CSV with the expected structure.
 
-    Raises ExtractValidationError, before anything is written, if it is not
-    valid UTF-8, is empty, lacks a column, or fails check_rows.
+    Raises ExtractValidationError, before anything is written, if the response
+    is not valid UTF-8, is empty, lacks a required column, has a malformed row,
+    or has no data rows. Returns the header columns and the number of data rows.
     """
     try:
         text = content.decode("utf-8-sig")
@@ -132,30 +95,42 @@ def validate_csv(content: bytes) -> tuple[list[str], int]:
     if missing:
         msg = f"Response is missing expected columns: {missing}"
         raise ExtractValidationError(msg)
-    return fieldnames, check_rows(reader)
+
+    row_count = 0
+    for row_count, row in enumerate(reader, start=1):
+        # DictReader marks short rows with None values, long rows with a None key
+        if None in row or None in row.values():
+            msg = f"Malformed CSV row {row_count}"
+            raise ExtractValidationError(msg)
+    if row_count == 0:
+        msg = "Response has a header but no data rows"
+        raise ExtractValidationError(msg)
+    return fieldnames, row_count
 
 
-def save_csv(content: bytes, target: Path) -> None:
-    """Write the raw CSV bytes to the target, creating folders as needed."""
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(content)
+def main():
+    p = source_parser()
+    p.add_argument("--api-url", required=True)
+    p.add_argument("--request-timeout", required=True, type=float)
+    args = p.parse_args()
+    destination = batch_path(args, "psa_population")
+    if batch_is_complete(destination):
+        completed_batch(destination)
+        return
+    content = to_utf8(fetch_csv(args.api_url, args.request_timeout).content)
+    _, rows = validate_csv(content)
+    # Fixed census profile from the current PR dictionary; not the stale PR body.
+    if rows != sum(args.expected_profile):
+        raise ValueError(
+            f"PSA profile expected {sum(args.expected_profile)} rows, found {rows}; batch not published"
+        )
+    with tempfile.TemporaryDirectory() as temp:
+        if Path(args.source_file).name != args.source_file:
+            raise ValueError("source-file must be a safe single filename")
+        file = Path(temp) / args.source_file
+        file.write_bytes(content)
+        publish_batch(destination, [(file, rows)])
 
-
-def main() -> None:
-    """Download, validate, and save the dataset, then print a summary."""
-    resp = fetch_csv()
-    content = to_utf8(resp.content)
-    # Validate first: on failure this raises and the existing file is untouched
-    fieldnames, row_count = validate_csv(content)
-    save_csv(content, TARGET_PATH)
-
-    report(f"Saved {len(content):,} bytes to {TARGET_PATH}")
-    if content != resp.content:
-        report("Converted the response from Latin-1 to UTF-8")
-    report(f"Data rows: {row_count:,}")
-    report(f"Header: {fieldnames}")
-
-# COMMAND ----------
 
 if __name__ == "__main__":
     main()

@@ -1,270 +1,100 @@
+"""Stream the four documented PSA PSGC snapshots into a completed raw batch."""
 
-import os
 import json
+import sys
+import tempfile
+from pathlib import Path
+from urllib.parse import urljoin, urlparse
+
 import requests
-from datetime import datetime, timezone
 
-
-# ============================================================
-# 1. CONFIGURATION
-# ============================================================
-
-SECRET_SCOPE = "psgc-secrets"
-SECRET_KEY = "psgc_api_token"
-
-API_BASE_URL = "https://classification.psa.gov.ph/psgc"
-
-API_PERIODS = [
-    "Q2_2024",
-    "April_2024",
-    "Q4_2023",
-    "Q2_2021",
-]
-
-RAW_PATH = "/Volumes/ahon_dev/reference/source/psa_psgc"
-
-REQUEST_TIMEOUT = 120
-PAGE_SIZE = 1000
-
-
-# ============================================================
-# 2. LOAD API TOKEN FROM DATABRICKS SECRETS
-# ============================================================
-
-psgc_api_token = dbutils.secrets.get(
-    scope=SECRET_SCOPE,
-    key=SECRET_KEY,
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "common"))
+from runtime import (
+    batch_is_complete,
+    batch_path,
+    completed_batch,
+    parser,
+    publish_batch,
+    row_counts,
 )
 
-if not psgc_api_token:
-    raise ValueError("PSGC API token is empty.")
-
-print("PSGC API token loaded successfully.")
-
-
-# ============================================================
-# 3. PREPARE RAW STORAGE
-# ============================================================
-
-os.makedirs(RAW_PATH, exist_ok=True)
-
-print(f"Raw data destination: {RAW_PATH}")
-
-
-# ============================================================
-# 4. FETCH ALL PAGES FOR ONE PSGC SNAPSHOT
-# ============================================================
-
-def fetch_psgc_snapshot(period):
-    """
-    Fetch every page returned by the PSGC API.
-
-    Returns:
-        all_records: all PSGC records collected
-        metadata: snapshot ingestion metadata
-    """
-
-    api_url = f"{API_BASE_URL}/{period}/all"
-
-    params = {
-        "token": psgc_api_token,
-        "limit": PAGE_SIZE,
-    }
-
-    all_records = []
-    page_number = 0
-    expected_count = None
-
-    with requests.Session() as session:
-        session.headers.update({
-            "Accept": "application/json",
-        })
-
-        while api_url:
-
-            page_number += 1
-
-            print(
-                f"Fetching {period} — page {page_number}"
-            )
-
-            response = session.get(
-                api_url,
-                params=params,
-                timeout=REQUEST_TIMEOUT,
-            )
-
-            response.raise_for_status()
-
-            payload = response.json()
-
-            if not isinstance(payload, dict):
-                raise TypeError(
-                    f"Unexpected response format for {period}, "
-                    f"page {page_number}: expected a dictionary."
-                )
-
-            if "results" not in payload:
-                raise ValueError(
-                    f"Missing 'results' in {period}, "
-                    f"page {page_number}. "
-                    f"Available keys: {list(payload.keys())}"
-                )
-
-            results = payload["results"]
-
-            if not isinstance(results, list):
-                raise TypeError(
-                    f"'results' is not a list for {period}, "
-                    f"page {page_number}: expected a list."
-                )
-
-            # Capture the API's reported total record count.
-            if payload.get("count") is not None:
-                page_count = int(payload["count"])
-
-                if (
-                    expected_count is not None
-                    and expected_count != page_count
-                ):
-                    raise ValueError(
-                        f"Inconsistent API count for {period}: "
-                        f"{expected_count} versus {page_count}."
-                    )
-
-                expected_count = page_count
-
-            all_records.extend(results)
-
-            print(
-                f"  Records on page: {len(results):,} | "
-                f"Total collected: {len(all_records):,}"
-            )
-
-            # Follow the next URL returned by the API.
-            api_url = payload.get("next")
-
-            # The next URL may already contain its query parameters.
-            # Do not append the original parameters again.
-            params = None
-
-            if not results and api_url:
+def extract_period(token, period, target, session, api_base_url, expected_rows, timeout):
+    origin = urlparse(api_base_url)
+    if origin.scheme != "https" or not origin.hostname or origin.username or origin.password or origin.query or origin.fragment:
+        raise ValueError("Expected an approved HTTPS PSA API URL without credentials")
+    url = f"{api_base_url.rstrip('/')}/{period}/all"
+    rows = 0
+    seen = set()
+    with target.open("w", encoding="utf-8") as stream:
+        while url:
+            if (
+                urlparse(url).netloc != origin.netloc
+                or urlparse(url).scheme != "https"
+            ):
+                raise ValueError("Unexpected pagination origin")
+            if url in seen:
+                raise ValueError("Pagination cycle")
+            seen.add(url)
+            response = session.get(url, params={"token": token}, timeout=timeout, allow_redirects=False)
+            if response.status_code != 200:
                 raise RuntimeError(
-                    f"An empty page was returned while a next page "
-                    f"still exists for {period}."
+                    f"PSGC request failed with HTTP {response.status_code}"
                 )
-
-    if not all_records:
-        raise RuntimeError(
-            f"No records were returned for {period}."
+            payload = response.json()
+            if not isinstance(payload.get("results"), list) or not payload["results"]:
+                raise ValueError("Missing or empty PSGC results")
+            for record in payload["results"]:
+                if (
+                    not isinstance(record, dict)
+                    or not {"code", "area_name", "geographic_level"} <= record.keys()
+                ):
+                    raise ValueError("PSGC source structure changed")
+                record["_api_period"] = period
+                stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+                rows += 1
+            next_page = payload.get("next")
+            url = urljoin(url, next_page) if next_page else None
+    if rows != expected_rows:
+        raise ValueError(
+            f"{period}: expected {expected_rows}, found {rows}; investigate snapshot change"
         )
-
-    # Do not save a potentially incomplete snapshot.
-    if (
-        expected_count is not None
-        and len(all_records) != expected_count
-    ):
-        raise RuntimeError(
-            f"Incomplete snapshot for {period}. "
-            f"API reports {expected_count:,} records, but "
-            f"{len(all_records):,} were fetched. "
-            "The raw file was not overwritten."
-        )
-
-    metadata = {
-        "period": period,
-        "records_fetched": len(all_records),
-        "api_reported_count": expected_count,
-        "pages_fetched": page_number,
-        "ingested_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-    return all_records, metadata
+    return rows
 
 
-# ============================================================
-# 5. INGEST AND SAVE EACH COMPLETE SNAPSHOT
-# ============================================================
+def main():
+    from pyspark.dbutils import DBUtils
+    from pyspark.sql import SparkSession
 
-ingestion_results = []
-
-for period in API_PERIODS:
-
-    print("\n" + "=" * 60)
-    print(f"Ingesting PSGC snapshot: {period}")
-    print("=" * 60)
-
-    records, metadata = fetch_psgc_snapshot(period)
-
-    # Preserve the API response envelope where possible.
-    # The records are complete even if the API originally
-    # returned multiple pages.
-    complete_payload = {
-        "count": metadata["api_reported_count"]
-            if metadata["api_reported_count"] is not None
-            else len(records),
-        "next": None,
-        "previous": None,
-        "results": records,
-        "_ingestion_metadata": metadata,
-    }
-
-    raw_file = os.path.join(
-        RAW_PATH,
-        f"{period}.json",
-    )
-
-    # Write to a temporary file first so an interrupted write
-    # does not replace the previous snapshot with partial JSON.
-    temporary_file = raw_file + ".tmp"
-
+    arguments = parser(__doc__)
+    arguments.add_argument("--secret-scope", required=True)
+    arguments.add_argument("--secret-key", required=True)
+    arguments.add_argument("--api-base-url", required=True)
+    arguments.add_argument("--expected-rows", required=True, type=row_counts)
+    arguments.add_argument("--request-timeout", required=True, type=float)
+    args = arguments.parse_args()
+    if not args.secret_scope or not args.secret_key:
+        raise ValueError("PSA extraction requires an existing approved token secret scope and key")
+    if args.request_timeout <= 0:
+        raise ValueError("PSGC request timeout must be positive")
+    destination = batch_path(args, "psa_psgc")
+    if batch_is_complete(destination):
+        completed_batch(destination)
+        return
+    token = DBUtils(SparkSession.builder.getOrCreate()).secrets.get(
+        args.secret_scope, args.secret_key
+    ).strip()
+    if not token:
+        raise ValueError("PSGC API secret is empty")
     try:
-        with open(
-            temporary_file,
-            "w",
-            encoding="utf-8",
-        ) as file:
-            json.dump(
-                complete_payload,
-                file,
-                ensure_ascii=False,
-            )
-
-        os.replace(temporary_file, raw_file)
-
-    finally:
-        if os.path.exists(temporary_file):
-            os.remove(temporary_file)
-
-    file_size = os.path.getsize(raw_file)
-
-    print(f"Snapshot: {period}")
-    print(f"Pages fetched: {metadata['pages_fetched']:,}")
-    print(f"Records fetched: {metadata['records_fetched']:,}")
-    print(f"File size: {file_size:,} bytes")
-    print(f"Saved to: {raw_file}")
-
-    ingestion_results.append({
-        **metadata,
-        "file_size_bytes": file_size,
-        "file_path": raw_file,
-    })
+        with tempfile.TemporaryDirectory() as temp, requests.Session() as session:
+            files = []
+            for period, expected in args.expected_rows.items():
+                file = Path(temp) / f"{period}.jsonl"
+                files.append((file, extract_period(token, period, file, session, args.api_base_url, expected, args.request_timeout)))
+            publish_batch(destination, files)
+    except requests.RequestException:
+        raise RuntimeError("PSGC network request failed; batch not published") from None
 
 
-# ============================================================
-# 6. INGESTION SUMMARY
-# ============================================================
-
-print("\n" + "=" * 60)
-print("PSGC INGESTION SUMMARY")
-print("=" * 60)
-
-for result in ingestion_results:
-    print(
-        f"{result['period']}: "
-        f"{result['records_fetched']:,} records, "
-        f"{result['pages_fetched']:,} pages"
-    )
-
-print("\nAll PSGC snapshots were fetched and saved successfully.")
-print(f"Raw snapshots location: {RAW_PATH}")
+if __name__ == "__main__":
+    main()

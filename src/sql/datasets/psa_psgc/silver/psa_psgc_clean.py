@@ -1,8 +1,8 @@
 """
 AHON PSA PSGC Bronze-to-Silver transformation.
 
-Source: ahon_dev.bronze.psa_psgc
-Target: ahon_dev.silver.psa_psgc_clean
+Source: <catalog>.bronze.psa_psgc
+Target: <catalog>.silver.psa_psgc_clean
 
 Key:
     psgc_code + geographic_level + _api_period
@@ -16,27 +16,24 @@ Main behavior:
     - Builds province_name and province_city using code-based joins.
     - Handles City of Isabela and Basilan.
     - Uses an idempotent Delta MERGE.
-    - Preserves history unless DELETE_MISSING is enabled.
+    - Retains absent keys and prevents older deliveries replacing newer corrections.
 """
 
+from delta.tables import DeltaTable
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
-from delta.tables import DeltaTable
-
+from quality import check, upsert
 
 # ============================================================
 # 1. CONFIGURATION
 # ============================================================
 
-dbutils.widgets.text("catalog", "ahon_dev")
+dbutils.widgets.text("catalog", "")
 CATALOG = dbutils.widgets.get("catalog")
 
 BRONZE_TABLE = f"{CATALOG}.bronze.psa_psgc"
 SILVER_SCHEMA = f"{CATALOG}.silver"
 SILVER_TABLE = f"{SILVER_SCHEMA}.psa_psgc_clean"
-
-# Keep False to preserve historical records.
-DELETE_MISSING = False
 
 # Standardize codes only in Silver.
 PAD_CODES_TO_10 = True
@@ -47,6 +44,13 @@ BASILAN_NAME = "basilan"
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {SILVER_SCHEMA}")
 
 bronze = spark.table(BRONZE_TABLE)
+run_id = globals().get("PIPELINE_RUN_ID")
+if run_id:
+    # Each completed PSA delivery contains the validated four whole API snapshots.
+    # Prior invalid observations stay in Bronze/rejects and cannot permanently poison a correction.
+    bronze = bronze.where(F.col("_batch_id") == run_id)
+    check(spark, CATALOG, run_id, "selected_delivery_nonempty", BRONZE_TABLE,
+          int(not bronze.limit(1).count()))
 
 
 # ============================================================
@@ -93,6 +97,10 @@ invalid_codes = bronze.filter(
 )
 
 if invalid_codes.limit(1).count() > 0:
+    raw_reject = invalid_codes.withColumn("disposition", F.lit("invalid_psgc_code"))
+    reject_keys = ["_observation_id"] if "_observation_id" in raw_reject.columns else ["_api_period", "_row_hash"]
+    upsert(spark, raw_reject.dropDuplicates(reject_keys), f"{CATALOG}.silver.psa_psgc_code_reject", reject_keys)
+    check(spark, CATALOG, globals().get("PIPELINE_RUN_ID", "interactive"), "invalid_psgc_code", "bronze.psa_psgc", invalid_codes.count())
     print("Invalid PSGC codes found in Bronze:")
     invalid_codes.select(
         "psgc_code",
@@ -107,6 +115,7 @@ if invalid_codes.limit(1).count() > 0:
     )
 
 print("Bronze PSGC code validation passed.")
+check(spark, CATALOG, run_id or "interactive", "invalid_psgc_code", BRONZE_TABLE, 0)
 
 print("Original PSGC code lengths:")
 (
@@ -150,13 +159,8 @@ def assert_unique(df, keys, name):
         .filter(F.col("count") > 1)
     )
 
-    if duplicates.limit(1).count() > 0:
-        print(f"Duplicates found in {name}:")
-        duplicates.show(20, truncate=False)
-
-        raise ValueError(
-            f"'{name}' is not unique on {keys}."
-        )
+    check(spark, CATALOG, run_id or "interactive", "unique_" + "_".join(keys),
+          name, duplicates.count())
 
     return df
 
@@ -238,17 +242,8 @@ invalid_standardized = cleaned.filter(
     | (~F.col("psgc_code").rlike(r"^[0-9]{10}$"))
 )
 
-if invalid_standardized.limit(1).count() > 0:
-    invalid_standardized.select(
-        "psgc_code",
-        "area_name",
-        "geographic_level",
-        "_api_period",
-    ).show(20, truncate=False)
-
-    raise ValueError(
-        "Some Silver PSGC codes are not exactly 10 numeric digits."
-    )
+check(spark, CATALOG, run_id or "interactive", "standardized_psgc_codes", SILVER_TABLE,
+      invalid_standardized.count())
 
 print("PSGC codes standardized to 10 digits in Silver.")
 
@@ -259,13 +254,24 @@ print("PSGC codes standardized to 10 digits in Silver.")
 
 # Keep records that have the fields needed for the Silver key
 # and geographic interpretation.
-valid = cleaned.filter(
+valid_condition = (
     F.col("psgc_code").isNotNull()
     & F.col("area_name").isNotNull()
     & (F.col("area_name") != "")
-    & F.col("geographic_level").isNotNull()
+    & F.col("geographic_level").isin("REG", "PROV", "CITY", "MUN", "BGY", "SGU", "SUBMUN")
     & F.col("_api_period").isNotNull()
 )
+
+rejected = cleaned.filter(~F.coalesce(valid_condition, F.lit(False))).withColumn("disposition", F.lit("invalid_geographic_fields"))
+
+check(spark, CATALOG, globals().get('PIPELINE_RUN_ID', 'interactive'), 'invalid_geographic_fields', 'silver.psa_psgc_reject', rejected.count(), 'WARN')
+upsert(spark, rejected, f"{CATALOG}.silver.psa_psgc_reject", ["_api_period", "_row_hash"])
+valid = cleaned.filter(valid_condition)
+
+# A conflicting duplicate in one ingestion has no justified winner.
+conflicts = valid.groupBy("psgc_code", "geographic_level", "_api_period", "_ingested_at", "_batch_id").agg(F.countDistinct("_row_hash").alias("versions")).where("versions > 1")
+check(spark, CATALOG, globals().get("PIPELINE_RUN_ID", "interactive"), "conflicting_snapshot_observations", BRONZE_TABLE, conflicts.count())
+
 
 # Deterministically select one record per code, level, and snapshot.
 dedup_window = (
@@ -291,6 +297,7 @@ deduped = (
     .filter(F.col("_row_number") == 1)
     .drop("_row_number")
 )
+check(spark, CATALOG, globals().get("PIPELINE_RUN_ID", "interactive"), "superseded_snapshot_observations", BRONZE_TABLE, valid.count() - deduped.count(), "WARN")
 
 # Check business-key uniqueness AFTER padding and deduplication.
 assert_unique(
@@ -598,7 +605,7 @@ province_city_expr = (
     )
     .when(
         independent_city_name.isNotNull()
-        & src_level.isin("BGY", "SUBMUN"),
+        & src_level.isin("BGY", "SGU", "SUBMUN"),
         F.concat_ws(
             ", ",
             F.col("src.area_name"),
@@ -615,7 +622,7 @@ province_city_expr = (
     )
     .when(
         parent_name.isNotNull()
-        & src_level.isin("BGY", "SUBMUN"),
+        & src_level.isin("BGY", "SGU", "SUBMUN"),
         F.concat_ws(
             ", ",
             F.col("src.area_name"),
@@ -680,14 +687,8 @@ bad_silver_codes = silver.filter(
     ~F.col("psgc_code").rlike(r"^[0-9]{10}$")
 )
 
-if bad_silver_codes.limit(1).count() > 0:
-    bad_silver_codes.select(
-        "psgc_code", "geographic_level", "_api_period"
-    ).show(20, truncate=False)
-
-    raise ValueError(
-        "Final Silver output contains non-10-digit PSGC codes."
-    )
+check(spark, CATALOG, run_id or "interactive", "typed_psgc_codes", SILVER_TABLE,
+      bad_silver_codes.count())
 
 print(f"Silver records prepared: {silver.count():,}")
 
@@ -713,7 +714,7 @@ if not spark.catalog.tableExists(SILVER_TABLE):
     (
         silver.write
         .format("delta")
-        .mode("overwrite")
+        .mode("error")
         .saveAsTable(SILVER_TABLE)
     )
 
@@ -733,21 +734,8 @@ else:
         if field.name not in existing_columns
     ]
 
-    if new_fields:
-        column_ddl = ", ".join(
-            f"`{field.name}` {field.dataType.simpleString()}"
-            for field in new_fields
-        )
-
-        spark.sql(
-            f"ALTER TABLE {SILVER_TABLE} "
-            f"ADD COLUMNS ({column_ddl})"
-        )
-
-        print(
-            "Added Silver columns:",
-            [field.name for field in new_fields],
-        )
+    if new_fields or {f.name: f.dataType for f in existing_df.schema} != {f.name: f.dataType for f in silver.schema}:
+        raise ValueError("Existing PSGC Silver schema differs; reviewed migration required")
 
     # Check that old Silver records will not create ambiguous
     # matches after their codes are normalized to 10 digits.
@@ -774,17 +762,8 @@ else:
         .filter(F.col("count") > 1)
     )
 
-    if target_duplicates.limit(1).count() > 0:
-        print(
-            "Existing Silver records have duplicate keys after "
-            "10-digit normalization:"
-        )
-        target_duplicates.show(20, truncate=False)
-
-        raise ValueError(
-            "Resolve existing Silver key collisions before merging. "
-            "No merge was performed."
-        )
+    check(spark, CATALOG, run_id or "interactive", "normalized_target_keys", SILVER_TABLE,
+          target_duplicates.count())
 
     target = DeltaTable.forName(spark, SILVER_TABLE)
 
@@ -799,9 +778,10 @@ else:
 
     # Update only rows whose Bronze hash changed. The null-safe
     # comparison also handles rows where either hash is NULL.
-    change_condition = (
-        "NOT (t._row_hash <=> s._row_hash)"
-    )
+    change_condition = "s._ingested_at >= t._ingested_at AND (" + " OR ".join(
+        f"NOT(t.`{c}` <=> s.`{c}`)" for c in silver.columns
+        if c not in {"_processed_at", "_ingested_at", "_batch_id"}
+    ) + ")"
 
     merge = (
         target.alias("t")
@@ -814,22 +794,6 @@ else:
         )
         .whenNotMatchedInsertAll()
     )
-
-    if DELETE_MISSING:
-        periods = [
-            row["_api_period"]
-            for row in silver.select("_api_period").distinct().collect()
-        ]
-
-        if periods:
-            in_list = ", ".join(
-                "'" + period.replace("'", "''") + "'"
-                for period in periods
-            )
-
-            merge = merge.whenNotMatchedBySourceDelete(
-                condition=f"t._api_period IN ({in_list})"
-            )
 
     merge.execute()
 
@@ -866,18 +830,8 @@ remaining_bad_codes = final_silver.filter(
     ~F.col("psgc_code").cast("string").rlike(r"^[0-9]{10}$")
 )
 
-if remaining_bad_codes.limit(1).count() > 0:
-    remaining_bad_codes.select(
-        "psgc_code",
-        "area_name",
-        "geographic_level",
-        "_api_period",
-    ).show(20, truncate=False)
-
-    raise ValueError(
-        "Post-merge validation failed: Silver contains codes "
-        "that are not exactly 10 digits."
-    )
+check(spark, CATALOG, run_id or "interactive", "written_psgc_codes", SILVER_TABLE,
+      remaining_bad_codes.count())
 
 print("PASS: All Silver PSGC codes are exactly 10 digits.")
 
