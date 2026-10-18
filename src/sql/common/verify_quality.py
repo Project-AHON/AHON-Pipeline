@@ -94,6 +94,7 @@ def verify(spark, args):
         duplicates = frame.groupBy(*keys).count().where("count > 1").count()
         check(spark, args.catalog, args.batch_id, "pipeline_audit_unique_keys",
               table, duplicates)
+    check(spark, args.catalog, args.batch_id, "pipeline_audit_execution", "pipeline", 0)
     print(json.dumps({"status": "PASS", "batch_id": args.batch_id,
                       "gx_results_checked": len(rows), "outputs_checked": list(OUTPUT_KEYS)}))
 
