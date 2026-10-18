@@ -8,6 +8,8 @@ The executable batch pipeline covers PSGC/LGU references, city/municipality cens
 
 GX Core gates dataset quality through the shared rule-metric path. Production uses an explicit run identity and excludes fixture jobs. Enter the PSA PSGC token through the [local secret setup commands](docs/operations/runbook.md#enter-the-psgc-token-locally); only scope/key names belong in configuration.
 
+The complete job has 31 tasks, ending with `quality_checks`: every branch must finish and provide valid GX evidence for the current delivery, and terminal outputs must be nonempty with unique keys. See the [PR #97 review and validation](docs/operations/pr97-gx-review.md) and [completion-barrier runbook](docs/operations/runbook.md#end-to-end-gx-completion-barrier). STANDARD serverless, no schedules and one extra audit task keep the change small.
+
 The [city/municipality grain correction](docs/decisions/0012-city-municipality-analysis-grain.md) changes the earlier barangay population schema. Use a fresh catalog or reviewed migration; the pipeline never overwrites an existing barangay fact automatically.
 
 Start with the [development runbook](docs/operations/runbook.md), [source-to-target inventory and PR decisions](docs/architecture/source-to-target.md), [verification evidence](docs/operations/validation.md), [analytical limitations](docs/architecture/metrics.md), and [reconciled contract decision](docs/decisions/0010-reconciled-source-contracts.md). Use a fresh development catalog; existing incompatible schemas require review. `resources/jobs/` contains executable jobs with no schedules. Production deployment and execution are outside this task.

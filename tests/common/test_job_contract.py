@@ -42,7 +42,7 @@ def test_every_task_has_packaged_executable_assets_and_bounded_retries():
             ast.parse(path.read_text(encoding="utf-8"))
             if "--file" in args:
                 assert (ROOT / args[args.index("--file") + 1]).is_file()
-    assert count == 32
+    assert count == 33
 
 
 def test_batch_jobs_use_standard_compute_without_duplicate_execution():
@@ -88,6 +88,7 @@ def test_approved_mapping_override_is_synced_instead_of_missing_at_runtime():
     assert file.is_file()
     config = yaml.safe_load((ROOT / "databricks.yml").read_text())
     assert "src/**" in config["sync"]["include"]
+    assert set(config["sync"]["paths"]) == {"src", "tests", "resources"}
     assert not any("csv" in exclusion for exclusion in config["sync"].get("exclude", []))
 
 
@@ -134,3 +135,33 @@ def test_gx_is_installed_in_every_task_environment_and_fixtures_are_dev_only():
     config = yaml.safe_load((ROOT / 'databricks.yml').read_text())
     assert config['run_as'] == '${var.run_as}'
     assert config['variables']['run_as']['type'] == 'complex'
+
+
+def test_final_quality_barrier_waits_for_every_pipeline_branch():
+    graph = next(job for _, name, job in jobs() if name == "ahon_pipeline")
+    tasks = {task["task_key"]: task for task in graph["tasks"]}
+    audit = tasks["quality_checks"]
+    assert audit["max_retries"] == 0
+    assert "src/sql/common/verify_quality.py" in audit["spark_python_task"]["parameters"]
+    visited = set()
+
+    def visit(key):
+        assert key not in active, "Cyclic task dependencies"
+        if key in visited:
+            return
+        active.add(key)
+        for dependency in tasks[key].get("depends_on", []):
+            visit(dependency["task_key"])
+        active.remove(key)
+        visited.add(key)
+
+    active = set()
+    visit("quality_checks")
+    assert visited == set(tasks), "A source/output branch can bypass the quality barrier"
+
+
+def test_dependency_pins_do_not_install_two_gx_versions():
+    import re
+
+    project = (ROOT / "pyproject.toml").read_text()
+    assert re.findall(r'great[-_]expectations==([0-9.]+)', project) == ["1.24.0"]

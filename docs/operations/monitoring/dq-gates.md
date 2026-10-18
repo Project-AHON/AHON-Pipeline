@@ -1,5 +1,8 @@
 # Data quality gates
 
+> **Operational status (2026-10-19):** The executable pipeline uses the shared GX metric gates in `src/sql/common/quality.py` (decision 0011) and the final `quality_checks` job barrier (decision 0013). The native-Spark gate files listed below are draft designs: several refer to legacy tables, hard-coded catalogs or placeholder risk outputs. They are not scheduled by the bundle. Do not run them against a shared catalog without adapting and validating their contracts.
+
+
 How the pipeline checks data between layers, and where each dataset's checks live. The design is in [decision 0010](../../decisions/0010-dq-gates-with-great-expectations.md); the results table is described in [dq_results](../../architecture/data-dictionary/dq_results.md).
 
 ## Where the checks run

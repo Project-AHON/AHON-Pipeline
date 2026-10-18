@@ -1011,3 +1011,33 @@ resources:
         run_if: ALL_SUCCESS
         depends_on:
         - task_key: earthquake_silver
+      # One final barrier checks same-run GX evidence for every completed branch.
+      # Candidate checks remain inside the writers, before downstream publication.
+      - task_key: quality_checks
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/verify_quality.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: population_total_gold
+        - task_key: population_components
+        - task_key: funding_components
+        - task_key: earthquake_components
+        - task_key: cmci_platinum
+        - task_key: osm_silver
