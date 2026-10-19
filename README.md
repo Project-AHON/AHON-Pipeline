@@ -17,11 +17,11 @@ Users, stakeholders and expected impact are in the [problem statement](docs/proj
 
 | Dataset | Publisher | Used for |
 | --- | --- | --- |
-| PSGC | PSA | The shared LGU codes and names (`gold.dim_lgu`) |
+| Philippine Standard Geographic Code (PSGC) | Philippine Statistics Authority (PSA) | The shared LGU codes and names (`gold.dim_lgu`) |
 | PSA Population | PSA (census, from the PSGC API) | Exposure: residents per city and municipality |
-| Earthquake listings | PHIVOLCS | Hazard: earthquake counts, magnitude and depth |
-| Cities and Municipalities Competitiveness Index (CMCI) | DTI | Preparedness: resiliency indicators |
-| LDRRMF utilization | BLGF | Preparedness: disaster fund budget and spending |
+| Earthquake listings | Philippine Institute of Volcanology and Seismology (PHIVOLCS) | Hazard: earthquake counts, magnitude and depth |
+| Cities and Municipalities Competitiveness Index (CMCI) | Department of Trade and Industry (DTI) | Preparedness: resiliency indicators |
+| Local Disaster Risk Reduction and Management Fund (LDRRMF) utilization | Bureau of Local Government Finance (BLGF) | Preparedness: disaster fund budget and spending |
 
 Details, periods and what is out of scope: [sources](docs/data/sources.md).
 
@@ -29,24 +29,31 @@ Details, periods and what is out of scope: [sources](docs/data/sources.md).
 
 ```mermaid
 flowchart LR
-  S[Public sources<br/>PSA, PHIVOLCS, DTI, BLGF] --> V[(Raw files<br/>reference.source volume)]
-  V --> B[bronze<br/>as received]
-  B --> SV[silver<br/>cleaned, checked,<br/>PSGC codes attached]
-  SV --> G[gold<br/>dim_lgu + facts]
-  G --> P[platinum<br/>analysis views]
-  P --> D[AHON dashboard]
-  SV -.-> M[monitoring<br/>DQ results]
-  G -.-> M
+  A["Public sources<br/>(PSA, PHIVOLCS,<br/>DTI, BLGF)"] --> B["Raw files<br/>(never edited)"]
+  B --> C["Bronze<br/>as received"]
+  C --> D["Silver<br/>cleaned and checked"]
+  D --> E["Gold<br/>analysis tables"]
+  E --> F["Platinum<br/>dashboard views"]
+  F --> G[["AHON dashboard"]]
 ```
 
-A batch pipeline on Databricks, defined as a Databricks Asset Bundle. Raw files land unchanged in a Unity Catalog volume, then move through bronze, silver, gold and platinum. Every table is linked by the 10-digit PSGC code, and analysis is done per city and municipality. Each build checks its output before writing and records the result in `monitoring.dq_result`.
+AHON is a batch pipeline on Databricks. Each source is downloaded into a folder of raw files, then refined in four layers: **bronze** keeps the data as received, **silver** cleans it and adds the official code of each city or municipality (the PSGC code), **gold** builds the tables used for analysis, and **platinum** prepares the views the dashboard reads. Every step checks its data before writing and records the result.
 
-More: [architecture overview](docs/architecture/overview.md), [data model](docs/architecture/data-model.md), [data quality](docs/data-quality/README.md).
+New to the acronyms? See the [glossary](docs/glossary.md).
+
+Layer-by-layer diagram: [architecture overview](docs/architecture/overview.md), [data model](docs/architecture/data-model.md), [data quality](docs/data-quality/README.md).
 
 ## Getting started
 
-1. Set up your tools, Databricks login and bundle settings: [setup](docs/getting-started/setup.md).
-2. Deploy and run the job `ahon_pipeline`: [runbook](docs/operations/runbook.md).
+New to the repository? Read in this order:
+
+1. This README, and the [glossary](docs/glossary.md) for acronyms.
+2. [Architecture overview](docs/architecture/overview.md): how data moves through the layers.
+3. [Setup](docs/getting-started/setup.md): tools, Databricks access, settings and your first run.
+4. [Runbook](docs/operations/runbook.md): running one dataset, rerunning and fixing a failed run.
+5. [CONTRIBUTING](CONTRIBUTING.md): branches, pull requests and CI checks.
+
+Once set up, the commands are:
 
 ```text
 databricks bundle validate --strict -t dev --profile <profile>
@@ -60,6 +67,7 @@ Credentials (Databricks login, PSA token) and your bundle settings stay on your 
 
 | Folder | What is in it |
 | --- | --- |
+| [docs/glossary.md](docs/glossary.md) | Acronyms and terms |
 | [docs/project](docs/project/) | Problem statement, assumptions and limitations, ownership |
 | [docs/data](docs/data/) | Sources, a data profile per source, and a data dictionary page per table |
 | [docs/architecture](docs/architecture/) | Overview, data model, source to target, analytics method, naming standard |

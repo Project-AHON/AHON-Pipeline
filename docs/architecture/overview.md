@@ -6,34 +6,33 @@ Project AHON is a batch pipeline on Databricks. It lands public government data 
 
 ```mermaid
 flowchart LR
-  subgraph Sources
-    PSA[PSA PSGC API<br/>PSGC codes + PSA Population]
-    PHV[PHIVOLCS website<br/>earthquake listings]
-    DTI[DTI CMCI portal<br/>competitiveness indicators]
-    HF[Hugging Face dataset<br/>BLGF LDRRMF workbooks]
+  subgraph SRC["1 · Sources"]
+    s["PSGC codes + census population (PSA)<br/>Earthquake listings (PHIVOLCS)<br/>City competitiveness scores (DTI CMCI)<br/>Disaster fund reports (BLGF LDRRMF)"]
   end
-
-  subgraph Databricks["Databricks (Unity Catalog)"]
-    VOL[(reference.source volume<br/>raw files, immutable batches)]
-    BR[bronze<br/>as received + provenance]
-    SV[silver<br/>typed, checked, PSGC-matched]
-    REF[reference<br/>LGU name-to-PSGC maps]
-    GD[gold<br/>dim_lgu + facts]
-    PT[platinum<br/>analysis views]
-    MON[monitoring<br/>DQ results]
+  subgraph LAND["2 · Landing"]
+    l[("Raw files, never edited<br/>reference.source volume")]
   end
+  subgraph BRONZE["3 · Bronze: as received"]
+    b["PSGC<br/>Earthquakes<br/>CMCI<br/>LDRRMF"]
+  end
+  subgraph SILVER["4 · Silver: cleaned + checked"]
+    v["PSGC<br/>Population<br/>Earthquakes<br/>CMCI<br/>LDRRMF<br/><i>PSGC code added to each</i>"]
+  end
+  subgraph GOLD["5 · Gold: analysis tables"]
+    g["LGU list (dim_lgu)<br/>Population<br/>CMCI indicators<br/>LDRRMF funds"]
+  end
+  subgraph PLAT["6 · Platinum: dashboard views"]
+    p["Population<br/>Earthquakes per month<br/>CMCI coverage<br/>Funding"]
+  end
+  DASH[["AHON dashboard"]]
+  DQ[("Data quality results<br/>monitoring.dq_result")]
 
-  DASH[AHON dashboard]
-
-  PSA --> VOL
-  PHV --> VOL
-  DTI --> VOL
-  HF --> VOL
-  VOL --> BR --> SV --> GD --> PT --> DASH
-  REF --> SV
-  SV -. checks .-> MON
-  GD -. checks .-> MON
+  s --> l --> b --> v --> g --> p --> DASH
+  v -. checks .-> DQ
+  g -. checks .-> DQ
 ```
+
+How to read it: each box is one layer, and each item inside is one dataset at that layer. Population has no bronze table of its own (it arrives inside the PSGC data), and earthquakes have no gold table yet. The exact table names are in the table below and in [source to target](source-to-target.md). Acronyms are explained in the [glossary](../glossary.md).
 
 ## Data flow by dataset
 
@@ -62,7 +61,7 @@ PSGC runs first: `dim_lgu` and the PSGC silver table are the reference every oth
 | Gold | Conformed dimension (`dim_lgu`) and facts keyed by `psgc_code`, with fixed grains such as city/municipality × census year or LGU × fiscal year. |
 | Platinum | Views for analysis and the dashboard, limited to cities and municipalities. |
 
-All layers merge on business keys. Absent rows are not deleted, an older delivery cannot overwrite a newer correction, and a schema change stops the build for review. The analysis grain is the city or municipality ([decision 0012](../decisions/0012-city-municipality-analysis-grain.md)).
+All layers merge on business keys. Absent rows are not deleted, an older delivery cannot overwrite a newer correction, and a schema change stops the build for review. The analysis grain is the city or municipality ([decision 0017](../decisions/0017-city-municipality-analysis-grain.md)).
 
 ## Storage
 
@@ -82,7 +81,7 @@ The AHON dashboard reads the gold and platinum tables. It joins every dataset on
 
 ## Orchestration
 
-The pipeline is a Databricks Asset Bundle (`databricks.yml`, jobs in `resources/jobs/`, [decision 0007](../decisions/0007-DAB-and-jobs.md)):
+The pipeline is a Databricks Asset Bundle (`databricks.yml`, jobs in `resources/jobs/`, [decision 0015](../decisions/0015-reconciled-source-contracts.md)):
 
 | Job | Purpose |
 | --- | --- |
@@ -94,7 +93,7 @@ Tasks run on serverless compute with explicit timeout, retry and one concurrent 
 
 ## Data quality
 
-Checks run inside every build. Stop rules fail the task before the target table is written, so dependent tasks do not run on bad data. Flag and warning rules keep the rows and record a count. Results are written to the `monitoring` schema. Great Expectations gates between layers record rule results in one DQ results table. See [data quality](../operations/monitoring/data-quality.md) and [DQ gates](../operations/monitoring/dq-gates.md).
+Checks run inside every build. Stop rules fail the task before the target table is written, so dependent tasks do not run on bad data. Flag and warning rules keep the rows and record a count. Results are written to the `monitoring` schema. Great Expectations gates between layers record rule results in one DQ results table. See [data quality](../data-quality/README.md) and [DQ gates](../data-quality/dq-gates.md).
 
 ## Why these choices
 
