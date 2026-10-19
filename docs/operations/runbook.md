@@ -1,160 +1,117 @@
-# Development execution and recovery
+# Runbook
 
-The supported executable graph is `resources/jobs/ahon_job.yml`. See the [inventory](../architecture/source-to-target.md) for dataset grains, dependencies, PR reuse and external blockers. No production deployment or execution is authorized by this task.
+How to run, rerun and recover the AHON pipeline. Before the first run, finish [setup](../getting-started/setup.md): Databricks CLI profile, bundle variable overrides, PSGC token secret and the reviewed CMCI mapping file.
 
-## Keep the job and files consistent
+The pipeline is the job `ahon_pipeline` in `resources/jobs/ahon_job.yml`. Which script builds which table is in [source to target](../architecture/source-to-target.md).
 
-Deploy the bundle from the reviewed checkout; do not replace its job YAML with an older workspace export. The reviewed `main` at `4d82f6b` still has a placeholder `resources/jobs/ahon_job.yml`; the executable graph and city/municipality correction are on `feature/pipeline-reconciliation` pending PR review. A workspace job does not update automatically when local files change: deploy that same checkout before running it.
+## Before every run
 
-| Older export reference | Supported path or behavior |
+1. Pull the branch you are running and deploy that same checkout. A workspace job does not update when local files change.
+
+   ```text
+   databricks bundle validate --strict -t dev --profile <profile>
+   databricks bundle deploy -t dev --profile <profile>
+   ```
+
+2. Check that the catalog in your overrides file is the one you mean to write to.
+3. Optional local check, without cloud compute: `python -m pytest tests/common/test_job_contract.py -q` confirms every task's files, dependencies and settings.
+
+## Run
+
+| What | Command |
 | --- | --- |
-| Personal `/Workspace/Users/...` paths and a fixed warehouse ID | Bundle-relative launcher plus `${workspace.file_path}`; SQL runs through the existing Spark runner |
-| `load_population` / `clean_population` notebook tasks | `datasets/psa_population/bronze/load_psa_population.py` and `silver/clean_psa_population.py`, executed as Python files |
-| PXWeb Silver followed by `fact_population.py` | PXWeb feeds `gold/build_fact_population_total.py`; PSGC CITY/MUN census Silver feeds `gold/fact_population.py` |
-| `cmci_common.py`, CMCI-specific setup files and `earthquake_contract.py` as tasks | Helpers/legacy entry points are not processing stages; use the shared setup and stage entry points already wired in the bundle |
-| `run_earthquake` and `fact_earthquake` calling the same script | One observation processing chain; event Gold remains withheld pending its identity/methodology contract |
+| Whole pipeline | `databricks bundle run ahon_pipeline -t dev --profile <profile>` |
+| One dataset, with everything it needs | `databricks bundle run ahon_pipeline -t dev --profile <profile> --only +<task>` |
+| Several branches | `--only +ldrrmf_gold,+population_gold` |
+| A different catalog or batch | add `--params "catalog=<catalog>,batch_id=<batch_id>"` |
 
-Keep serverless batch jobs in `STANDARD`, one concurrent writer and bounded retries. No schedules or additional jobs are needed for this review. Select only affected branches when a runtime check is necessary, and reuse a completed batch ID for replay. OSM coordinate conversion reuses one transformer per source CRS instead of constructing one per feature. These reduce unnecessary work; actual spend still depends on data size and the selected workspace.
+`+<task>` includes every upstream task. The batch ID defaults to the job run ID. There is no schedule; runs are started by hand. Keep one run at a time (`max_concurrent_runs` = 1).
 
-Run `python -m pytest tests/common/test_job_contract.py -q` locally before deployment. It checks all task assets, dependency ordering, unique task keys/executions, the two population source paths, packaged GX environments and batch compute settings without starting cloud compute.
+Run order inside the job: `setup` first, then PSGC (`psgc_extract` → `psgc_bronze` → `psgc_silver` → `dim_lgu`). The other datasets wait for the PSGC tables they match against. Independent extracts depend only on `setup`, so one failed source does not block another.
 
-## Configure explicit inputs
+## By dataset
 
-`databricks.yml` declares required bundle variables with no committed defaults. Provide them through an ignored `.databricks/bundle/<target>/variable-overrides.json`. Scalar values also support `BUNDLE_VAR_<name>` environment variables or CLI `--var` arguments. The complex `run_as` identity must be supplied in the override JSON; the CLI does not accept complex values through environment variables. Never commit workspace identifiers, credentials or a developer's verification settings. The prepared development input file is available in the isolated checkout, excluded by `.gitignore`.
+### Setup
 
-| Inputs | What to supply |
-| --- | --- |
-| `catalog`, `workspace_root`, `source_volume` | Fresh development catalog, isolated workspace state/files root, raw volume name |
-| `run_as` | Explicit identity object: `{"user_name":"<approved-user>"}` or `{"service_principal_name":"<approved-application-id>"}`. Use the actual approved production identity for production |
-| `environment_version`, job/task timeouts, task retries/retry interval, `max_concurrent_runs` | Settings supported in your selected workspace. Use one concurrent writer and bounded retries; the staged fixture job deliberately has zero automatic retries |
-| `source_period`, `census_year` | Approved PSGC snapshot and actual population reference year; do not equate the two periods |
-| `psgc_api_base_url`, `psgc_expected_rows`, PSA secret scope/key | Approved API base, JSON snapshot→expected-count profile, existing token secret names |
-| `population_api_url`, `population_source_file`, `population_expected_profile` | Approved census endpoint/file and JSON counts for national, regional, source province-group and city/municipality levels |
-| `hf_repo`, `hf_revision`, `ldrrmf_folder`, `ldrrmf_file_pattern`, `ldrrmf_expected_rows` | Approved dataset and pinned full commit, source folder, filename pattern containing the year, JSON fiscal-year→workbook-count profile |
-| `ldrrmf_start_year`, `ldrrmf_end_year` | Reviewed financial reference window; Silver rejects observations outside it |
-| CMCI URLs, year window, run mode, test limit, batch size, delay, retry/backoff, User-Agent, `request_timeout` | Explicit source request settings. Use `test` until reviewed full activation. Response coverage must match requested years/indicators |
-| `cmci_mapping_file`, `cmci_metric_version` | Reviewed mapping CSV in a readable volume and a reviewed source-definition version |
-| `osm_folder`, `osm_shapefile_stems` | Approved vector folder and JSON list of shapefile stems; all required sidecars and known CRSs must be present |
-| PHIVOLCS archive URL template/latest URL, `start_month`, `end_month`, `source_timezone` | Approved source locations, inclusive YYYY-MM window and publisher clock used for request selection. Event UTC interpretation remains withheld |
+- **Task:** `setup` (also the separate job `catalog_setup`)
+- **Does:** creates the catalog if permitted, the schemas, the `reference.source` volume and `monitoring.dq_result`. It never rebuilds existing tables.
 
-Expected counts are caller-supplied source validation inputs, not invented risk cutoffs. Source file schemas, field typing, units, geographic levels and parsing rules remain documented contracts. CMCI indicator names/codes/pillars are source data in `resources/cmci_indicators.csv`, synchronized as a real job asset rather than embedded in Python. Changes to that asset require source review and a matching metric version; they do not authorize a composite score.
+### PSGC
 
-CMCI Gold blocks when the configured code/name/pillar/version set differs from the existing indicator dimension. Use a fresh catalog for a new reviewed definition, or complete a reviewed migration before resuming; no silent reassignment of old measurements occurs.
+- **Run:** `--only +dim_lgu`
+- **Needs:** the PSA token secret (`psgc_secret_scope`, `psgc_secret_key`), `psgc_api_base_url`, `psgc_expected_rows`, `source_period`.
+- **Check:** `gold.dim_lgu` has 43,760 rows for `Q2_2024`, 1,642 of them `CITY` or `MUN`.
+- **If it fails:**
+  - HTTP or empty-result error: the token is missing, empty or expired. Rotate it with `databricks secrets put-secret <scope> <key>`; the job's `run_as` identity needs READ on the scope.
+  - "expected N, found M": PSA changed the snapshot. Review the new count before updating `psgc_expected_rows`.
+  - `invalid_psgc_code`: see `silver.psa_psgc_code_reject`.
 
-Profiles are not embedded in repository code. List profiles with `databricks auth profiles`, select the intended personal workspace, then set `$profile` in your shell. Set `$catalog` to a fresh development catalog. Required inputs must be loaded before validation:
+### PSA Population
 
-```powershell
-$profile = Read-Host 'Selected development profile'
-$catalog = Read-Host 'Fresh development catalog'
-$env:BUNDLE_VAR_catalog = $catalog
-databricks bundle validate --strict -t dev --profile $profile
-databricks bundle deploy -t dev --profile $profile
-$fixtureCatalog = Read-Host 'Fresh isolated fixture catalog beginning ahon_integration_'
-databricks bundle run data_quality -t dev --profile $profile --params "catalog=$fixtureCatalog"
+- **Run:** `--only +population_components`
+- **Needs:** PSGC, `census_year`.
+- **Check:** `gold.fact_population` has one row per city and municipality for the census year. For 2024, 19 Sulu municipalities are `MISSING`; that is expected.
+- **If it fails:** `city_population_schema_requires_migration` means the catalog still has the old barangay-level table. Use a fresh catalog.
+
+### PHIVOLCS earthquakes
+
+- **Run:** `--only +earthquake_components`
+- **Needs:** `start_month`, `end_month` (or `auto` for last month), the archive URL template and latest URL, `source_timezone`, and PSGC silver.
+- **Check:** `platinum.earthquake_observation_summary` has a row for every requested month.
+- **If it fails:** "expected exactly one six-column event table" means the PHIVOLCS page layout changed or the month is not published yet. No file is published, so rerun once the page is available.
+
+### CMCI
+
+- **Run:** `--only +cmci_platinum`
+- **Needs:** the reviewed mapping CSV in a volume (`cmci_mapping_file`, columns `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`), `cmci_start_year`, `cmci_end_year`, `cmci_run_mode` and the `cmci_*` request settings, and `dim_lgu`. Use `cmci_run_mode = test` until a full run is intended.
+- **Check:** `platinum.cmci_pillar_coverage` has rows for the requested years; `silver.cmci_reject` is empty or explained.
+- **If it fails:**
+  - Mapping errors: codes must be unique, names one-to-one, `reviewed` true, and `source_period` equal to `dim_lgu`.
+  - Indicator dimension mismatch: `resources/cmci_indicators.csv` changed. Use a fresh catalog, or review the change and its `cmci_metric_version` first.
+
+### BLGF LDRRMF
+
+- **Run:** `--only +funding_components`
+- **Needs:** `hf_repo` and a pinned full-commit `hf_revision`, `ldrrmf_folder`, `ldrrmf_file_pattern`, `ldrrmf_expected_rows`, `ldrrmf_start_year`, `ldrrmf_end_year`, and PSGC.
+- **Check:** `gold.fact_ldrrmf` has 11,434 rows; the match summary at the end of the gold task shows only the known unmatched rows.
+- **If it fails:**
+  - `reference_map_coverage`: bronze has an LGU name the map has not seen. Rerun `ldrrmf_mapping`, review new `needs_review` or `ambiguous` rows, and add an override with a reason if needed.
+  - `component_totals` or `missing_amounts`: see `silver.blgf_ldrrmf_annual_lgu_reject`.
+  - `unique_matched_lgu_year`: two BLGF spellings map to one PSGC code in the same year. Fix with an override.
+
+## Rerun and replay
+
+- **Retry a failed run:** rerun with the same `batch_id`. Completed files are not fetched again, and rows already written keep their first lineage and timestamps.
+- **Load a correction from the source:** run with a new `batch_id`. Changed rows update by business key; older deliveries never overwrite newer ones.
+- **Rerun one branch only:** use `--only +<task>` with the same `batch_id`.
+
+Nothing is deleted by a rerun. A row that disappears from the source stays in the tables.
+
+## Recover from a blocked check
+
+A stop rule fails the task before its table is written, and dependent tasks are skipped. The tables keep their last accepted state.
+
+1. Open the failed task's output; it names the check (`check_id`) and the table.
+2. Look up the result in `monitoring.dq_result` for that `run_id`.
+3. Look at the rows behind it: the dataset's `_reject` table, or rows with `has_dq_issues`.
+4. Fix the cause: a reviewed mapping or override, a configuration value, or a corrected source in a new batch.
+5. Rerun the affected branch with `--only +<task>`.
+
+Before treating a gold table as current, check the latest `monitoring.dq_result` rows for its task. See [data quality](monitoring/data-quality.md) for what each rule does.
+
+## Do not
+
+- Edit or delete files in a completed batch folder. A checksum mismatch blocks reads; keep the batch for investigation and land a new one.
+- Drop or alter tables to get past a schema check. Use a fresh development catalog or a reviewed migration.
+- Point live ingestion at an `ahon_integration_*` catalog; those hold test fixtures for the `data_quality` job.
+- Put tokens or workspace IDs in the repository, command arguments or chat.
+
+## Test job
+
+`data_quality` (development only) runs the real transformations on synthetic fixtures in a fresh `ahon_integration_*` catalog:
+
+```text
+databricks bundle run data_quality -t dev --profile <profile> --params "catalog=ahon_integration_<name>"
 ```
 
-To validate `prod` without deploying it, supply that target's required variables and run `databricks bundle validate --strict -t prod --profile $profile`. No target is default; schedules are absent. The development target implements reproducible bundle testing in a personal workspace, not a shared development environment. The setup task creates the selected catalog if permitted, schemas, monitoring DQ results and raw volume. It never rebuilds existing incompatible schemas.
-
-Keep the configured development `catalog` for live-source processing. Pass a separate fresh `ahon_integration_*` catalog explicitly for fixture runs; never point live ingestion at completed synthetic fixtures. The fixture guard refuses a source catalog. The prepared private development configuration uses the verified source catalog; fixture commands need the explicit catalog override shown above.
-
-## Enter the PSGC token locally
-
-PSGC requires a PSA-issued API token. The Databricks profile authenticates the secret-management command. Run these commands in your own terminal; the token is entered only at the CLI's interactive prompt:
-
-```powershell
-$profile = Read-Host 'Databricks profile'
-$scope = Read-Host 'PSGC secret scope name'
-$key = Read-Host 'PSGC token key name'
-# Run create-scope only when creating a new scope:
-databricks secrets create-scope $scope --profile $profile
-databricks secrets put-secret $scope $key --profile $profile
-# Confirm key metadata without printing the value:
-databricks secrets list-secrets $scope --profile $profile
-$env:BUNDLE_VAR_psgc_secret_scope = $scope
-$env:BUNDLE_VAR_psgc_secret_key = $key
-```
-
-For reuse across terminal sessions, place only the scope and key names in the appropriate ignored override JSON as `psgc_secret_scope` and `psgc_secret_key`. Do not place the token in that file, command arguments, repository files or chat. Re-running `put-secret` for an existing key rotates its value. The extractor reads the secret at execution time; an empty secret or failed API request blocks publication. Redirects are rejected, and token-bearing request exceptions are sanitized.
-
-The job's configured `run_as` identity needs READ on the scope. If it differs from the scope owner, an authorized scope manager can grant that specific approved identity access:
-
-```powershell
-$principal = Read-Host 'Approved job user name or service principal application ID'
-databricks secrets put-acl $scope $principal READ --profile $profile
-```
-
-After loading the other explicit development inputs, deploy and test the PSGC branch in a fresh delivery:
-
-```powershell
-databricks bundle validate --strict -t dev --profile $profile
-databricks bundle deploy -t dev --profile $profile
-databricks bundle run ahon_pipeline -t dev --profile $profile --only +psgc_silver
-```
-
-The default new run ID creates a new delivery and exercises the token. Replaying an already completed delivery validates its landed files and does not re-fetch the source. See [Databricks secret commands](https://docs.databricks.com/aws/en/dev-tools/cli/reference/secrets-commands) for scope and ACL requirements.
-
-## Production activation
-
-Supply `.databricks/bundle/prod/variable-overrides.json` with the approved production catalog, a workspace root distinct from development, volume, run identity, source windows/profiles, token secret names and reviewed CMCI mapping. Use one concurrent writer (`max_concurrent_runs` set to 1), bounded retries/timeouts, and the intended CMCI source scope. Give the run identity only its required catalog/schema/volume and secret permissions. Do not use synthetic mappings as production references.
-
-Only `ahon_pipeline` and `catalog_setup` are included in `prod`; `data_quality` is scoped to `dev`. Production validation does not certify runtime permissions or source credentials. This task validates production configuration and exercises development; production deployment/execution still requires separate authorization. Schedules remain absent.
-
-## GX quality gates
-
-All supported datasets share `src/sql/common/quality.py` with pinned GX Core. Spark computes rule metrics over the full candidate dataset, including key uniqueness, invalid values, reference coverage, period alignment and cardinality. GX evaluates those bounded metrics with `ExpectColumnValuesToBeBetween(failed_count, 0, 0)`. This is aggregate validation of the complete input, without collecting a growing source table into pandas or duplicating transformations in GX. Financial SQL returns the same named rule metrics instead of using SQL assertions as its DQ engine.
-
-ERROR failures persist as BLOCKED and raise before dependent writes; WARN failures persist and preserve flagged rows. GX import/runtime failures stop execution, with no non-GX fallback. File integrity, request authentication, parsing structure and incompatible-schema guards remain fail-fast ingestion/write contracts.
-
-`monitoring.dq_result` keeps its existing keys/counts/severity/status and adds nullable `validation_result STRING` containing GX expectation configuration, success and version as JSON. The only automatic migration adds that audit column when absent; existing monitoring rows remain and have NULL evidence until their checks rerun. Dataset schemas are not evolved. No additional DQ job, result store, Data Docs site or GX Cloud service is needed.
-
-## Local checks
-
-Use Python 3.10+ from the repository root:
-
-```powershell
-python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m ruff check src tests --config pyproject.toml
-python -m pytest tests -q
-python -m compileall -q src tests
-python -m yamllint -f parsable databricks.yml resources .github
-```
-
-Spark/Delta come from Databricks and are unnecessary for local pure-function tests. Runtime libraries are pinned in the job environments and the public-PyPI lock is regenerated. Tests verify the DAG, source integrity, parsing, source definition assets and conservative geographic matching. Bundle schema validation alone does not prove runtime asset/import correctness.
-
-## Scope and dependencies
-
-The CLI's `+task` form includes upstream tasks. Independent extracts depend only on setup. References and validated Silver gate their dependent facts. Keep otherwise valid source processing selectable when another source lacks inputs:
-
-```powershell
-$sourceCatalog = Read-Host 'Separate live-source development catalog'
-$batch = Read-Host 'Stable delivery batch ID'
-databricks bundle run ahon_pipeline -t dev --profile $profile --params "catalog=$sourceCatalog,batch_id=$batch" --only +osm_silver,+ldrrmf_bronze,+population_silver,+earthquake_bronze
-
-# After supplying the approved PSA token and source profiles:
-databricks bundle run ahon_pipeline -t dev --profile $profile --only +population_gold
-
-# After every source prerequisite is available:
-databricks bundle run ahon_pipeline -t dev --profile $profile
-```
-
-PSGC Bronze→Silver precedes the existing `dim_lgu`, direct city/municipality census population and contextual reference lookups. Gold waits for its validated Silver and dimension. OSM runs its own extract→Bronze→Silver chain. Earthquake observation Silver requires the selected PSGC reference for candidate reporting; event Gold is not scheduled. Independent component tasks depend only on their own outputs. All edges use `ALL_SUCCESS`.
-
-CMCI reviewed mapping columns are `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`. Codes are unique ten-digit strings, source names one-to-one, reviewed must be true, and period must match the selected dimension. The development PSGC secret reference is configured and live authentication has passed. Real approved CMCI mappings remain unavailable; synthetic mappings are test data and must not be used as production evidence.
-
-## Population grain migration
-
-The canonical Gold population key is now `(psgc_code, population_year)` for cities/municipalities. `psgc_population_silver` reads direct CITY/MUN measurements and `population_gold` materializes the reference grid. The old barangay target is guarded and never overwritten. Existing catalogs with that schema require a reviewed rebuild or a separate catalog/cutover, including `platinum.population_components` and its consumers. Do not deploy the new writer against an old target expecting automatic evolution. Native PSGC barangay arrays remain available for lineage.
-
-## Replay and corrections
-
-The default batch ID is the job run ID. Task retries reuse it. To replay a completed delivery, use the same batch ID and task selection. Identical same-batch observations retain first lineage and unchanged Silver/Gold processing timestamps. Source corrections use a new batch ID.
-
-PSGC and LDRRMF Silver only update an existing business key when the candidate's first-ingested timestamp is at least as recent as the accepted row. Replaying an older completed delivery cannot roll back a newer correction. This is delivery ordering, not proof of a publisher's scientific reference date; source snapshot/year fields remain separate. New keys are retained without absence-based deletion. Initial PSGC Silver and dimension creation fail if a competing writer has already created the table.
-
-Standard PSGC, PXWeb, BLGF and CMCI observation IDs include delivery batch ID, source file digest and raw row hash. A new delivery can legitimately repeat previously seen bytes, permitting a source-value reversion after a later correction. Earlier file-only identity tables are guarded: use a fresh catalog or reviewed migration. Earthquake and OSM retain their explicit file/ordinal observation contracts separately.
-
-`_SUCCESS.json` exists to prevent reading interrupted downloads: it records filenames, hashes and source-row counts. A checksum mismatch in a completed batch blocks reads; retain it for investigation. An incomplete batch has no valid marker and a retry repairs it. Do not edit completed files to force recovery. Current PSGC and financial validation is scoped to the requested completed delivery, so prior rejected observations remain auditable without permanently poisoning later corrected releases.
-
-Blocking checks persist to `monitoring.dq_result` before dependent tasks fail or skip. Inspect the failed task, source lineage and row disposition/rejects; correct source or reviewed mapping in a new batch and rerun the affected branch. Facts stay at the prior accepted state on a block; inspect latest DQ status before treating them as current. No absence-based deletion or automatic schema evolution occurs.
-
-`data_quality` only accepts an isolated `ahon_integration_*` catalog. It runs the actual transformations on synthetic data, including same-batch replay, invalid values, geographic cardinality, city/year grain, absent/NULL population measurements, financial ratios and valid→invalid→reverted CMCI values. Use a fresh catalog for a new complete suite or after failure: fixtures intentionally retain correction history. The suite has zero automatic retries and replays individual transformations explicitly. It does not establish scientific validity or prove access to every real source.
+It has no automatic retries; use a fresh catalog after a failure. It tests the code, not the real sources.
