@@ -70,9 +70,8 @@ Source: seven BLGF workbooks, FY2018 to FY2024, from a pinned Hugging Face commi
 | --- | --- | --- |
 | Schemas `bronze`, `silver`, `gold`, `platinum`, `reference`, `monitoring` | `00_setup/00_catalog_schema_setup.sql` | `setup` (also job `catalog_setup`) |
 
-## Also in the job, not used downstream
+## Additional Materials
 
 | Dataset | Targets | Script | Tasks |
 | --- | --- | --- | --- |
-| PSA OpenSTAT population (table `0241A6DPUP1`) | `bronze.psa_population`, `silver.psa_population_clean`, `silver.psa_population_reject`, `gold.fact_population_total` | `datasets/psa_population/...`, `gold/build_fact_population_total.py` | `population_extract`, `population_bronze`, `population_silver`, `population_total_gold` |
-| OpenStreetMap critical infrastructure | `bronze.osm_critical_infrastructures`, `silver.osm_critical_infrastructures_clean` | `datasets/osm_critical_infrastructures/pipeline.py` | `osm_extract`, `osm_bronze`, `osm_silver` |
+| PSA OpenSTAT population (table `0241A6DPUP1`) | `bronze.psa_population`, `silver.psa_population_clean`, `silver.psa_population_reject`, `gold.fact_population_total` | `datasets/psa_population/...`, 
