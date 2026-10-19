@@ -62,7 +62,6 @@ Replace every `null` with an approved value. If you already have a private overr
 | `hf_repo`, `hf_revision`, `ldrrmf_folder`, `ldrrmf_file_pattern`, `ldrrmf_expected_rows`, `ldrrmf_start_year`, `ldrrmf_end_year` | The Hugging Face dataset repository (`Jess-Christine/Project-AHON`) and a pinned full commit SHA, the LDRRMF folder and file name pattern (with the year in it), expected rows per fiscal year, and the fiscal year range (FY2018 to FY2024) |
 | `cmci_mapping_file`, `cmci_metric_version`, `cmci_run_mode`, `cmci_start_year`, `cmci_end_year`, `cmci_portal_url`, `cmci_process_url`, `cmci_test_limit`, `cmci_request_batch_size`, `cmci_request_delay`, `cmci_http_retries`, `cmci_http_backoff`, `cmci_user_agent`, `request_timeout` | The reviewed mapping CSV (step 5), the indicator set version, request settings and year range. Use `cmci_run_mode` = `test` until a full run is intended |
 | `start_month`, `end_month`, `earthquake_archive_url_template`, `earthquake_latest_url`, `source_timezone` | PHIVOLCS months to load (`YYYY-MM`, inclusive), the page addresses, and the publisher's time zone |
-| `osm_folder`, `osm_shapefile_stems` | OpenStreetMap inputs. Still required by the job, though their tables are not used downstream |
 
 Some values are JSON written as a string, with the inner quotes escaped:
 
@@ -71,7 +70,7 @@ Some values are JSON written as a string, with the inner quotes escaped:
 | `psgc_expected_rows` | `"{\"<snapshot>\":<count>}"` |
 | `ldrrmf_expected_rows` | `"{\"<fiscal year>\":<count>}"` |
 | `population_expected_profile` | a JSON list of four level counts, as a string |
-| `osm_shapefile_stems` | `"[\"<stem>\"]"` |
+
 
 These are shapes, not values. Expected counts are checks on what the source delivers; a run stops if the source does not match them.
 
