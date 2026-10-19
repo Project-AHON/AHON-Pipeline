@@ -77,10 +77,10 @@ Reconciliation requires both:
 
 Name-only matching is not sufficient because locality names such as `Parang` are not nationally unique.
 
-The reviewed mapping asset follows this path:
+The approved Q2 2024 mapping is packaged with the deployed source files:
 
 ```text
-/Volumes/<catalog>/reference/<source_volume>/cmci_reviewed_mapping_Q2_2024.csv
+src/sql/datasets/cmci/silver/cmci_reviewed_mapping_Q2_2024.csv
 ```
 
 Its required columns are:
