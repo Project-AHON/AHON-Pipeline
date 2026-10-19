@@ -18,9 +18,4 @@ All sources are public Philippine government data. Each is matched to the city o
 - API and web sources (PSGC, PSA population, PHIVOLCS, CMCI) are pulled by each dataset's `extract/` code and saved as raw files in the same volume.
 - Raw files are never changed. Bronze tables read from the volume and record where each row came from.
 
-## Not used
 
-| Dataset | Reason |
-| --- | --- |
-| NOAH flood, landslide and storm surge | Outside the earthquake focus |
-| OSM critical infrastructure | Pipeline exists, but not used in the analysis yet |
