@@ -7,7 +7,7 @@ Project AHON is a batch pipeline on Databricks. It lands public government data 
 ```mermaid
 flowchart LR
   subgraph Sources
-    PSA[PSA PSGC API<br/>codes + census population]
+    PSA[PSA PSGC API<br/>PSGC codes + PSA Population]
     PHV[PHIVOLCS website<br/>earthquake listings]
     DTI[DTI CMCI portal<br/>competitiveness indicators]
     HF[Hugging Face dataset<br/>BLGF LDRRMF workbooks]
@@ -86,7 +86,7 @@ The pipeline is a Databricks Asset Bundle (`databricks.yml`, jobs in `resources/
 
 | Job | Purpose |
 | --- | --- |
-| `catalog_setup` | Creates the six schemas in the catalog |
+| `catalog_setup` | Creates the catalog (if permitted), the six schemas, the `reference.source` volume and `monitoring.dq_result` |
 | `ahon_pipeline` | One task per dataset step (extract, bronze, silver, mapping, gold, platinum) |
 | `data_quality` | Development-only verification against test fixtures |
 
