@@ -17,7 +17,7 @@ Users, stakeholders and expected impact are in the [problem statement](docs/proj
 
 | Dataset | Publisher | Used for |
 | --- | --- | --- |
-| Philippine Standard Geographic Code (PSGC) | Philippine Statistics Authority (PSA) | The shared LGU codes and names (`gold.dim_lgu`) |
+| Philippine Standard Geographic Code (PSGC) | Philippine Statistics Authority (PSA) | The shared LGU codes and names |
 | PSA Population | PSA (census, from the PSGC API) | Exposure: residents per city and municipality |
 | Earthquake listings | Philippine Institute of Volcanology and Seismology (PHIVOLCS) | Hazard: earthquake counts, magnitude and depth |
 | Cities and Municipalities Competitiveness Index (CMCI) | Department of Trade and Industry (DTI) | Preparedness: resiliency indicators |
