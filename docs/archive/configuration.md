@@ -121,8 +121,6 @@ $fixtureCatalog = Read-Host 'Fresh isolated ahon_integration_* catalog'
 & $cli bundle run data_quality -t dev --profile $profile --params "catalog=$fixtureCatalog"
 ```
 
-Do not run the entire live graph until the CMCI mapping and every selected source input are approved. Independent branches remain usable while a source prerequisite is missing.
-
 ## 6. Review the changes and prepare the PR
 
 This worktree has branch `feature/configuration-pr-ready`. The previous checkout is preserved. Git records the entire pipeline diff against `main` and the smaller configuration-only preparation diff against `45b2caa`:
