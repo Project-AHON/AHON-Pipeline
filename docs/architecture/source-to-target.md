@@ -1,30 +1,78 @@
-# Executable source-to-target inventory
+# Source to target
 
-Baseline: `main` at `4d82f6b5010c715ed14eca490c5415692e8fc34e`, refreshed again without changes on 2026-10-15. Catalog and source-volume names are job parameters. Entry paths below are relative to `src/sql/`.
+Which script builds which table, from what, and in which job task. Paths are relative to `src/sql/`. Tasks are in `resources/jobs/ahon_job.yml` (job `ahon_pipeline`). Catalog and source-volume names are job parameters.
 
-| Dataset | Source / period | Grain and business keys | Tables | Entry points and dependencies | Status |
-| --- | --- | --- | --- | --- | --- |
-| PSGC | PSA classification API: Q2_2024, April_2024, Q4_2023, Q2_2021 | Raw file observation; Silver `(psgc_code, geographic_level, _api_period)` | `bronze.psa_psgc`, `silver.psa_psgc_clean`; code/geography rejects | `datasets/psa_psgc/extract/psa_psgc_ingest.py` → `bronze/psa_psgc.py` → `silver/psa_psgc_clean.py`; setup, approved PSA token secret | Live extraction, Bronze and Silver verified with configured secret; see validation evidence |
-| LGU dimension | Selected cleaned PSGC snapshot | One current geographic entity; `psgc_code` | `gold.dim_lgu` | `gold/dim_lgu.py` through `common/run_python.py`; PSGC Silver | Live selected snapshot verified; snapshot guarded |
-| City/municipality population | Direct PSGC CITY/MUN census records; census year separate from API snapshot | `(psgc_code, population_year)`; Silver also includes snapshot | `silver.psgc_city_population_clean`, `gold.fact_population`, `platinum.population_components` | `datasets/psa_psgc/silver/clean_city_population.py` → `gold/fact_population.py` and packaged candidate SQL; PSGC Silver and dimension | Canonical city/year contract; missing values/observations remain NULL; old barangay targets require reviewed migration |
-| PXWeb population | OpenSTAT 2024, table 0241A6DPUP1 | Source hierarchical geography × census year; 1,744 rows at four levels | `bronze.psa_population`, `silver.psa_population_clean`, `silver.psa_population_reject`, `gold.fact_population_total` | `datasets/psa_population/extract/extract_psa_population.py` → `bronze/load_psa_population.py` → `silver/clean_psa_population.py` → `gold/build_fact_population_total.py`; Gold requires PSGC reference | Executable; never writes `fact_population`; aggregates are separately marked |
-| CMCI | DTI portal HTML; configurable approved year window, selected 35 indicators | Silver/Gold `(psgc_code, year, indicator_code)`; raw response observation | `bronze.cmci_raw_indicator_batch_html`, `reference.cmci_lgu_map`, `silver.cmci_indicator_clean`, `silver.cmci_reject`, `gold.fact_cmci_indicator`, `gold.dim_cmci_indicator`, `platinum.cmci_pillar_coverage` | `datasets/cmci/pipeline.py --stage extract/bronze/silver/gold/platinum`; reviewed CSV, selected snapshot and dimension | Executable with reviewed mapping; source scope and test size are explicit inputs. Full mode is explicit |
-| LDRRMF | Seven BLGF workbooks, FY2018–2024, pinned HF commit | Original reporting entity `(fiscal_year, region, province, lgu_name, lgu_type)`; one combined report per entity/year, separate 70%/30% components | `bronze.blgf_ldrrmf_annual_lgu`, `reference.blgf_ldrrmf_lgu_map`, `silver.blgf_ldrrmf_annual_lgu_clean`/reject, `gold.fact_ldrrmf`, `platinum.funding_components` | Dataset extract → Bronze → `silver/build_blgf_ldrrmf_lgu_map.py` → Silver SQL → `gold/build_fact_ldrrmf.sql`; packaged override CSV, PSGC Silver/dimension | Executable; uncertain/name-only candidates remain unassigned |
-| Earthquake | PHIVOLCS monthly listings; explicit month window | Observation `(file digest, row ordinal)`; no approved event business key | `bronze.philvolcs_earthquake_observation`, `silver.philvolcs_earthquake_observation_clean`/reject, `platinum.earthquake_observation_summary` | Dataset extract → `observation_pipeline.py --stage bronze/silver`; Silver requires selected PSGC snapshot | Observation processing executable; event Gold and LGU exposure assignment blocked |
-| OSM | Four shapefiles and sidecars, pinned HF commit; extraction date is not feature reference date | Source feature `(combined sidecar digest, source_file, row ordinal)` | `bronze.osm_critical_infrastructures`, `silver.osm_critical_infrastructures_clean` | `datasets/osm_critical_infrastructures/pipeline.py --stage extract/bronze/silver`; known CRS, complete sidecars, geospatial wheels | Executable; retains raw attributes/geometry/CRS; no inferred LGU or facility capacity |
+Raw files land under `/Volumes/<catalog>/reference/<source_volume>/<dataset>/<batch_id>/`. `_SUCCESS.json` records file name, SHA-256 and parsed source-row count. Existing completed batches cannot change; source corrections use a new batch ID.
 
-Raw files land under `/Volumes/<catalog>/reference/<source_volume>/<dataset>/<batch_id>/`. `_SUCCESS.json` records file name, SHA-256 and parsed source-row count. Existing completed batches cannot change. Source corrections use a new batch ID; identical content is not duplicated by replay. PSGC, CMCI and fiscal current-state records select/update explicitly newer source observations. Independent sources only depend on setup; Gold/reference-dependent nodes wait for the required checks.
+## PSGC
 
-## PR decisions
+Source: PSA PSGC classification API, snapshots `Q2_2024`, `April_2024`, `Q4_2023`, `Q2_2021`; selected snapshot `Q2_2024`. Needs the PSA token secret.
 
-All 52 pull requests returned by GitHub were refreshed on 2026-10-15: 2 open, 27 merged, 23 closed without merging. Only #54 and draft #89 are open. The earlier reuse/exclusion decisions remain applicable. No PR was merged, approved, commented on or published.
+| Target | Built from | Script | Task |
+| --- | --- | --- | --- |
+| Raw JSONL, one file per snapshot | PSA API | `datasets/psa_psgc/extract/psa_psgc_ingest.py` | `psgc_extract` |
+| `bronze.psa_psgc` | Raw JSONL | `datasets/psa_psgc/bronze/psa_psgc.py` | `psgc_bronze` |
+| `silver.psa_psgc_clean`, `silver.psa_psgc_reject`, `silver.psa_psgc_code_reject` | `bronze.psa_psgc` | `datasets/psa_psgc/silver/psa_psgc_clean.py` | `psgc_silver` |
+| `gold.dim_lgu` | `silver.psa_psgc_clean` (selected snapshot) | `gold/dim_lgu.py` | `dim_lgu` |
 
-- **#91:** already on main. Initially retained its barangay grain while fixing runtime, NULL and cardinality defects. The user's later explicit city/municipality requirement supersedes that retention: the canonical population fact now uses direct PSGC CITY/MUN records keyed by code/census year. This breaking change is recorded in decision 0012; existing barangay tables are preserved and blocked from automatic migration. PXWeb hierarchy totals remain a separate source contract.
-- **#89:** reused guarded file landing, Delta upserts, SQL/Python job launchers, ingestion corrections, conservative BLGF matching and compact CMCI parsing selectively. Excluded its separate jobs per dataset, integration/evidence job hierarchy, generic finalization, broad decision/document deletion, validation claims and conflicting population target. Verification in this branch is fresh evidence, not inherited claims.
-- **#54:** source assets verified at HF commit `9273d4b4d5af6d2a14e52451c45ac70a6e3012f5`. Reused the four-file intent and geometry workflow; corrected mixed CRS handling, missing-CRS assumptions, competing table names, overwrites and unstable provenance. Point coordinates are optional for polygon features; geometries remain available.
-- **#85/#88:** #85 reached main, but #88 merged into its branch after #85 merged. Its Gold files are absent from main. Its proposed event signature and locality relationship are not accepted as established event/exposure contracts.
-- **#81/#84/#75/#73/#69/#66:** merged baseline work informed financial, CMCI, population and bundle contracts. Retained the established folder structure and dimension; corrected incompatible or incomplete runtime references rather than re-merging branches.
+## PSA Population
 
-Standard PSGC, PXWeb, BLGF and CMCI Bronze identities include the immutable delivery batch ID, file digest and raw row hash. Same-batch replay preserves identities; a new delivery of identical content creates a new observation, permitting source-value reversions. Earlier file-only identity tables are guarded and require a fresh catalog or reviewed migration. Earthquake and OSM preserve their explicit file/ordinal observation grains separately.
+Source: PSA census population inside the PSGC API records (`populations_json`); census year set by `census_year`.
 
-Operational configuration has no committed defaults. Source locations, expected profiles, reference windows and execution settings are required bundle inputs. The periods/counts listed above describe the assessed sources, not baked-in processing limits. CMCI metadata is an explicit synchronized CSV asset.
+| Target | Built from | Script | Task |
+| --- | --- | --- | --- |
+| `silver.psgc_city_population_clean` | `silver.psa_psgc_clean` (`CITY`, `MUN`) | `datasets/psa_psgc/silver/clean_city_population.py` | `psgc_population_silver` |
+| `gold.fact_population` | `gold.dim_lgu`, `silver.psgc_city_population_clean` | `gold/fact_population.py` (query in `gold/fact_population_candidate.sql`) | `population_gold` |
+| `platinum.population_components` (view) | `gold.fact_population` | `platinum/population_components.sql` | `population_components` |
+
+## PHIVOLCS earthquakes
+
+Source: PHIVOLCS monthly listings, months from `start_month` to `end_month`.
+
+| Target | Built from | Script | Task |
+| --- | --- | --- | --- |
+| Raw CSV, one file per month | PHIVOLCS website | `datasets/philvolcs_earthquake/extract/philvolcs_earthquake_ingest.py` | `earthquake_extract` |
+| `bronze.philvolcs_earthquake_observation` | Raw CSV | `datasets/philvolcs_earthquake/observation_pipeline.py --stage bronze` | `earthquake_bronze` |
+| `silver.philvolcs_earthquake_observation_clean`, `silver.philvolcs_earthquake_reject` | `bronze.philvolcs_earthquake_observation`, `silver.psa_psgc_clean` | `datasets/philvolcs_earthquake/observation_pipeline.py --stage silver` | `earthquake_silver` |
+| `platinum.earthquake_observation_summary` (view) | `silver.philvolcs_earthquake_observation_clean` | `platinum/earthquake_components.sql` | `earthquake_components` |
+
+No earthquake gold table yet: event identity and LGU assignment are not approved.
+
+## CMCI
+
+Source: DTI CMCI portal, years `cmci_start_year` to `cmci_end_year`, 35 selected indicators (`resources/cmci_indicators.csv`). Needs the reviewed mapping CSV (`cmci_mapping_file`).
+
+| Target | Built from | Script | Task |
+| --- | --- | --- | --- |
+| Raw HTML responses | CMCI portal | `datasets/cmci/pipeline.py --stage extract` | `cmci_extract` |
+| `bronze.cmci_raw_indicator_batch_html` | Raw responses | `datasets/cmci/pipeline.py --stage bronze` | `cmci_bronze` |
+| `reference.cmci_lgu_map` | Reviewed mapping CSV, `gold.dim_lgu` | `datasets/cmci/pipeline.py --stage bronze` | `cmci_bronze` |
+| `silver.cmci_indicator_clean`, `silver.cmci_reject` | `bronze.cmci_raw_indicator_batch_html` | `datasets/cmci/pipeline.py --stage silver` | `cmci_silver` |
+| `gold.fact_cmci_indicator`, `gold.dim_cmci_indicator` | `silver.cmci_indicator_clean`, `silver.cmci_reject`, `resources/cmci_indicators.csv` | `datasets/cmci/pipeline.py --stage gold` | `cmci_gold` |
+| `platinum.cmci_pillar_coverage` | `gold.fact_cmci_indicator`, `gold.dim_cmci_indicator` | `datasets/cmci/pipeline.py --stage platinum` | `cmci_platinum` |
+
+## BLGF LDRRMF
+
+Source: seven BLGF workbooks, FY2018 to FY2024, from a pinned Hugging Face commit (`hf_repo`, `hf_revision`).
+
+| Target | Built from | Script | Task |
+| --- | --- | --- | --- |
+| Raw workbooks | Hugging Face dataset | `datasets/blgf_ldrrmf_annual_lgu/extract/extract_blgf_ldrrmf_annual_lgu.py` | `ldrrmf_extract` |
+| `bronze.blgf_ldrrmf_annual_lgu` | Raw workbooks | `datasets/blgf_ldrrmf_annual_lgu/bronze/load_blgf_ldrrmf_annual_lgu.py` | `ldrrmf_bronze` |
+| `reference.blgf_ldrrmf_lgu_map` | `bronze.blgf_ldrrmf_annual_lgu`, `silver.psa_psgc_clean`, `blgf_ldrrmf_lgu_map_overrides.csv` | `datasets/blgf_ldrrmf_annual_lgu/silver/build_blgf_ldrrmf_lgu_map.py` | `ldrrmf_mapping` |
+| `silver.blgf_ldrrmf_annual_lgu_clean`, `silver.blgf_ldrrmf_annual_lgu_reject` | `bronze.blgf_ldrrmf_annual_lgu`, `reference.blgf_ldrrmf_lgu_map` | `datasets/blgf_ldrrmf_annual_lgu/silver/clean_blgf_ldrrmf_annual_lgu.sql` | `ldrrmf_silver` |
+| `gold.fact_ldrrmf` | `silver.blgf_ldrrmf_annual_lgu_clean`, `gold.dim_lgu` | `gold/build_fact_ldrrmf.sql` | `ldrrmf_gold` |
+| `platinum.funding_components` (view) | `gold.fact_ldrrmf`, `gold.dim_lgu` | `platinum/funding_components.sql` | `funding_components` |
+
+## Setup
+
+| Target | Script | Task |
+| --- | --- | --- |
+| Schemas `bronze`, `silver`, `gold`, `platinum`, `reference`, `monitoring` | `00_setup/00_catalog_schema_setup.sql` | `setup` (also job `catalog_setup`) |
+
+## Also in the job, not used downstream
+
+| Dataset | Targets | Script | Tasks |
+| --- | --- | --- | --- |
+| PSA OpenSTAT population (table `0241A6DPUP1`) | `bronze.psa_population`, `silver.psa_population_clean`, `silver.psa_population_reject`, `gold.fact_population_total` | `datasets/psa_population/...`, `gold/build_fact_population_total.py` | `population_extract`, `population_bronze`, `population_silver`, `population_total_gold` |
+| OpenStreetMap critical infrastructure | `bronze.osm_critical_infrastructures`, `silver.osm_critical_infrastructures_clean` | `datasets/osm_critical_infrastructures/pipeline.py` | `osm_extract`, `osm_bronze`, `osm_silver` |
