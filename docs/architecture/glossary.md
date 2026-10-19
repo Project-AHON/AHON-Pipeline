@@ -15,8 +15,7 @@ Acronyms and terms used in the AHON docs and code.
 | **LDRRMF** | Local Disaster Risk Reduction and Management Fund. At least 5% of an LGU's regular income, set aside for disasters: 70% for preparedness and mitigation, 30% for the Quick Response Fund (QRF) |
 | **QRF** | Quick Response Fund. The 30% of the LDRRMF kept for response after a disaster |
 | **OpenSTAT / PXWeb** | PSA's statistics portal and the software behind it. One population table comes from it; it is not used by the dashboard |
-| **OSM** | OpenStreetMap. Source of critical infrastructure locations; loaded but not used by the dashboard |
-| **NOAH** | Nationwide Operational Assessment of Hazards (flood, landslide, storm surge maps). Out of scope |
+
 
 ## Places
 
