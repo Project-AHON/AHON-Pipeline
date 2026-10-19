@@ -1,4 +1,4 @@
-# AHON-Pipeline
+# AHON-Pipeline WIP
 
 For a fresh checkout, follow the [start-to-finish configuration guide](docs/operations/configuration.md). Its blank template covers every required bundle input; credentials and target settings stay local.
 
