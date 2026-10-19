@@ -1,6 +1,6 @@
-# 0005: CMCI locality mapping and incremental ingestion
+# 0006: CMCI locality mapping and incremental ingestion
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-10-06
 
 ## Context

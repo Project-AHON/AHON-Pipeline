@@ -1,4 +1,4 @@
-# 0010: Reconcile executable source and analytical contracts
+# 0015: Reconcile executable source and analytical contracts
 
 - Status: Proposed for team review; implemented locally on `feature/pipeline-reconciliation`
 - Date: 2026-10-14

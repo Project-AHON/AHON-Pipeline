@@ -1,4 +1,4 @@
-# 0011: Use GX for dataset quality gates
+# 0016: Use GX for dataset quality gates
 
 - Status: Implemented following the user's request; team review remains required
 - Date: 2026-10-15

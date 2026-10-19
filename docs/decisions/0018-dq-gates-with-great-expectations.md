@@ -1,4 +1,4 @@
-# 0010: Data quality gates with Great Expectations
+# 0018: Data quality gates with Great Expectations
 
 - **Status:** Proposed
 - **Date:** 2026-10-15

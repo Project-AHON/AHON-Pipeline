@@ -1,4 +1,4 @@
-# 0007: Preserve earthquake observations and report locality candidates
+# 0014: Preserve earthquake observations and report locality candidates
 
 - **Status:** Proposed
 - **Date:** 2026-10-12

@@ -1,4 +1,4 @@
-# 0012: City/municipality analytical grain
+# 0017: City/municipality analytical grain
 
 - Status: Implemented following the user's explicit grain correction; pending team review
 - Date: 2026-10-15
