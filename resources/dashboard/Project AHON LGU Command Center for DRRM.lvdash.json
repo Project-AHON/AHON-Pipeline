@@ -1343,9 +1343,9 @@
               "lines": [
                 "# <span style=\"font-size:56px;font-weight:700;line-height:1.5;color:#5FA8D3\">AHON: My LGU</span>\n",
                 "\n",
-                "## <span style=\"font-size: 24px;\">My LGU DRRM Command Center</span>\n",
+                "## <span style=\"font-size: 24px;color: #425E94;\">My LGU DRRM Command Center</span>\n",
                 "\n",
-                "Select a section below to explore the dashboard."
+                "<span style=\"color: #425E94;\">Select a section below to explore the dashboard.</span>"
               ]
             }
           },
@@ -1361,9 +1361,9 @@
             "name": "card_risk",
             "multilineTextboxSpec": {
               "lines": [
-                "### [→ Hazard Risk & Exposure Profile](/sql/dashboardsv3/01f1c8b6dae61b53848587474bfa4686/pages/170a5295)\n",
+                "### [<span style=\"font-size: 36px;line-height: 1.5;\">→ Hazard Risk & Exposure Profile</span>](/sql/dashboardsv3/01f1c8b6dae61b53848587474bfa4686/pages/170a5295)\n",
                 "\n",
-                "LGU monitoring coverage, population exposure, earthquake hazard points, and DRRM fund utilization maps.<br>"
+                "<span style=\"font-size:14px\">LGU monitoring coverage, population exposure, earthquake hazard points, and DRRM fund utilization maps.</span><br>"
               ]
             }
           },
@@ -1379,9 +1379,9 @@
             "name": "card_vulnerability",
             "multilineTextboxSpec": {
               "lines": [
-                "### [→ Vulnerability Matrix](/sql/dashboardsv3/01f1c8b6dae61b53848587474bfa4686/pages/vulnerability_matrix)\n",
+                "### [<span style=\"font-size: 36px;line-height: 1.5;\">→ Vulnerability Matrix</span>](/sql/dashboardsv3/01f1c8b6dae61b53848587474bfa4686/pages/vulnerability_matrix)\n",
                 "\n",
-                "Population exposure vs DRRM fund readiness — high-population LGUs with low utilization.<br>\n",
+                "<span style=\"font-size:14px\">Population exposure vs DRRM fund readiness — high-population LGUs with low utilization.</span><br>\n",
                 "<p>&nbsp;</p>\n"
               ]
             }
@@ -1398,9 +1398,9 @@
             "name": "card_priority",
             "multilineTextboxSpec": {
               "lines": [
-                "### [→ DRRM Priority Actions & Preparedness Shortfall](/sql/dashboardsv3/01f1c8b6dae61b53848587474bfa4686/pages/priority_actions)\n",
+                "### [<span style=\"font-size: 32px;\">→ DRRM Priority Actions & Preparedness Shortfall</span>](/sql/dashboardsv3/01f1c8b6dae61b53848587474bfa4686/pages/priority_actions)\n",
                 "\n",
-                "Weakest CMCI pillars by LGU and region, plus appropriations vs expenditures and shortfall tiers per LGU.<br>\n",
+                "<span style=\"font-size:14px\">Weakest CMCI pillars by LGU and region, plus appropriations vs expenditures and shortfall tiers per LGU.</span><br>\n",
                 "<p>&nbsp;</p>\n"
               ]
             }
@@ -1458,65 +1458,58 @@
         },
         {
           "widget": {
-            "name": "4b23c8d1",
+            "name": "5c24dd34",
             "multilineTextboxSpec": {
               "lines": [
-                "# 📖  AHON: My LGU Command Center\n",
+                "# 📖 <span style=\"font-weight:700;color:#5FA8D3\">AHON: My LGU Command Center</span>\n",
                 "\n",
-                "**What this is:** A DRRM (Disaster Risk Reduction & Management) command center for Philippine cities and municipalities, combining **LDRRM fund utilization**, **CMCI competitiveness scores**, **population exposure**, and **PHIVOLCS seismic activity**.\n",
+                "<span style=\"font-size:18px\">**What this is:**</span><span style=\"font-size:18px\"> A DRRM (Disaster Risk Reduction & Management) command center for Philippine cities and municipalities, combining </span><span style=\"font-size:18px\">**LDRRM fund utilization**</span><span style=\"font-size:18px\">, </span><span style=\"font-size:18px\">**CMCI competitiveness scores**</span><span style=\"font-size:18px\">, </span><span style=\"font-size:18px\">**population exposure**</span><span style=\"font-size:18px\">, and </span><span style=\"font-size:18px\">**PHIVOLCS seismic activity**</span><span style=\"font-size:18px\">.</span>\n",
                 "\n",
-                "## Pages\n",
-                "\n",
-                "| Page | What it shows |\n",
+                "| <span style=\"font-size:24px;color:#5FA8D3\">**Page**</span> | <span style=\"font-size:24px;color:#5FA8D3\">**What it shows**</span> |\n",
                 "| :--- | :--- |\n",
-                "| **Hazard Risk & Exposure Profile** | Monitoring coverage, population by region, earthquake epicenters, funding table, and choropleth maps of fund utilization |\n",
-                "| **Vulnerability Matrix** | Population exposure vs DRRM fund readiness to determine the high population LGUs with low utilization |\n",
-                "| **DRRM Priority Actions** | Weakest CMCI pillars per LGU/region and readiness shortfall tiers |\n",
+                "| <span style=\"font-size:18px\">**Hazard Risk & Exposure Profile**</span> | <span style=\"font-size:18px\">Monitoring coverage, population by region, earthquake epicenters, funding table, and choropleth maps of fund utilization</span> |\n",
+                "| <span style=\"font-size:18px\">**Vulnerability Matrix**</span> | <span style=\"font-size:18px\">Population exposure vs DRRM fund readiness to determine the high population LGUs with low utilization</span> |\n",
+                "| <span style=\"font-size:18px\">**DRRM Priority Actions**</span> | <span style=\"font-size:18px\">Weakest CMCI pillars per LGU/region and readiness shortfall tiers</span> |\n",
                 "\n",
-                "## How to use the filters\n",
+                "## <span style=\"color:#5FA8D3;font-size:24px\">How to use the filters</span>\n",
                 "\n",
-                "- **Region / Province filters** (top sidebar, apply to every page) — narrow all visuals to a region or province.\n",
-                "- **Fiscal Year filter** — the YoY figures on *Vulnerability Matrix* compare the selected year against the year before.\n",
-                "- **LGU Name Search** — type to find a specific city/municipality across all pages.\n",
-                "- Clicking a region on a map or bar chart cross-filters the other visuals on that page. Click again (or use *Clear*) to reset.\n",
+                "- <span style=\"font-size:18px\">**Region / Province filters**</span><span style=\"font-size:18px\"> (top sidebar, apply to every page) — narrow all visuals to a region or province.</span>\n",
+                "- <span style=\"font-size:18px\">**Fiscal Year filter**</span><span style=\"font-size:18px\"> — the YoY figures on </span><span style=\"font-size:18px\">*Vulnerability Matrix*</span><span style=\"font-size:18px\"> compare the selected year against the year before.</span>\n",
+                "- <span style=\"font-size:18px\">**LGU Name Search**</span><span style=\"font-size:18px\"> — type to find a specific city/municipality across all pages.</span>\n",
+                "    - <span style=\"font-size:18px\">Clicking a region on a map or bar chart cross-filters the other visuals on that page. Click again (or use </span><span style=\"font-size:18px\">*Clear*</span><span style=\"font-size:18px\">) to reset.</span>\n",
                 "\n",
-                "## Metric definitions\n",
+                "## <span style=\"font-size:24px;color:#5FA8D3\">Metric definitions</span>\n",
                 "\n",
-                "- **Utilization rate** = total expenditure ÷ total appropriation of the LDRRM fund, per LGU and fiscal year.\n",
-                "- **Readiness tiers** (4-tier ranking):\n",
-                "- *Tier 1 — Critical:* utilization below 25%\n",
-                "- *Tier 2 — High:* 25–50%\n",
-                "- *Tier 3 — Moderate:* 50–75%\n",
-                "- *Tier 4 — On Track:* 75% and above\n",
-                "- **CMCI readiness** = data coverage and average raw score across the CMCI pillars (Economic Dynamism, Government Efficiency, Infrastructure) plus Resiliency indicators, latest recorded year per LGU.\n",
-                "- **Unspent funds** = appropriation − expenditure.\n",
+                "- <span style=\"font-size:18px\">**Utilization rate**</span><span style=\"font-size:18px\"> = total expenditure ÷ total appropriation of the LDRRM fund, per LGU and fiscal year.</span>\n",
+                "- <span style=\"font-size:18px\">**Readiness tiers**</span><span style=\"font-size:18px\"> (4-tier ranking):</span>\n",
+                "    - <span style=\"font-size:18px\">*Tier 1 — Critical:*</span><span style=\"font-size:18px\"> utilization below 25%</span>\n",
+                "    - <span style=\"font-size:18px\">*Tier 2 — High:*</span><span style=\"font-size:18px\"> 25–50%</span>\n",
+                "    - <span style=\"font-size:18px\">*Tier 3 — Moderate:*</span><span style=\"font-size:18px\"> 50–75%</span>\n",
+                "    - <span style=\"font-size:18px\">*Tier 4 — On Track:*</span><span style=\"font-size:18px\"> 75% and above</span>\n",
+                "- <span style=\"font-size:18px\">**CMCI readiness**</span><span style=\"font-size:18px\"> = data coverage and average raw score across the CMCI pillars (Economic Dynamism, Government Efficiency, Infrastructure) plus Resiliency indicators, latest recorded year per LGU.</span>\n",
+                "- <span style=\"font-size:18px\">**Unspent funds**</span><span style=\"font-size:18px\"> = appropriation − expenditure.</span>\n",
                 "\n",
-                "## Data sources\n",
+                "## <span style=\"font-weight:700\">Data sources</span>\n",
                 "\n",
-                "| Source | Used for |\n",
+                "| <span style=\"font-size:18px;color:#5FA8D3\">**Source**</span> | <span style=\"font-size:18px;color:#5FA8D3\">**Purpose**</span> |\n",
                 "| :--- | :--- |\n",
-                "| `BLGF-LDRRMF` | LDRRM fund appropriations/expenditures, LGU registry & PSGC keys |\n",
-                "| `CMCI` | CMCI indicator scores (35 indicators, 4 pillars) |\n",
-                "| `PSA Population Statistics` | Latest census population per PSGC |\n",
-                "| `Philvolcs Earthquake Monitoring Activities` | Earthquake epicenters (M ≥ 4.5) |\n",
-                "| `PH Administrative Boundaries` | City/municipality boundary polygons for choropleth maps |\n",
+                "| <span style=\"font-size:18px\">`BLGF-LDRRMF`</span> | <span style=\"font-size:18px\">LDRRM fund appropriations/expenditures, LGU registry & PSGC keys</span> |\n",
+                "| <span style=\"font-size:18px\">`CMCI`</span> | <span style=\"font-size:18px\">CMCI indicator scores (35 indicators, 4 pillars)</span> |\n",
+                "| <span style=\"font-size:18px\">`PSA Population Statistics`</span> | <span style=\"font-size:18px\">Latest census population per location</span> |\n",
+                "| <span style=\"font-size:18px\">`Philvolcs Earthquake Monitoring Activities`</span> | <span style=\"font-size:18px\">Earthquake epicenters (M ≥ 4.5)</span> |\n",
+                "| <span style=\"font-size:18px\">`PH Administrative Boundaries`</span> | <span style=\"font-size:18px\">City/municipality boundary polygons for choropleth maps</span> |\n",
                 "\n",
-                "## Refresh\n",
+                "## <span style=\"color:#5FA8D3\">Refresh</span>\n",
                 "\n",
-                "The dashboard is published and refreshes on a daily schedule."
+                "<span style=\"font-size:18px\">The dashboard is published and refreshes on a daily schedule.</span>"
               ]
-            },
-            "specExtensions": {
-              "widgetBackgroundColor": {
-                "dark": "#FFFFFF"
-              }
             }
           },
           "position": {
             "x": 0,
             "y": 9,
             "width": 12,
-            "height": 17
+            "height": 16
           }
         }
       ],
@@ -1532,9 +1525,9 @@
             "name": "header",
             "multilineTextboxSpec": {
               "lines": [
-                "## <span style=\"font-size:36px;font-weight:700;line-height:1.5\">Hazard Risk & Exposure Profile</span>\n",
+                "## <span style=\"font-size:36px;font-weight:700;line-height:1.5;color:#425E94\">Hazard Risk & Exposure Profile</span>\n",
                 "\n",
-                "LGU monitoring coverage, population exposure, and DRRM fund utilization in the Philippines\n",
+                "<span style=\"font-size: 18px;color: #5FA8D3;\">LGU monitoring coverage, population exposure, and DRRM fund utilization in the Philippines</span>\n",
                 "<p>&nbsp;</p>\n"
               ]
             }
@@ -1567,7 +1560,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Total LDRRM Appropriation",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Total LDRRM Appropriation</span>",
                   "fields": []
                 }
               },
@@ -1639,10 +1632,6 @@
                     {
                       "name": "LGU_DRRM_Funding__utilization_tier",
                       "expression": "`LGU_DRRM_Funding`.`utilization_tier`"
-                    },
-                    {
-                      "name": "LGU_DRRM_Funding__match_status",
-                      "expression": "`LGU_DRRM_Funding`.`match_status`"
                     }
                   ],
                   "disaggregated": false
@@ -1653,7 +1642,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "LGU Funding Detail",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">LGU Funding Detail</span>",
                   "fields": []
                 }
               },
@@ -1662,31 +1651,36 @@
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "LGU_DRRM_Funding__lgu_name"
+                    "fieldName": "LGU_DRRM_Funding__lgu_name",
+                    "displayName": "LGU Name"
                   },
                   {
-                    "fieldName": "LGU_DRRM_Funding__province"
+                    "fieldName": "LGU_DRRM_Funding__province",
+                    "displayName": "Province"
                   },
                   {
-                    "fieldName": "LGU_DRRM_Funding__fiscal_year"
+                    "fieldName": "LGU_DRRM_Funding__fiscal_year",
+                    "displayName": "Year"
                   },
                   {
-                    "fieldName": "measure(LGU_DRRM_Funding__total_appropriation)"
+                    "fieldName": "measure(LGU_DRRM_Funding__total_appropriation)",
+                    "displayName": "Total Appropriation"
                   },
                   {
-                    "fieldName": "measure(LGU_DRRM_Funding__total_expenditure)"
+                    "fieldName": "measure(LGU_DRRM_Funding__total_expenditure)",
+                    "displayName": "Total Expenditure"
                   },
                   {
-                    "fieldName": "measure(LGU_DRRM_Funding__unspent_funds)"
+                    "fieldName": "measure(LGU_DRRM_Funding__unspent_funds)",
+                    "displayName": "Unspent Funds"
                   },
                   {
-                    "fieldName": "measure(LGU_DRRM_Funding__avg_utilization_rate)"
+                    "fieldName": "measure(LGU_DRRM_Funding__avg_utilization_rate)",
+                    "displayName": "Utilization Rate"
                   },
                   {
-                    "fieldName": "LGU_DRRM_Funding__utilization_tier"
-                  },
-                  {
-                    "fieldName": "LGU_DRRM_Funding__match_status"
+                    "fieldName": "LGU_DRRM_Funding__utilization_tier",
+                    "displayName": "Utilization Tier"
                   }
                 ]
               },
@@ -1743,7 +1737,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Earthquake Epicenter Points (PHIVOLCS, M4.5+)",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Earthquake Epicenter Points </span>",
                   "fields": []
                 }
               },
@@ -1771,6 +1765,7 @@
                     "position": "top",
                     "title": "Magnitude (M4.5+)"
                   },
+                  "displayName": "Magnitude",
                   "scale": {
                     "colorRamp": {
                       "mode": "scheme",
@@ -1783,17 +1778,21 @@
                   "fieldName": "PHIVOLCS_Earthquake_Epicenters__magnitude",
                   "scale": {
                     "type": "quantitative"
-                  }
+                  },
+                  "displayName": "Magnitude"
                 },
                 "extra": [
                   {
-                    "fieldName": "PHIVOLCS_Earthquake_Epicenters__location"
+                    "fieldName": "PHIVOLCS_Earthquake_Epicenters__location",
+                    "displayName": "Location"
                   },
                   {
-                    "fieldName": "PHIVOLCS_Earthquake_Epicenters__event_time"
+                    "fieldName": "PHIVOLCS_Earthquake_Epicenters__event_time",
+                    "displayName": "Timestamp"
                   },
                   {
-                    "fieldName": "PHIVOLCS_Earthquake_Epicenters__year"
+                    "fieldName": "PHIVOLCS_Earthquake_Epicenters__year",
+                    "displayName": "Year"
                   }
                 ]
               },
@@ -1880,11 +1879,11 @@
                 "showDescription": true,
                 "showTitle": true,
                 "title": {
-                  "value": "Critical LGUs — Risk Exposure vs Budget Capacity",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Critical LGUs — Risk Exposure vs Budget Capacity</span>",
                   "fields": []
                 },
                 "description": {
-                  "value": "Each point is a city/municipality. Upper-left = high earthquake exposure with low fund utilization: the most critical LGUs.",
+                  "value": "<span style=\"font-size: 14px;\">Each point is a city/municipality. Upper-left = high earthquake exposure with low fund utilization: the most critical LGUs.</span>",
                   "fields": []
                 }
               },
@@ -1945,7 +1944,7 @@
                 "x": {
                   "fieldName": "measure(CityMunicipality_DRRM_Boundaries_Map__avg_utilization)",
                   "axis": {
-                    "title": "Avg Fund Utilization (all years)"
+                    "title": "Utilization Rate"
                   },
                   "displayName": "Utilization Rate",
                   "scale": {
@@ -1955,7 +1954,7 @@
                 "y": {
                   "fieldName": "measure(CityMunicipality_DRRM_Boundaries_Map__quake_count)",
                   "axis": {
-                    "title": "Earthquakes M4.5+ within 200 km"
+                    "title": "Number of Earthquakes within 200 km"
                   },
                   "displayName": "Earthquake Activities Count",
                   "scale": {
@@ -2069,7 +2068,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Selected LGU Tier",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Utilization Tier</span>",
                   "fields": []
                 }
               },
@@ -2114,7 +2113,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Selected LGU",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Selected LGU</span>",
                   "fields": []
                 }
               },
@@ -2123,7 +2122,8 @@
               "encodings": {
                 "value": {
                   "fieldName": "max(LGU_DRRM_Funding__lgu_name)",
-                  "rowNumber": 0
+                  "rowNumber": 0,
+                  "formatTemplate": "{{ @formatted }}"
                 }
               },
               "data": {
@@ -2143,7 +2143,7 @@
             "name": "lgu-name",
             "queries": [
               {
-                "name": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_area_name",
+                "name": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_area_name",
                 "query": {
                   "datasetName": "lgu_registry",
                   "fields": [
@@ -2164,14 +2164,17 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "title": "LGU Name Filter"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">LGU Name</span>",
+                  "fields": []
+                }
               },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
                     "fieldName": "area_name",
-                    "queryName": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_area_name"
+                    "queryName": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_area_name"
                   }
                 ]
               }
@@ -2189,7 +2192,7 @@
             "name": "province",
             "queries": [
               {
-                "name": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_province_name",
+                "name": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_province_name",
                 "query": {
                   "datasetName": "lgu_registry",
                   "fields": [
@@ -2210,14 +2213,17 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "title": "Province Filter"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Province</span>",
+                  "fields": []
+                }
               },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
                     "fieldName": "province_name",
-                    "queryName": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_province_name"
+                    "queryName": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_province_name"
                   }
                 ]
               }
@@ -2235,7 +2241,7 @@
             "name": "year",
             "queries": [
               {
-                "name": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/b8849dc5a2e547849e80c4d1ea56f50a_fiscal_year",
+                "name": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271818a5b6e14bb4fd84bf_fiscal_year",
                 "query": {
                   "datasetName": "lgu_funding_yoy",
                   "fields": [
@@ -2256,14 +2262,17 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "title": "Year Filter"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Year</span>",
+                  "fields": []
+                }
               },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
                     "fieldName": "fiscal_year",
-                    "queryName": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/b8849dc5a2e547849e80c4d1ea56f50a_fiscal_year"
+                    "queryName": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271818a5b6e14bb4fd84bf_fiscal_year"
                   }
                 ]
               }
@@ -2289,9 +2298,9 @@
             "name": "header",
             "multilineTextboxSpec": {
               "lines": [
-                "## <span style=\"font-size:36px;font-weight:700;line-height:1.5\">Vulnerability Matrix</span>\n",
+                "## <span style=\"font-size: 36px;font-weight: 700;line-height: 1.5;color: #425E94;\">Vulnerability Matrix</span>\n",
                 "\n",
-                "Population exposure vs DRRM fund readiness — high-population LGUs with low utilization are the priority for allocation.\n",
+                "<span style=\"font-size:18px\">Population exposure vs DRRM fund readiness — high-population LGUs with low utilization are the priority for allocation.</span>\n",
                 "<p>&nbsp;</p>\n"
               ]
             }
@@ -2324,7 +2333,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Total Appropriation",
+                  "value": "<span style=\"text-align:center;display:block\"><span style=\"font-size: 24px;color: #425E94;\">Total Appropriation</span></span>",
                   "fields": []
                 }
               },
@@ -2378,7 +2387,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Unspent Funds",
+                  "value": "<span style=\"text-align:center;display:block\"><span style=\"font-size: 24px;color: #425E94;\">Unspent Funds</span></span>",
                   "fields": []
                 }
               },
@@ -2452,7 +2461,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "4-Tier LGU Readiness Ranking Choropleth",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">4-Tier LGU Readiness Ranking Choropleth</span>",
                   "fields": []
                 }
               },
@@ -2552,7 +2561,10 @@
             "spec": {
               "frame": {
                 "showTitle": true,
-                "title": "Utilization Rate"
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block\"><span style=\"font-size: 24px;color: #425E94;\">Utilization Rate</span></span>",
+                  "fields": []
+                }
               },
               "version": 2,
               "widgetType": "counter",
@@ -2601,7 +2613,10 @@
             "spec": {
               "frame": {
                 "showTitle": true,
-                "title": "Selected LGU"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Selected LGU</span>",
+                  "fields": []
+                }
               },
               "version": 2,
               "widgetType": "counter",
@@ -2643,7 +2658,10 @@
             "spec": {
               "frame": {
                 "showTitle": true,
-                "title": "Selected LGU Tier"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Selected LGU Tier</span>",
+                  "fields": []
+                }
               },
               "version": 2,
               "widgetType": "counter",
@@ -2670,7 +2688,7 @@
             "name": "lgu-name",
             "queries": [
               {
-                "name": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_area_name",
+                "name": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_area_name",
                 "query": {
                   "datasetName": "lgu_registry",
                   "fields": [
@@ -2691,14 +2709,17 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "title": "LGU Name Filter"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">LGU Name</span>",
+                  "fields": []
+                }
               },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
                     "fieldName": "area_name",
-                    "queryName": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_area_name"
+                    "queryName": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_area_name"
                   }
                 ]
               }
@@ -2716,7 +2737,7 @@
             "name": "year",
             "queries": [
               {
-                "name": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/b8849dc5a2e547849e80c4d1ea56f50a_fiscal_year",
+                "name": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271818a5b6e14bb4fd84bf_fiscal_year",
                 "query": {
                   "datasetName": "lgu_funding_yoy",
                   "fields": [
@@ -2737,14 +2758,17 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "title": "Year Filter"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Year</span>",
+                  "fields": []
+                }
               },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
                     "fieldName": "fiscal_year",
-                    "queryName": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/b8849dc5a2e547849e80c4d1ea56f50a_fiscal_year"
+                    "queryName": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271818a5b6e14bb4fd84bf_fiscal_year"
                   }
                 ]
               }
@@ -2762,7 +2786,7 @@
             "name": "province",
             "queries": [
               {
-                "name": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_province_name",
+                "name": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_province_name",
                 "query": {
                   "datasetName": "lgu_registry",
                   "fields": [
@@ -2783,14 +2807,17 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "title": "Province Filter"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Province</span>",
+                  "fields": []
+                }
               },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
                     "fieldName": "province_name",
-                    "queryName": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_province_name"
+                    "queryName": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_province_name"
                   }
                 ]
               }
@@ -2816,9 +2843,9 @@
             "name": "header",
             "multilineTextboxSpec": {
               "lines": [
-                "## <span style=\"font-size:36px;font-weight:700;line-height:1.5\">DRRM Priority Actions & Preparedness Shortfall</span>\n",
+                "## <span style=\"font-size: 36px;font-weight: 700;line-height: 1.5;color: #425E94;\">DRRM Priority Actions & Preparedness Shortfall</span>\n",
                 "\n",
-                "Where CMCI pillar readiness is weakest, and how far DRRM fund readiness falls short — appropriations vs expenditures and shortfall tiers per LGU.\n",
+                "<span style=\"font-size:18px\">Where CMCI pillar readiness is weakest, and how far DRRM fund readiness falls short — appropriations vs expenditures and shortfall tiers per LGU.</span>\n",
                 "<p>&nbsp;</p>\n"
               ]
             }
@@ -2851,7 +2878,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Average Resilience Competitiveness",
+                  "value": "<span style=\"font-size: 18px;color: #425E94;\">Resilience Competitiveness</span>",
                   "fields": []
                 }
               },
@@ -2896,7 +2923,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Total Indicator Score (out of 70)",
+                  "value": "<span style=\"font-size: 18px;color: #425E94;\">Total Indicator Score (out of 70)</span>",
                   "fields": []
                 }
               },
@@ -2966,12 +2993,12 @@
                 "showDescription": true,
                 "showTitle": true,
                 "title": {
-                  "value": "CMCI Readiness Tier Map",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">CMCI Readiness Tier Map</span>",
                   "fields": []
                 },
                 "description": {
-                  "fields": [],
-                  "value": "City/municipality choropleth colored by the 4-tier CMCI readiness ranking (total score across all 35 indicators, max 70). Gray LGUs have no CMCI data recorded."
+                  "value": "<span style=\"font-size:18px\">City/municipality choropleth colored by the 4-tier CMCI readiness ranking (total score across all 35 indicators, max 70). </span>",
+                  "fields": []
                 }
               },
               "mark": {
@@ -3075,7 +3102,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Selected LGU",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Selected LGU</span>",
                   "fields": []
                 }
               },
@@ -3108,11 +3135,11 @@
                 "query": {
                   "fields": [
                     {
-                      "name": "max(CityMunicipality_DRRM_Boundaries_Map__risk_tier_4)",
-                      "expression": "MAX(`CityMunicipality_DRRM_Boundaries_Map`.`risk_tier_4`)"
+                      "name": "CityMunicipality_DRRM_Boundaries_Map__cmci_readiness_tier",
+                      "expression": "`CityMunicipality_DRRM_Boundaries_Map`.`cmci_readiness_tier`"
                     }
                   ],
-                  "disaggregated": false
+                  "disaggregated": true
                 }
               }
             ],
@@ -3120,7 +3147,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Selected LGU Tier",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Selected LGU Tier</span>",
                   "fields": []
                 }
               },
@@ -3128,8 +3155,7 @@
               "widgetType": "counter",
               "encodings": {
                 "value": {
-                  "fieldName": "max(CityMunicipality_DRRM_Boundaries_Map__risk_tier_4)",
-                  "rowNumber": 0
+                  "fieldName": "CityMunicipality_DRRM_Boundaries_Map__cmci_readiness_tier"
                 }
               },
               "data": {
@@ -3149,7 +3175,7 @@
             "name": "97712710",
             "queries": [
               {
-                "name": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_area_name",
+                "name": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_area_name",
                 "query": {
                   "datasetName": "lgu_registry",
                   "fields": [
@@ -3170,14 +3196,17 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "title": "LGU Name Filter"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">LGU Name</span>",
+                  "fields": []
+                }
               },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
                     "fieldName": "area_name",
-                    "queryName": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_area_name"
+                    "queryName": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_area_name"
                   }
                 ]
               }
@@ -3195,7 +3224,7 @@
             "name": "4cdb20c3",
             "queries": [
               {
-                "name": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_province_name",
+                "name": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_province_name",
                 "query": {
                   "datasetName": "lgu_registry",
                   "fields": [
@@ -3216,14 +3245,17 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "title": "Province Filter"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Province</span>",
+                  "fields": []
+                }
               },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
                     "fieldName": "province_name",
-                    "queryName": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/01f1c970cb331def825eb9c244fc2f94_province_name"
+                    "queryName": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271812a32eee00cc3dc9ff_province_name"
                   }
                 ]
               }
@@ -3241,7 +3273,7 @@
             "name": "ea74f288",
             "queries": [
               {
-                "name": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/b8849dc5a2e547849e80c4d1ea56f50a_fiscal_year",
+                "name": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271818a5b6e14bb4fd84bf_fiscal_year",
                 "query": {
                   "datasetName": "lgu_funding_yoy",
                   "fields": [
@@ -3262,14 +3294,17 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "title": "Year Filter"
+                "title": {
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Year</span>",
+                  "fields": []
+                }
               },
               "widgetType": "filter-single-select",
               "encodings": {
                 "fields": [
                   {
                     "fieldName": "fiscal_year",
-                    "queryName": "dashboards/01f1c8b6dae61b53848587474bfa4686/datasets/b8849dc5a2e547849e80c4d1ea56f50a_fiscal_year"
+                    "queryName": "dashboards/01f1cc85102519ca87c287ac7a5be0ec/datasets/01f1cc8f92271818a5b6e14bb4fd84bf_fiscal_year"
                   }
                 ]
               }
@@ -3313,7 +3348,7 @@
               "frame": {
                 "showTitle": true,
                 "title": {
-                  "value": "Individual Indicator Scores (per Pillar)",
+                  "value": "<span style=\"font-size: 24px;color: #425E94;\">Individual Indicator Scores (per Pillar)</span>",
                   "fields": []
                 }
               },
@@ -3325,7 +3360,7 @@
                   "axis": {
                     "title": "CMCI Indicator"
                   },
-                  "displayName": "indicator_name",
+                  "displayName": "Indicator",
                   "scale": {
                     "type": "categorical",
                     "categorySize": {
@@ -3343,12 +3378,15 @@
                 "y": {
                   "fieldName": "measure(LGU_CMCI_Pillar_Scores__indicator_score)",
                   "axis": {
-                    "title": "Avg Raw Score"
+                    "title": "Competitiveness Score"
                   },
-                  "displayName": "indicator_score",
+                  "displayName": "Competitiveness Score",
                   "scale": {
                     "type": "quantitative"
                   }
+                },
+                "label": {
+                  "show": false
                 }
               },
               "data": {
@@ -3360,7 +3398,7 @@
             "x": 0,
             "y": 36,
             "width": 12,
-            "height": 6
+            "height": 9
           }
         }
       ],
