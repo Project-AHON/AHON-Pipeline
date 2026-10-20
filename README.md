@@ -39,7 +39,7 @@ flowchart LR
 
 AHON is a batch pipeline on Databricks. Each source is downloaded into a folder of raw files, then refined in four layers: **bronze** keeps the data as received, **silver** cleans it and adds the official code of each city or municipality (the PSGC code), **gold** builds the tables used for analysis, and **platinum** prepares the views the dashboard reads. Every step checks its data before writing and records the result.
 
-New to the acronyms? See the [glossary](docs/glossary.md).
+New to the acronyms? See the [glossary](docs/architecture/glossary.md).
 
 Layer-by-layer diagram: [architecture overview](docs/architecture/overview.md), [data model](docs/architecture/data-model.md), [data quality](docs/data-quality/README.md).
 
@@ -47,7 +47,7 @@ Layer-by-layer diagram: [architecture overview](docs/architecture/overview.md), 
 
 New to the repository? Read in this order:
 
-1. This README, and the [glossary](docs/glossary.md) for acronyms.
+1. This README, and the [glossary](docs/architecture/glossary.md)) for acronyms.
 2. [Architecture overview](docs/architecture/overview.md): how data moves through the layers.
 3. [Setup](docs/getting-started/setup.md): tools, Databricks access, settings and your first run.
 4. [Runbook](docs/operations/runbook.md): running one dataset, rerunning and fixing a failed run.
@@ -67,7 +67,7 @@ Credentials (Databricks login, PSA token) and your bundle settings stay on your 
 
 | Folder | What is in it |
 | --- | --- |
-| [docs/glossary.md](docs/glossary.md) | Acronyms and terms |
+| [docs/glossary.md](docs/architecture/glossary.md) | Acronyms and terms |
 | [docs/project](docs/project/) | Problem statement, assumptions and limitations, ownership |
 | [docs/data](docs/data/) | Sources, a data profile per source, and a data dictionary page per table |
 | [docs/architecture](docs/architecture/) | Overview, data model, source to target, analytics method, naming standard |

@@ -76,7 +76,7 @@ A 2024 census is not annual exposure for every CMCI or fiscal year. Each measure
 - **Funding** uses city and municipality reports only (`platinum.funding_components`). Ratios are `expenditure / appropriation`; a zero denominator yields NULL. Funding utilization alone does not establish preparedness.
 - **CMCI coverage** (`platinum.cmci_pillar_coverage`) describes completeness of the selected indicator subset, not official CMCI pillar completeness or a capacity score.
 - **Earthquakes** are observations, not deduplicated events. Repeated rows and revisions stay separate. Magnitude is a stand-in for shaking intensity, which is not in the data.
-- **Linking earthquakes to LGUs** uses the town named in the PHIVOLCS location text (`candidate_status = single_candidate`). This is the nearest town, not the area that felt the earthquake. The pipeline reports these candidates but does not yet assign `psgc_code` ([decision 0009](../decisions/0009-earthquake-observations-and-locality-candidates.md)).
+- **Linking earthquakes to LGUs** uses the town named in the PHIVOLCS location text (`candidate_status = single_candidate`). This is the nearest town, not the area that felt the earthquake. The pipeline reports these candidates but does not yet assign `psgc_code` ([decision 0014](../decisions/0014-earthquake-observations-and-locality-candidates.md)).
 - **Missing inputs** leave a score NULL rather than zero, and the LGU is shown as "insufficient data".
 
 ## Decisions still open

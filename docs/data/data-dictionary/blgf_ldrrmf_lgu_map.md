@@ -5,7 +5,7 @@
 - **Key:** `region`, `province`, `lgu_name`, `lgu_type`
 - **Built from:** [`bronze.blgf_ldrrmf_annual_lgu`](blgf_ldrrmf_annual_lgu.md), [`silver.psa_psgc_clean`](psa_psgc_clean.md) (selected snapshot) and the reviewed overrides in `src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/blgf_ldrrmf_lgu_map_overrides.csv`, by `src/sql/datasets/blgf_ldrrmf_annual_lgu/silver/build_blgf_ldrrmf_lgu_map.py`
 - **Owner:** Crystal
-- **Decision:** [0008: LDRRMF PSGC matching in silver](../../decisions/0008-ldrrmf-psgc-matching-in-silver.md)
+- **Decision:** [0013: LDRRMF PSGC matching in silver](../../decisions/0013-ldrrmf-psgc-matching-in-silver.md)
 
 | Column | Type | Description | Notes |
 | --- | --- | --- | --- |
