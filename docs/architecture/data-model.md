@@ -76,11 +76,11 @@ Earthquake observations have no gold table and no relationship to `dim_lgu` yet 
 
 ## Earthquakes
 
-Earthquake tables contain observations, not established deduplicated events. Textual candidates are arrays in silver and never fact relationships to LGUs. Event-level gold is withheld until identity, duplicate and correction policy are approved ([decision 0009](../decisions/0009-earthquake-observations-and-locality-candidates.md)).
+Earthquake tables contain observations, not established deduplicated events. Textual candidates are arrays in silver and never fact relationships to LGUs. Event-level gold is withheld until identity, duplicate and correction policy are approved ([decision 0014](../decisions/0014-earthquake-observations-and-locality-candidates.md)).
 
 ## Join rules
 
-- Join facts to `dim_lgu` on `psgc_code`, and only at aligned geographic grains: cities and municipalities (`CITY`, `MUN`). The analysis grain is set in [decision 0012](../decisions/0012-city-municipality-analysis-grain.md).
+- Join facts to `dim_lgu` on `psgc_code`, and only at aligned geographic grains: cities and municipalities (`CITY`, `MUN`). The analysis grain is set in [decision 0017](../decisions/0017-city-municipality-analysis-grain.md).
 - Use explicitly selected reference periods. Every fact carries the PSGC `source_period` it was matched with, and it must equal `dim_lgu.source_period`.
 - A 2024 census is not annual exposure for every CMCI or fiscal year. Pick the year to compare on purpose.
 - Historical fiscal entities can differ from the current PSGC geography; preserve unmatched codes and source names. Unmatched LDRRMF rows have `psgc_code` NULL and do not join.
