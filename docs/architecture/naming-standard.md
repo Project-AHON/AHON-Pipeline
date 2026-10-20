@@ -85,7 +85,7 @@ Notes:
 
 - The leading underscore keeps these columns visibly separate from source columns and avoids name clashes.
 - `_row_hash` is computed in bronze over the raw source columns, so it shows how data arrived. The column list it covers is documented per table, because changing that list changes every hash.
-- Silver does not get a second hash; `_row_hash` stays the single hash. Silver and gold carry the bronze lineage columns forward and add `_processed_at` ([decision 0007](../decisions/0007-silver-provenance-and-dq-flag.md)).
+- Silver does not get a second hash; `_row_hash` stays the single hash. Silver and gold carry the bronze lineage columns forward and add `_processed_at` ([decision 0008](../decisions/0008-silver-provenance-and-dq-flag.md)).
 - Some datasets define `_observation_id` differently where the file has no stable row identity (PHIVOLCS uses file digest and row number). The dictionary page says so.
 
 ## File and folder names

@@ -1,6 +1,6 @@
 # dq_results
 
-- **Source:** written by the DQ gates through `run_dq_gate()` in `src/sql/common/dq_gate.py` ([decision 0010](../../decisions/0010-dq-gates-with-great-expectations.md))
+- **Source:** written by the DQ gates through `run_dq_gate()` in `src/sql/common/dq_gate.py` ([decision 0018](../decisions/0018-dq-gates-with-great-expectations.md))
 - **Coverage:** every DQ gate run (bronze to silver, silver to gold, gold to platinum), all datasets. Piloted on LDRRMF in a notebook (2026-10-15); no gate is in the repo yet.
 - **Owner:** Crystal
 

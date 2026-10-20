@@ -8,7 +8,6 @@ Project AHON uses CMCI to provide context on:
 
 - Socioeconomic vulnerability
 - LGU preparedness and response capacity
-- Critical infrastructure and essential services
 - Disaster risk reduction planning
 - Communication and digital capability
 

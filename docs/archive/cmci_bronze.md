@@ -1,4 +1,4 @@
-> Historical prior implementation. For the supported runtime contract see [cmci_dictionary.md](cmci_dictionary.md) and [decision 0010](../../decisions/0010-reconciled-source-contracts.md). The details below are retained for historical context and are not executable deployment instructions.
+> Historical prior implementation. For the supported runtime contract see [cmci_dictionary.md](cmci_dictionary.md) and [decision 0015](../decisions/0015-reconciled-source-contracts.md). The details below are retained for historical context and are not executable deployment instructions.
 
 # CMCI
 
@@ -178,8 +178,8 @@ Unauthorized PSGC codes: 0
 ## Related Documentation
 
 - [PSGC Dataset](psgc.md)
-- [CMCI Mapping and Ingestion Decision](../decisions/0001-cmci-mapping-and-ingestion.md)
-- [Data Ingestion](ingestion.md)
-- [Source Profiles](source-profiles.md)
+- [CMCI Mapping and Ingestion Decision](../decisions/0006-cmci-mapping-and-ingestion.md)
+- [Data Ingestion](../architecture/source-to-target.md#cmci)
+- [Source Profiles](../data/data-profile/cmci-profile.md)
 - [Data Validation](validation.md)
 - [Operations Runbook](../operations/runbook.md)

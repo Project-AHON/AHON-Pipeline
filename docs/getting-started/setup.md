@@ -40,7 +40,7 @@ The Databricks login and the PSGC API token are separate credentials. Do not put
 
 ## 3. Fill in the bundle settings
 
-`databricks.yml` declares 47 required variables with no defaults. You supply them in a private file that Git ignores:
+`databricks.yml` declares 45 required variables with no defaults. You supply them in a private file that Git ignores:
 
 ```powershell
 $target = 'dev'
@@ -54,7 +54,7 @@ Replace every `null` with an approved value. If you already have a private overr
 | Settings | What to supply |
 | --- | --- |
 | `catalog`, `workspace_root`, `source_volume` | Your development catalog (for example `ahon_dev_<name>`), a workspace folder for the bundle's files and state, and the raw-file volume name (`source`) |
-| `run_as` | One identity: `{"user_name":"<user>"}` or `{"service_principal_name":"<application-id>"}`. Must be set in this file; the CLI does not accept it any other way |
+| `run_as` | One identity: `{"user_name":"<user>"}` or `{"service_principal_name":"<application-id>"}`. Supply this complex variable in the private overrides file |
 | `environment_version`, `job_timeout_seconds`, `task_timeout_seconds`, `task_retries`, `retry_interval_millis`, `max_concurrent_runs` | Settings your workspace supports. Use `max_concurrent_runs` = 1 and a small number of retries |
 | `source_period`, `census_year` | PSGC snapshot (`Q2_2024`) and population census year (2024). They are different things: the census year is not the PSGC snapshot date |
 | `psgc_api_base_url`, `psgc_expected_rows`, `psgc_secret_scope`, `psgc_secret_key` | PSA API address, expected rows per snapshot, and the names of the secret that holds the token (step 4) |
@@ -72,9 +72,9 @@ Some values are JSON written as a string, with the inner quotes escaped:
 | `population_expected_profile` | a JSON list of four level counts, as a string |
 
 
-These are shapes, not values. Expected counts are checks on what the source delivers; a run stops if the source does not match them.
+These are shapes, not approved values. All required settings must be supplied even for `--only` or the fixture job: task selection does not remove bundle variable declarations. Obtain the approved public source configuration from the dataset owners; do not infer endpoints, revisions or counts from examples. Expected counts are checks on what the source delivers; a run stops if the source does not match them.
 
-Check that nothing is left empty, without printing any values:
+Check that no variable is null, without printing values. This does not validate types, empty strings, source contracts or runtime permissions:
 
 ```powershell
 python -c "import json,sys; t=json.load(open('config/variable-overrides.example.json')); s=json.load(open(sys.argv[1])); m=[k for k in t if s.get(k) is None]; print('Missing: '+', '.join(m) if m else 'All settings filled')" .databricks/bundle/dev/variable-overrides.json
@@ -115,7 +115,16 @@ See the [Databricks secrets commands](https://docs.databricks.com/aws/en/dev-too
 
 ## 5. Place the CMCI mapping file
 
-CMCI needs a reviewed CSV that links each CMCI LGU name to a PSGC code. Upload it to a volume the job can read and set `cmci_mapping_file` to its path.
+CMCI needs a reviewed CSV linking CMCI LGU names to PSGC codes. The repository ships [the reviewed Q2_2024 mapping](../../src/sql/datasets/cmci/silver/cmci_reviewed_mapping_Q2_2024.csv). Use it only with that selected snapshot; a different snapshot needs a reviewed mapping.
+
+For a new workspace, fill all bundle variables first, including the planned mapping destination. Then validate and deploy, run `catalog_setup` to create the volume, upload the mapping, and run CMCI. For example, replacing the placeholders with your selected catalog, volume and profile:
+
+```powershell
+databricks bundle run catalog_setup -t dev --profile <your-profile>
+databricks fs cp src/sql/datasets/cmci/silver/cmci_reviewed_mapping_Q2_2024.csv dbfs:/Volumes/<catalog>/reference/<source_volume>/cmci_reviewed_mapping_Q2_2024.csv --profile <your-profile>
+```
+
+Set `cmci_mapping_file` to `/Volumes/<catalog>/reference/<source_volume>/cmci_reviewed_mapping_Q2_2024.csv`. Record the selected file's checksum in run evidence. Do not overwrite an existing reviewed mapping with different bytes; choose a versioned path.
 
 - Columns: `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`
 - Every row reviewed (`reviewed` true), codes unique, names one-to-one, and `source_period` equal to the PSGC snapshot
@@ -144,7 +153,7 @@ databricks bundle deploy -t dev --profile <your-profile>
 
 Deploying creates or updates the jobs in your workspace and costs nothing until a job runs. In development mode, jobs are named `[dev <your user name>] ...`. The first run's `setup` task creates the catalog (if you are allowed to), the schemas, the `reference.<source_volume>` volume and `monitoring.dq_result`.
 
-Then follow the [runbook](../operations/runbook.md). A good first run is the PSGC branch alone (`--only +dim_lgu`), since every other dataset needs it.
+Then follow the [runbook](../operations/runbook.md). After setup and any required mapping upload, a useful first source run is PSGC (`--only +dim_lgu`). Other dependencies vary: earthquakes use PSGC Silver.
 
 ## Production
 
@@ -158,7 +167,7 @@ Only `ahon_pipeline` and `catalog_setup` are deployed to production; `data_quali
 
 ## Hugging Face source files
 
-The BLGF LDRRMF workbooks (and the OpenStreetMap files) are stored in the public Hugging Face dataset repository [`Jess-Christine/Project-AHON`](https://huggingface.co/datasets/Jess-Christine/Project-AHON), not in this Git repository ([decision 0004](../decisions/0004-source-file-landing-hugging-face.md)). The extract downloads them from the commit pinned in `hf_revision` into `/Volumes/<catalog>/reference/<source_volume>/<dataset>/<batch_id>/`, so a rerun always reads the same files.
+The BLGF LDRRMF workbooks are stored in the public Hugging Face dataset repository [`Jess-Christine/Project-AHON`](https://huggingface.co/datasets/Jess-Christine/Project-AHON), not in this Git repository ([decision 0004](../decisions/0004-source-file-landing-hugging-face.md)). The extract downloads them from the commit pinned in `hf_revision` into `/Volumes/<catalog>/reference/<source_volume>/<dataset>/<batch_id>/`, so a rerun always reads the same files.
 
 To add or replace a source file:
 
@@ -167,4 +176,4 @@ To add or replace a source file:
 3. Update the expected row counts if the file changes them, in the same pull request.
 4. Run with a new `batch_id`.
 
-The extract passes no Hugging Face token, so the dataset repository must stay public. Pushing to it needs write access and a Hugging Face login (`huggingface-cli login`).
+The extract passes no Hugging Face token, so the dataset repository must stay public. Pushing to it needs write access and a Hugging Face login (`hf auth login`).

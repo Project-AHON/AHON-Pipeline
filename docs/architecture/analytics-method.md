@@ -1,6 +1,12 @@
 # Analytics method
 
-How AHON turns the gold tables into answers to the four analytical questions. Every measure is computed per city or municipality (`CITY`, `MUN` in `gold.dim_lgu`) and joined on `psgc_code`.
+Proposed methods for answering the four analytical questions, alongside current component contracts. Every measure is computed per city or municipality (`CITY`, `MUN` in `gold.dim_lgu`) and joined on `psgc_code`.
+
+## Status
+
+The current pipeline does not materialize composite LGU risk, preparedness, gap, quadrant or priority rankings. The formulas, weights, cut-offs and peer groups below require methodological approval and implementation before publication as production results. No proposed default overrides the current missing-value or geographic-assignment contracts.
+
+Implemented outputs are reported population, uncapped funding ratios, selected CMCI indicator measurements and coverage, and monthly earthquake observation summaries. Geographic earthquake assignment remains withheld.
 
 ## Terms
 
@@ -13,7 +19,7 @@ How AHON turns the gold tables into answers to the four analytical questions. Ev
 | Gap | Risk minus preparedness, on the same 0 to 100 scale |
 | Vulnerability | High risk with low preparedness. This is the project's working definition, not the people-based meaning used in disaster science. |
 
-## Measures by analytical question
+## Proposed measures by analytical question
 
 ### 1. What is each LGU's earthquake risk level?
 
@@ -52,7 +58,7 @@ Only the 70% LDRRMF part is used for preparedness. The 30% Quick Response Fund p
 | Weakest pillar | The CMCI pillar where the LGU's percentile among peers is lowest | `gold.fact_cmci_indicator`, `gold.dim_cmci_indicator` |
 | Unused preparedness funds | 70% appropriation − 70% expenditure, in pesos | `gold.fact_ldrrmf` |
 
-## Scaling
+## Proposed scaling
 
 Inputs have different units (counts, magnitudes, pesos per person, ratios), so each one is turned into a percentile rank from 0 to 100 among all cities and municipalities before it is combined. Ranking also keeps a few extreme values from dominating. Components are weighted equally unless the team agrees otherwise.
 
@@ -68,7 +74,7 @@ CMCI indicators are compared only by rank within the same indicator. Units, dire
 | LDRRMF | FY2018 to FY2024 for utilization; latest year for budget per person |
 | PSGC | Snapshot `Q2_2024` |
 
-A 2024 census is not annual exposure for every CMCI or fiscal year. Each measure states its year.
+A 2024 census is not annual exposure for every CMCI or fiscal year. Each measure states its year. Select an explicit reference year for each measure. Do not select the latest non-NULL value independently for each indicator: that can substitute an older measurement for a missing value and mix editions.
 
 ## Rules for reading the results
 
@@ -76,12 +82,12 @@ A 2024 census is not annual exposure for every CMCI or fiscal year. Each measure
 - **Funding** uses city and municipality reports only (`platinum.funding_components`). Ratios are `expenditure / appropriation`; a zero denominator yields NULL. Funding utilization alone does not establish preparedness.
 - **CMCI coverage** (`platinum.cmci_pillar_coverage`) describes completeness of the selected indicator subset, not official CMCI pillar completeness or a capacity score.
 - **Earthquakes** are observations, not deduplicated events. Repeated rows and revisions stay separate. Magnitude is a stand-in for shaking intensity, which is not in the data.
-- **Linking earthquakes to LGUs** uses the town named in the PHIVOLCS location text (`candidate_status = single_candidate`). This is the nearest town, not the area that felt the earthquake. The pipeline reports these candidates but does not yet assign `psgc_code` ([decision 0014](../decisions/0014-earthquake-observations-and-locality-candidates.md)).
+- **Linking earthquakes to LGUs** uses the town named in the PHIVOLCS location text (`candidate_status = single_candidate`). This is a locality mentioned in publisher text, not a verified nearest-town assignment or the area that felt the earthquake. The pipeline reports these candidates but does not yet assign `psgc_code` ([decision 0014](../decisions/0014-earthquake-observations-and-locality-candidates.md)).
 - **Missing inputs** leave a score NULL rather than zero, and the LGU is shown as "insufficient data".
 
-## Decisions still open
+## Decisions required before implementation
 
-| Decision | Default until decided |
+| Decision | Proposed option (not an implemented default) |
 | --- | --- |
 | Strong earthquake cut-off | Magnitude 5.0 |
 | Weights inside the risk and preparedness scores | Equal |

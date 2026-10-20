@@ -38,7 +38,7 @@ Each dataset checks its own data in its own way: `assert_true` stop checks in th
 
 ## Consequences
 
-- New: `src/sql/00_setup/07_dq_results.sql`, `src/sql/common/dq_gate.py`, `src/sql/monitoring/<dataset>/<layer>_dq_gate.py` per dataset. The file map per dataset is in [dq-gates.md](../operations/monitoring/dq-gates.md).
+- New: `src/sql/00_setup/07_dq_results.sql`, `src/sql/common/dq_gate.py`, `src/sql/monitoring/<dataset>/<layer>_dq_gate.py` per dataset. The file map per dataset is in [dq-gates.md](../data-quality/dq-gates.md).
 - Jobs get a gate task after each silver and gold build once the job YAML is exported (`resources/jobs/ahon_job.yml` is still a placeholder).
 - GX must be installed on the job environment (`pyproject.toml`).
 - CMCI (`tests/sql/monitoring/cmci_quality.py`) still writes to `ahon.quality.dq_results`; aligning it is follow-up work with its owner.

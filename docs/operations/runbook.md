@@ -27,7 +27,7 @@ The pipeline is the job `ahon_pipeline` in `resources/jobs/ahon_job.yml`. Which 
 
 `+<task>` includes every upstream task. The batch ID defaults to the job run ID. There is no schedule; runs are started by hand. Keep one run at a time (`max_concurrent_runs` = 1).
 
-Run order inside the job: `setup` first, then PSGC (`psgc_extract` → `psgc_bronze` → `psgc_silver` → `dim_lgu`). The other datasets wait for the PSGC tables they match against. Independent extracts depend only on `setup`, so one failed source does not block another.
+Run order inside the job: `setup` first, then PSGC (`psgc_extract` → `psgc_bronze` → `psgc_silver` → `dim_lgu`). Dependencies vary: population, funding and CMCI use their configured PSGC references; earthquakes use PSGC Silver. Independent extracts depend only on `setup`, so one failed source does not block another.
 
 ## By dataset
 
@@ -40,9 +40,9 @@ Run order inside the job: `setup` first, then PSGC (`psgc_extract` → `psgc_bro
 
 - **Run:** `--only +dim_lgu`
 - **Needs:** the PSA token secret (`psgc_secret_scope`, `psgc_secret_key`), `psgc_api_base_url`, `psgc_expected_rows`, `source_period`.
-- **Check:** `gold.dim_lgu` has 43,760 rows for `Q2_2024`, 1,642 of them `CITY` or `MUN`.
+- **Historical baseline:** `Q2_2024` was profiled with 43,760 dimension rows, including 1,642 `CITY`/`MUN` rows. Verify the selected snapshot and approved counts for the current run; these numbers are not current runtime evidence.
 - **If it fails:**
-  - HTTP or empty-result error: the token is missing, empty or expired. Rotate it with `databricks secrets put-secret <scope> <key>`; the job's `run_as` identity needs READ on the scope.
+  - HTTP or empty-result error: inspect the actual response for transport failures, rate limiting, outages, permissions or invalid credentials. Rotate a token only when authentication evidence supports it; the job's `run_as` identity needs READ on the scope.
   - "expected N, found M": PSA changed the snapshot. Review the new count before updating `psgc_expected_rows`.
   - `invalid_psgc_code`: see `silver.psa_psgc_code_reject`.
 
@@ -57,7 +57,7 @@ Run order inside the job: `setup` first, then PSGC (`psgc_extract` → `psgc_bro
 
 - **Run:** `--only +earthquake_components`
 - **Needs:** `start_month`, `end_month` (or `auto` for last month), the archive URL template and latest URL, `source_timezone`, and PSGC silver.
-- **Check:** `platinum.earthquake_observation_summary` has a row for every requested month.
+- **Check:** reconcile requested months against the completed landing manifest and source accounting. A month with no observations need not produce a grouped Silver-derived summary row.
 - **If it fails:** "expected exactly one six-column event table" means the PHIVOLCS page layout changed or the month is not published yet. No file is published, so rerun once the page is available.
 
 ### CMCI
@@ -73,23 +73,30 @@ Run order inside the job: `setup` first, then PSGC (`psgc_extract` → `psgc_bro
 
 - **Run:** `--only +funding_components`
 - **Needs:** `hf_repo` and a pinned full-commit `hf_revision`, `ldrrmf_folder`, `ldrrmf_file_pattern`, `ldrrmf_expected_rows`, `ldrrmf_start_year`, `ldrrmf_end_year`, and PSGC.
-- **Check:** `gold.fact_ldrrmf` has 11,434 rows; the match summary at the end of the gold task shows only the known unmatched rows.
+- **Historical baseline:** 11,434 source reports were profiled for FY2018–FY2024. Check the selected run's actual source accounting and match summary; unresolved matches require explanation, not a fixed assumption of five unmatched rows.
 - **If it fails:**
   - `reference_map_coverage`: bronze has an LGU name the map has not seen. Rerun `ldrrmf_mapping`, review new `needs_review` or `ambiguous` rows, and add an override with a reason if needed.
   - `component_totals` or `missing_amounts`: see `silver.blgf_ldrrmf_annual_lgu_reject`.
   - `unique_matched_lgu_year`: two BLGF spellings map to one PSGC code in the same year. Fix with an override.
 
+### PSA OpenSTAT population
+
+- **Run:** `--only +population_total_gold`
+- **Inputs:** `population_api_url`, `population_source_file`, `population_expected_profile`, `census_year` and `source_period`.
+- **Outputs:** `bronze.psa_population`, `silver.psa_population_clean`, `silver.psa_population_reject` and `gold.fact_population_total`.
+- This branch does not supply canonical census population components.
+
 ## Rerun and replay
 
-- **Retry a failed run:** rerun with the same `batch_id`. Completed files are not fetched again, and rows already written keep their first lineage and timestamps.
-- **Load a correction from the source:** run with a new `batch_id`. Changed rows update by business key; older deliveries never overwrite newer ones.
+- **Retry a failed run:** rerun with the same `batch_id`. Completed files are reused. Lineage and timestamp preservation follow each writer's documented update conditions; there is no universal timestamp-stability guarantee. Keep extraction settings unchanged for a completed batch: the manifest does not bind every requested configuration value.
+- **Load a correction from the source:** run with a new `batch_id`. Updates follow each writer's business/observation keys and change conditions. Review replay evidence for the affected branch before claiming older-delivery protection.
 - **Rerun one branch only:** use `--only +<task>` with the same `batch_id`.
 
 Nothing is deleted by a rerun. A row that disappears from the source stays in the tables.
 
 ## Recover from a blocked check
 
-A stop rule fails the task before its table is written, and dependent tasks are skipped. The tables keep their last accepted state.
+A blocking check stops the task and dependent tasks are skipped. Checks evaluated before a write prevent that write; earlier successful statements and upstream commits may remain. Inspect actual task state and target history before recovery.
 
 1. Open the failed task's output; it names the check (`check_id`) and the table.
 2. Look up the result in `monitoring.dq_result` for that `run_id`.
@@ -97,7 +104,7 @@ A stop rule fails the task before its table is written, and dependent tasks are 
 4. Fix the cause: a reviewed mapping or override, a configuration value, or a corrected source in a new batch.
 5. Rerun the affected branch with `--only +<task>`.
 
-Before treating a gold table as current, check the latest `monitoring.dq_result` rows for its task. See [data quality](monitoring/data-quality.md) for what each rule does.
+Before treating a gold table as current, check the latest `monitoring.dq_result` rows for its task. See [data quality](../data-quality/README.md) for what each rule does.
 
 ## Do not
 
