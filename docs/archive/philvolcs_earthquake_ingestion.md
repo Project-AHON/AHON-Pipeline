@@ -1,6 +1,6 @@
 # Earthquake run guide and review evidence
 
-Historical review evidence for an earlier baseline. Its commands and proposed normalized risk formula are superseded by the [current runbook](runbook.md), [source inventory](../architecture/source-to-target.md) and [analytical contracts](../architecture/metrics.md). The configured pipeline retains observations and locality candidates; it does not infer event identity, exposure or validated risk scores.
+Historical review evidence for an earlier baseline. Its commands and proposed normalized risk formula are superseded by the [current runbook](runbook.md), [source inventory](../architecture/source-to-target.md) and [analytical contracts](metrics.md). The configured pipeline retains observations and locality candidates; it does not infer event identity, exposure or validated risk scores.
 
 Part of [#82](https://github.com/Project-AHON/AHON-Pipeline/issues/82). Reviewed
 12 October 2026 (Asia/Manila), against actual main
@@ -23,7 +23,6 @@ The comments are evidence, not authorization to implement unrelated work.
 
 | PR | Findings and smallest earthquake response |
 | --- | --- |
-| #54 OSM | Source/table, overwrite, lineage/hash and CRS reviews; no validated administrative boundary workflow in main. Do not use facility centroids. |
 | #60 CMCI Bronze | Separate source, code and reference conventions; leave its mapping and measurements untouched. ADR 0005 number is occupied. |
 | #66 CMCI Silver | Separate parser; CI changes overlap #60/#69; its ADR numbering also conflicts with main 0006. Do not copy the framework. |
 | #69 DAB | Proposed prod-only bundle and placeholder jobs. Main has no actual bundle/job definitions despite README's diagram. Use the one Python task below; coordinate integration with its owner. ADR 0007 is reserved. |

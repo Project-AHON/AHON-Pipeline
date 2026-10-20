@@ -71,7 +71,7 @@ Things to know about the values as received:
 
 ## Matching to PSGC
 
-LGUs are matched to PSGC in silver (see [decision 0008](../../decisions/0008-ldrrmf-psgc-matching-in-silver.md)). The match uses province plus LGU name against PSGC cities, municipalities and provinces in the selected snapshot, with a short list of reviewed overrides in `blgf_ldrrmf_lgu_map_overrides.csv`. The result is stored in `reference.blgf_ldrrmf_lgu_map`.
+LGUs are matched to PSGC in silver (see [decision 0013](../../decisions/0013-ldrrmf-psgc-matching-in-silver.md)). The match uses province plus LGU name against PSGC cities, municipalities and provinces in the selected snapshot, with a short list of reviewed overrides in `blgf_ldrrmf_lgu_map_overrides.csv`. The result is stored in `reference.blgf_ldrrmf_lgu_map`.
 
 Only a uniquely supported match in the same province (`matched`) assigns a code. Ambiguous, unmatched, old-name-only and name-only candidates stay unassigned (`ambiguous`, `unmatched` or `needs_review`).
 

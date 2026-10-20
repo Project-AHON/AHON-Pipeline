@@ -1,6 +1,6 @@
 # Data quality gates
 
-How the pipeline checks data between layers with Great Expectations, and where each dataset's gate lives. The design is in [decision 0012](../decisions/0012-dq-gates-with-great-expectations.md); the results table is described in [dq-results](dq-results.md).
+How the pipeline checks data between layers with Great Expectations, and where each dataset's gate lives. The design is in [decision 0018](../decisions/0018-dq-gates-with-great-expectations.md); the results table is described in [dq-results](dq-result.md).
 
 The gates are being built. Today the job runs the checks inside each build (see the [data quality overview](README.md)); the gate files below run in a notebook and are not yet tasks in `ahon_pipeline`.
 
@@ -13,9 +13,13 @@ The gates are being built. Today the job runs the checks inside each build (see 
 | DQ Gate: silver to gold | the gold build | Great Expectations | `src/sql/monitoring/<dataset>/gold_dq_gate.py` |
 | DQ Gate: gold to platinum | the platinum build | Great Expectations | `src/sql/monitoring/<dataset>/platinum_dq_gate.py` |
 
-Every gate calls `run_dq_gate()` from `src/sql/common/dq_gate.py`. It runs the rules as one GX suite directly on the Spark table, records one row per rule in `monitoring.dq_result`, the table the job's checks use ([dq-results](dq-results.md)), and stops the job on a FAIL or ERROR.
+## Current implementation status
 
-> The gate code does not write to `dq_result` yet. `dq_gate.py` still writes its own table, `monitoring.dq_results`, which has different columns. It has to be aligned with `dq_result` before the gates become job tasks.
+The current main-branch job runs checks inside the dataset builders. Standalone layer-gate files are not job tasks.
+
+The existing `run_dq_gate()` helper creates legacy 15-field gate-result rows and appends them to the supplied results table. This is incompatible with the eight-column `monitoring.dq_result` contract without a code change. Some gate files also reference superseded tables.
+
+Do not activate gates merely by changing a table name or adding job tasks. First align the result writer, source contracts, runtime parameters and dependencies, then validate failure behavior. [PR #109](https://github.com/Project-AHON/AHON-Pipeline/pull/109) proposes that alignment and activation; its evidence does not describe current main.
 
 A gate checks the table its layer just wrote, so a gate file is named after the layer it checks: `silver_dq_gate.py` checks the silver table.
 
@@ -73,7 +77,7 @@ Shared files, used by every gate:
 | `src/sql/common/dq_gate.py` | `rule()` and `run_dq_gate()`: runs the rules, records the results, stops on FAIL or ERROR |
 | `src/sql/00_setup/07_dq_results.sql` | Creates the gates' current results table (removed once the gates write to `dq_result`) |
 
-The older checks in `src/sql/monitoring/psa_psgc/*_dq.sql`, `philvolcs_earthquake/*_dq.sql`, `psa_population/*_dq_check.py` and `tests/sql/monitoring/cmci_quality.py` keep running until their gate replaces them. The bronze ones become DQ Inspect checks in the load scripts or stay where they are.
+Legacy monitoring scripts remain in the repository. Their presence does not mean they run in `ahon_pipeline`; execution is determined by the job definition.
 
 ## Adding a gate for a dataset
 
@@ -88,7 +92,7 @@ The older checks in `src/sql/monitoring/psa_psgc/*_dq.sql`, `philvolcs_earthquak
 ```python
 # %pip install great_expectations==1.23.1
 """
-DQ gate, <from layer> to <layer>: <dataset> (decision 0012).
+DQ gate, <from layer> to <layer>: <dataset> (decision 0018).
 
 Run after <build file>. Expected on <catalog> (<date>): <n> PASS, <n> WARN (<which>).
 """

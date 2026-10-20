@@ -14,7 +14,7 @@ Deploy the bundle from the reviewed checkout; do not replace its job YAML with a
 | `cmci_common.py`, CMCI-specific setup files and `earthquake_contract.py` as tasks | Helpers/legacy entry points are not processing stages; use the shared setup and stage entry points already wired in the bundle |
 | `run_earthquake` and `fact_earthquake` calling the same script | One observation processing chain; event Gold remains withheld pending its identity/methodology contract |
 
-Keep serverless batch jobs in `STANDARD`, one concurrent writer and bounded retries. No schedules or additional jobs are needed for this review. Select only affected branches when a runtime check is necessary, and reuse a completed batch ID for replay. OSM coordinate conversion reuses one transformer per source CRS instead of constructing one per feature. These reduce unnecessary work; actual spend still depends on data size and the selected workspace.
+Keep serverless batch jobs in `STANDARD`, one concurrent writer and bounded retries. No schedules or additional jobs are needed for this review. Select only affected branches when a runtime check is necessary, and reuse a completed batch ID for replay. These reduce unnecessary work; actual spend still depends on data size and the selected workspace.
 
 Run `python -m pytest tests/common/test_job_contract.py -q` locally before deployment. It checks all task assets, dependency ordering, unique task keys/executions, the two population source paths, packaged GX environments and batch compute settings without starting cloud compute.
 
@@ -34,7 +34,6 @@ Run `python -m pytest tests/common/test_job_contract.py -q` locally before deplo
 | `ldrrmf_start_year`, `ldrrmf_end_year` | Reviewed financial reference window; Silver rejects observations outside it |
 | CMCI URLs, year window, run mode, test limit, batch size, delay, retry/backoff, User-Agent, `request_timeout` | Explicit source request settings. Use `test` until reviewed full activation. Response coverage must match requested years/indicators |
 | `cmci_mapping_file`, `cmci_metric_version` | Reviewed mapping CSV in a readable volume and a reviewed source-definition version |
-| `osm_folder`, `osm_shapefile_stems` | Approved vector folder and JSON list of shapefile stems; all required sidecars and known CRSs must be present |
 | PHIVOLCS archive URL template/latest URL, `start_month`, `end_month`, `source_timezone` | Approved source locations, inclusive YYYY-MM window and publisher clock used for request selection. Event UTC interpretation remains withheld |
 
 Expected counts are caller-supplied source validation inputs, not invented risk cutoffs. Source file schemas, field typing, units, geographic levels and parsing rules remain documented contracts. CMCI indicator names/codes/pillars are source data in `resources/cmci_indicators.csv`, synchronized as a real job asset rather than embedded in Python. Changes to that asset require source review and a matching metric version; they do not authorize a composite score.
@@ -128,7 +127,7 @@ The CLI's `+task` form includes upstream tasks. Independent extracts depend only
 ```powershell
 $sourceCatalog = Read-Host 'Separate live-source development catalog'
 $batch = Read-Host 'Stable delivery batch ID'
-databricks bundle run ahon_pipeline -t dev --profile $profile --params "catalog=$sourceCatalog,batch_id=$batch" --only +osm_silver,+ldrrmf_bronze,+population_silver,+earthquake_bronze
+databricks bundle run ahon_pipeline -t dev --profile $profile --params "catalog=$sourceCatalog,batch_id=$batch" --only +ldrrmf_bronze,+population_silver,+earthquake_bronze
 
 # After supplying the approved PSA token and source profiles:
 databricks bundle run ahon_pipeline -t dev --profile $profile --only +population_gold
@@ -137,7 +136,7 @@ databricks bundle run ahon_pipeline -t dev --profile $profile --only +population
 databricks bundle run ahon_pipeline -t dev --profile $profile
 ```
 
-PSGC Bronze→Silver precedes the existing `dim_lgu`, direct city/municipality census population and contextual reference lookups. Gold waits for its validated Silver and dimension. OSM runs its own extract→Bronze→Silver chain. Earthquake observation Silver requires the selected PSGC reference for candidate reporting; event Gold is not scheduled. Independent component tasks depend only on their own outputs. All edges use `ALL_SUCCESS`.
+PSGC Bronze→Silver precedes the existing `dim_lgu`, direct city/municipality census population and contextual reference lookups. Gold waits for its validated Silver and dimension. Earthquake observation Silver requires the selected PSGC reference for candidate reporting; event Gold is not scheduled. Independent component tasks depend only on their own outputs. All edges use `ALL_SUCCESS`.
 
 CMCI reviewed mapping columns are `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`. Codes are unique ten-digit strings, source names one-to-one, reviewed must be true, and period must match the selected dimension. The development PSGC secret reference is configured and live authentication has passed. Real approved CMCI mappings remain unavailable; synthetic mappings are test data and must not be used as production evidence.
 
@@ -151,7 +150,7 @@ The default batch ID is the job run ID. Task retries reuse it. To replay a compl
 
 PSGC and LDRRMF Silver only update an existing business key when the candidate's first-ingested timestamp is at least as recent as the accepted row. Replaying an older completed delivery cannot roll back a newer correction. This is delivery ordering, not proof of a publisher's scientific reference date; source snapshot/year fields remain separate. New keys are retained without absence-based deletion. Initial PSGC Silver and dimension creation fail if a competing writer has already created the table.
 
-Standard PSGC, PXWeb, BLGF and CMCI observation IDs include delivery batch ID, source file digest and raw row hash. A new delivery can legitimately repeat previously seen bytes, permitting a source-value reversion after a later correction. Earlier file-only identity tables are guarded: use a fresh catalog or reviewed migration. Earthquake and OSM retain their explicit file/ordinal observation contracts separately.
+Standard PSGC, PXWeb, BLGF and CMCI observation IDs include delivery batch ID, source file digest and raw row hash. A new delivery can legitimately repeat previously seen bytes, permitting a source-value reversion after a later correction. Earlier file-only identity tables are guarded: use a fresh catalog or reviewed migration. Earthquake data retains its explicit file/ordinal observation contract separately.
 
 `_SUCCESS.json` exists to prevent reading interrupted downloads: it records filenames, hashes and source-row counts. A checksum mismatch in a completed batch blocks reads; retain it for investigation. An incomplete batch has no valid marker and a retry repairs it. Do not edit completed files to force recovery. Current PSGC and financial validation is scoped to the requested completed delivery, so prior rejected observations remain auditable without permanently poisoning later corrected releases.
 

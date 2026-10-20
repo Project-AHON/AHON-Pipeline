@@ -1,6 +1,6 @@
 # Source to target
 
-Which script builds which table, from what, and in which job task. Paths are relative to `src/sql/`. Tasks are in `resources/jobs/ahon_job.yml` (job `ahon_pipeline`). Catalog and source-volume names are job parameters.
+Which script builds which table, from what, and in which job task. Paths are relative to `src/sql/`. Tasks are in `resources/jobs/ahon_job.yml` (job `ahon_pipeline`). Catalog is a job parameter. Source volume and the other operational settings are bundle variables passed to task entry points.
 
 Raw files land under `/Volumes/<catalog>/reference/<source_volume>/<dataset>/<batch_id>/`. `_SUCCESS.json` records file name, SHA-256 and parsed source-row count. Existing completed batches cannot change; source corrections use a new batch ID.
 
@@ -70,8 +70,14 @@ Source: seven BLGF workbooks, FY2018 to FY2024, from a pinned Hugging Face commi
 | --- | --- | --- |
 | Schemas `bronze`, `silver`, `gold`, `platinum`, `reference`, `monitoring` | `00_setup/00_catalog_schema_setup.sql` | `setup` (also job `catalog_setup`) |
 
-## Additional Materials
+## Additional executable branch
 
-| Dataset | Targets | Script | Tasks |
+This branch runs in `ahon_pipeline` but are outside the primary LGU analytical path.
+
+| Dataset | Targets | Implementation | Tasks |
 | --- | --- | --- | --- |
-| PSA OpenSTAT population (table `0241A6DPUP1`) | `bronze.psa_population`, `silver.psa_population_clean`, `silver.psa_population_reject`, `gold.fact_population_total` | `datasets/psa_population/...`, 
+| PSA OpenSTAT population | `bronze.psa_population` | `datasets/psa_population/extract/extract_psa_population.py`; `datasets/psa_population/bronze/load_psa_population.py` | `population_extract`, `population_bronze` |
+| PSA OpenSTAT population | `silver.psa_population_clean`; `silver.psa_population_reject` | `datasets/psa_population/silver/clean_psa_population.py` | `population_silver` |
+| PSA OpenSTAT population | `gold.fact_population_total` | `gold/build_fact_population_total.py` | `population_total_gold` |
+
+OpenSTAT does not supply `gold.fact_population` or `platinum.population_components`.

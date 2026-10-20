@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src/sql/common"))
 import quality
 
 
-@pytest.mark.parametrize("dataset", ["psa_psgc", "psa_population", "cmci", "blgf_ldrrmf", "earthquake", "osm"])
+@pytest.mark.parametrize("dataset", ["psa_psgc", "psa_population", "cmci", "blgf_ldrrmf", "earthquake"])
 def test_all_datasets_use_real_gx_expectations(dataset):
     status, evidence = quality.validate_metric("fixture_cardinality", dataset, 0)
     result = json.loads(evidence)

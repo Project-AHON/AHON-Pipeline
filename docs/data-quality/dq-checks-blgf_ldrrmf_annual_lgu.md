@@ -1,4 +1,4 @@
-Historical profile results, not current runtime verification. Current persisted checks and recovery are documented in [the runbook](../runbook.md) and [the source dictionary](../../architecture/data-dictionary/blgf_ldrrmf_annual_lgu.md).
+This page records profiling results from 2026-10-09. Its counts and historical check names are not current runtime verification. Current persisted build results are in `monitoring.dq_result`; current rules are in the table dictionary and executable build scripts. Current persisted checks and recovery are documented in [the runbook](../operations/runbook.md) and [the source dictionary](../data/data-dictionary/blgf_ldrrmf_annual_lgu.md).
 
 # Data quality checks: blgf_ldrrmf_annual_lgu (draft, 2026-10-09)
 

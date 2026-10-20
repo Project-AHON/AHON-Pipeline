@@ -69,4 +69,4 @@ Acronyms and terms used in the AHON docs and code.
 | **Gap** | Risk score minus preparedness score |
 | **Percentile rank** | Where a value falls among all cities and municipalities, from 0 to 100 |
 
-See the [analytics method](architecture/analytics-method.md) for the full definitions.
+See the [analytics method](analytics-method.md) for the full definitions.

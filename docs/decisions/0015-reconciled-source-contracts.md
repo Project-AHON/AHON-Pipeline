@@ -3,7 +3,7 @@
 - Status: Proposed for team review; implemented locally on `feature/pipeline-reconciliation`
 - Date: 2026-10-14
 - Baseline: `4d82f6b5010c715ed14eca490c5415692e8fc34e`
-- Population grain superseded by [0012](0012-city-municipality-analysis-grain.md) following the user's city/municipality requirement; other contracts remain applicable
+- Population grain superseded by [0017](0017-city-municipality-analysis-grain.md) following the user's city/municipality requirement; other contracts remain applicable
 
 The executable path follows `resources/jobs/ahon_job.yml`. This decision updates the implementation portions of decisions 0005, 0006 CMCI Silver, 0007 DAB, 0008 CMCI Gold, and 0009 CMCI quality; their historical rationale remains available in Git. It does not establish a scientific risk model.
 
@@ -21,6 +21,6 @@ Completed source batches are immutable and carry file digests and row counts. A 
 
 The existing three job files become an executable pipeline, standalone setup, and synthetic quality verification. A `dev` target is added because repeatable bundle execution in a personal workspace is needed to verify asset paths, task parameters and dependencies; its state path is isolated from other development deployments. It implements the personal-workspace workflow described in decision 0007 rather than introducing a shared development environment. Production has no default target. All schedules remain absent.
 
-Standard PSGC, PXWeb, BLGF and CMCI Bronze identities include the immutable delivery batch ID, file digest and raw row hash. Same-batch replay preserves identities; a new delivery of identical content creates a new observation, permitting source-value reversions. Earlier file-only identity tables are guarded and require a fresh catalog or reviewed migration. Earthquake and OSM preserve their explicit file/ordinal observation grains separately.
+Standard PSGC, PXWeb, BLGF and CMCI Bronze identities include the immutable delivery batch ID, file digest and raw row hash. Same-batch replay preserves identities; a new delivery of identical content creates a new observation, permitting source-value reversions. Earlier file-only identity tables are guarded and require a fresh catalog or reviewed migration. Earthquake data preserves its explicit file/ordinal observation grain separately.
 
 Following the user instruction to avoid hardcoded settings, operational values are mandatory bundle/script inputs with no committed defaults. Verification uses ignored local overrides. Reviewed CMCI definitions are a CSV source asset; schemas, units and deterministic parsing remain stable contracts.

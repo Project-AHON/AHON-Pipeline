@@ -4,19 +4,19 @@ How AHON checks its data, where the results go, and how to read them.
 
 ## How checks work
 
-Every build checks its own output before it writes. Checks use the shared Great Expectations (GX Core) helper `check()` in `src/sql/common/quality.py`. Spark computes the failure count over the complete candidate input; GX expects each rule's count to equal zero. No source rows are sampled or collected into pandas for these checks.
+Dataset builders evaluate checks around their writes; a task may contain several independently committed statements. Checks use the shared Great Expectations (GX Core) helper `check()` in `src/sql/common/quality.py`. Spark computes the failure count over the complete candidate input; GX expects each rule's count to equal zero. No source rows are sampled or collected into pandas for these checks.
 
 Each check has a severity:
 
 | Severity | When the rule breaks | Result |
 | --- | --- | --- |
-| `ERROR` | The result is saved, then a `QualityError` stops the task before its table is written. Dependent tasks are skipped and tables keep their last accepted state. | `BLOCKED` |
+| `ERROR` | The result is saved, then a `QualityError` stops the task before its table is written. Dependent tasks are skipped. Earlier successful writes remain. | `BLOCKED` |
 | `WARN` | Rows stay in the table, marked with `has_dq_issues` where the table has that column. | `WARN` |
 | (rule passes) | Nothing to do. | `PASS` |
 
 A GX dependency or runtime failure stops the task; it never becomes an unvalidated pass.
 
-Rows that fail a silver stop rule go to the dataset's `_reject` table (for example `silver.psa_psgc_reject`), so they can be inspected without stopping the run.
+Reject behavior is dataset-specific. LDRRMF and invalid PSGC-code rejects can block the corresponding build. Other rejected or flagged records are retained with warnings. Consult the table dictionary for the exact disposition. Blocking checks prevent the associated downstream write where evaluated before that write. Earlier successful statements and upstream tasks are not rolled back.
 
 File integrity, authentication, parsing structure and schema checks are part of ingestion and the write step, not `dq_result` rules. A failed delivery is not deleted to hide it.
 
@@ -41,17 +41,17 @@ Every check writes one row to `<catalog>.monitoring.dq_result`, keyed by `(run_i
 | `run_id` | string | The batch that ran the check (`batch_id`; by default the job run ID) |
 | `check_id` | string | The rule's name, for example `component_totals` |
 | `table_name` | string | The table checked |
-| `failed_count` | bigint | Rows that broke the rule |
+| `failed_count` | bigint | Failure metric: rows, duplicate-key groups, a count difference or a binary contract failure, depending on the check |
 | `severity` | string | `ERROR` or `WARN` |
 | `disposition` | string | `PASS`, `WARN` or `BLOCKED` |
 | `checked_at` | timestamp (UTC) | When the check ran |
 | `validation_result` | string | GX result JSON with the expectation metadata and GX version. NULL on older rows until their checks rerun. |
 
-The table is created by the `setup` task. Full column details: [dq-results](dq-results.md).
+The table is created by the `setup` task. Full column details: [dq-results](dq-result.md).
 
 ## Reading the results
 
-Latest result of every check:
+Latest result of every check (an overview that can combine different runs, not evidence that one complete run succeeded):
 
 ```sql
 SELECT table_name, check_id, severity, disposition, failed_count, checked_at
@@ -62,7 +62,7 @@ ORDER BY disposition, table_name, check_id;
 
 - Before treating a gold table as current, check that its latest checks are `PASS` or an expected `WARN`.
 - After a partial run, or a failed attempt followed by a successful retry, look at the selected task and the current `checked_at` window. Older rows from earlier deliveries are history, not current failures.
-- Each script also writes an execution marker (`check_id` `python_transformation` or `sql_execution`, `table_name` = the script file). It is `BLOCKED` when the script failed unexpectedly, and a successful retry resets it to `PASS`.
+- Scripts executed through `run_python.py` and `run_sql.py` write an execution marker (`check_id` `python_transformation` or `sql_execution`, `table_name` = the script file). It is `BLOCKED` when the script failed unexpectedly, and a successful retry resets it to `PASS`. Directly launched extractors and dataset entry points do not necessarily emit the same marker.
 
 When a check is `BLOCKED`, follow [Recover from a blocked check](../operations/runbook.md#recover-from-a-blocked-check) in the runbook.
 
@@ -74,4 +74,4 @@ The design for Great Expectations gates between layers (bronze to silver, silver
 
 - [Runbook](../operations/runbook.md): running, rerunning and recovering
 - [Naming standard](../architecture/naming-standard.md): `monitoring` schema and `dq_` tables
-- Decisions: [0011 shared GX quality gates](../decisions/0011-shared-gx-quality-gates.md), [0012 DQ gates with Great Expectations](../decisions/0012-dq-gates-with-great-expectations.md), [0007 silver provenance and DQ flag](../decisions/0007-silver-provenance-and-dq-flag.md)
+- Decisions: [0016 shared GX quality gates](../decisions/0016-shared-gx-quality-gates.md), [0018 DQ gates with Great Expectations](../decisions/0018-dq-gates-with-great-expectations.md), [0008 silver provenance and DQ flag](../decisions/0008-silver-provenance-and-dq-flag.md)

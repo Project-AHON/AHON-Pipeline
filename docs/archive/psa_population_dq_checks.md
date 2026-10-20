@@ -1,4 +1,4 @@
-> Historical prior implementation. For the supported runtime contract see [psa_population.md](psa_population.md) and [decision 0010](../../decisions/0010-reconciled-source-contracts.md). The details below are retained for historical context and are not executable deployment instructions.
+> Historical prior implementation. For the supported runtime contract see [psa_population.md](psa_population.md) and [decision 0015](../decisions/0015-reconciled-source-contracts.md). The details below are retained for historical context and are not executable deployment instructions.
 
 # PSA Population Data Quality Checks
 

@@ -4,7 +4,7 @@ Hazard describes the earthquake process; exposure describes people/assets in aff
 
 | Question | Supported evidence | Missing inputs and limits |
 | --- | --- | --- |
-| Each LGU's earthquake risk level | PHIVOLCS observation parameters; resident counts; source OSM geometry | Ground-motion/hazard model, defensible event identity, spatial exposure, vulnerability model, validated risk scale and cutoffs. No LGU risk level is published |
+| Each LGU's earthquake risk level | PHIVOLCS observation parameters; resident counts | Ground-motion/hazard model, defensible event identity, spatial exposure, vulnerability model, validated risk scale and cutoffs. No LGU risk level is published |
 | Preparedness relative to risk | Selected CMCI measurements and coverage; reported BLGF amounts and utilization | Validated preparedness constructs, CMCI interpretation/scales, reference-period alignment and risk methodology. No risk-minus-preparedness calculation |
 | Greater risk with weaker preparedness | Component tables permit evidence review by codes, years and coverage | Comparable risk/preparedness scores and justified ranking. No vulnerability or highest-priority classification |
 | Components to prioritize | Inspect reviewed source CMCI indicators for a selected LGU/year, including missingness | Directionality, units, benchmarks and domain review. Do not rank different indicators by raw numeric value or label the smallest as weakest |

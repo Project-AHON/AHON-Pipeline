@@ -8,7 +8,7 @@ Development work started from `main` commit `4d82f6b5010c715ed14eca490c5415692e8
 - Ruff, Python compilation, repository YAML lint and `git diff --check` passed.
 - The public-PyPI dependency lock resolved 68 packages including pinned GX Core and passed offline `uv lock --check`.
 - Both `dev` and `prod` passed strict bundle validation with explicit local inputs. Production validation checked the bundle schema using the selected development workspace; it does not certify production permissions or deploy resources there.
-- All 32 development tasks across the three existing job files reference existing assets. Production contains the 30-task main graph and standalone setup; the fixture job is development-only. No schedule is configured.
+- The recorded historical checks used the then-current task graph. They do not establish current task counts or deployment validation. The fixture job is development-only; no schedule is configured.
 
 Operational values have no committed defaults. The ignored local override file records the selected development settings. Source definitions, expected profiles and windows are inputs; fixed schema/parsing rules and pinned dependencies are reproducibility contracts.
 
@@ -26,10 +26,8 @@ The user selected workspace `7474651621867565`. Actual source runs used an isola
 | `silver.psa_population_clean` | 1,744 | 1,744 | 0 / 0 / 0 |
 | `bronze.blgf_ldrrmf_annual_lgu` | 11,434 | 11,434 | 0 / 0 / 0 |
 | `bronze.philvolcs_earthquake_observation` | 1,896 | 1,896 | 0 / 0 / 0 |
-| `bronze.osm_critical_infrastructures` | 55,482 | 55,482 | 0 / 0 / 0 |
-| `silver.osm_critical_infrastructures_clean` | 55,482 | 55,482 | 0 / 0 / 0 |
 
-Counts and distinct IDs were read through the existing SQL warehouse. Delta history independently showed zero changed rows in all six latest MERGEs, preserving lineage and processing values. These counts describe the selected source deliveries, not event deduplication, LGU exposure or a scientific score. BLGF and OSM assets were pinned to HF commit `9273d4b4d5af6d2a14e52451c45ac70a6e3012f5`.
+Counts and distinct IDs were read through the existing SQL warehouse. Delta history independently showed zero changed rows in the replayed tables, preserving lineage and processing values. These counts describe the selected source deliveries, not event deduplication, LGU exposure or a scientific score. BLGF assets were pinned to HF commit `9273d4b4d5af6d2a14e52451c45ac70a6e3012f5`.
 
 ### Live PSGC authentication and reference processing
 
@@ -39,7 +37,7 @@ The secret value was never retrieved by the local coding agent or written into r
 
 ### Current city/municipality population grain
 
-Following the user's correction in [decision 0012](../decisions/0012-city-municipality-analysis-grain.md), the canonical population key is `(psgc_code, population_year)` for CITY/MUN entities. Native reference levels and older barangay facts remain preserved. Verification used fresh catalog `ahon_city_validation_20261015042736`, with the already authenticated Q2 2024 PSGC Silver snapshot and dimension copied from the earlier source catalog, retaining their source lineage. It did not re-extract PSA data or migrate the old fact in place.
+Following the user's correction in [decision 0017](../decisions/0017-city-municipality-analysis-grain.md), the canonical population key is `(psgc_code, population_year)` for CITY/MUN entities. Native reference levels and older barangay facts remain preserved. Verification used fresh catalog `ahon_city_validation_20261015042736`, with the already authenticated Q2 2024 PSGC Silver snapshot and dimension copied from the earlier source catalog, retaining their source lineage. It did not re-extract PSA data or migrate the old fact in place.
 
 [City population run 642804757599731](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/783455110112861/runs/642804757599731?o=7474651621867565) and [replay 883474893848182](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/783455110112861/runs/883474893848182?o=7474651621867565) succeeded. The existing development SQL warehouse independently verified 1,642 rows and distinct city/year keys: 1,623 direct reported measurements, 19 NULLs and zero non-city/municipality rows. The new catalog contained no blocking GX results or results missing GX evidence. These are direct city totals, not sums of barangay measurements.
 
@@ -61,7 +59,7 @@ The following barangay-fact and aggregated-coverage runs predate the user's city
 
 [Older-delivery replay run 653710300874370](https://dbc-74becaaa-f34b.cloud.databricks.com/?o=7474651621867565#job/1024028664834828/run/653710300874370) succeeded against completed synthetic fixtures. It processed two distinct corrected deliveries for PSGC census records and financial reports, then replayed the older delivery. Silver and Gold values, processing timestamps and lineage all remained identical to the newer accepted state. This verifies the added ingestion-time update guards; the check is also part of the regular development fixture suite.
 
-[GX run 657452296951740](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/988399241764698/runs/657452296951740?o=7474651621867565) succeeded in fresh catalog `ahon_integration_gx_20261015013052`. It repeated the source correction, replay, financial edge, CMCI definition and blocking-failure scenarios below using the shared GX engine. The suite also asserted that every recorded check contained GX validation evidence and that a deliberate blocking failure contained `success: false` while preserving the accepted target. Together with the actual-source GX replay above, this verifies the shared DQ path across PSGC, population, LDRRMF, CMCI, earthquake observations and OSM. Live PSGC authentication was subsequently verified above; the reviewed production CMCI mapping remains an external prerequisite.
+[GX run 657452296951740](https://dbc-74becaaa-f34b.cloud.databricks.com/jobs/988399241764698/runs/657452296951740?o=7474651621867565) succeeded in fresh catalog `ahon_integration_gx_20261015013052`. It repeated the source correction, replay, financial edge, CMCI definition and blocking-failure scenarios below using the shared GX engine. The suite also asserted that every recorded check contained GX validation evidence and that a deliberate blocking failure contained `success: false` while preserving the accepted target. Together with the actual-source GX replay above, this verifies the shared DQ path across PSGC, population, LDRRMF, CMCI and earthquake observations. Live PSGC authentication was subsequently verified above; the reviewed production CMCI mapping remains an external prerequisite.
 
 The following runs established the transformation behavior before the GX change:
 
@@ -84,4 +82,4 @@ The initial verification attempt failed on a missing sibling-module import after
 
 Actual CMCI ingestion is blocked by the absence of a reviewed mapping for the selected snapshot. Live PSA reference processing has passed; runtime claims for downstream facts are limited to the specific runs recorded here. Synthetic mappings remain test data. Event Gold, spatial exposure, vulnerability, preparedness scores and priority rankings require approved source identities and scientific methodology.
 
-Use the [development runbook](runbook.md) for explicit configuration, exact validation/deployment commands, independent task selection, replay and correction recovery. The [inventory](../architecture/source-to-target.md) records PR reuse/exclusions and every supported source contract. The [analytical contract](../architecture/metrics.md) maps the four business questions to available evidence and missing inputs.
+Use the [development runbook](runbook.md) for explicit configuration, exact validation/deployment commands, independent task selection, replay and correction recovery. The [inventory](../architecture/source-to-target.md) records PR reuse/exclusions and every supported source contract. The [analytical contract](metrics.md) maps the four business questions to available evidence and missing inputs.

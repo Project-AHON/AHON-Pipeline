@@ -38,8 +38,6 @@
   "cmci_http_retries": null,
   "cmci_http_backoff": null,
   "cmci_metric_version": null,
-  "osm_folder": null,
-  "osm_shapefile_stems": null,
   "request_timeout": null,
   "earthquake_archive_url_template": null,
   "earthquake_latest_url": null,
