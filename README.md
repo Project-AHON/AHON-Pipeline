@@ -124,4 +124,6 @@ Names follow the [naming standard](docs/architecture/naming-standard.md).
 
 ## Team
 
-Yanna, Maki, Jessy, Crystal and Crizza. Who owns which dataset: [ownership](docs/project/ownership.md). How to contribute: [CONTRIBUTING](CONTRIBUTING.md).
+Yanna, Maki, Jessy, Crystal and Crizza. Who owns which dataset: [ownership](docs/project/ownership.md).
+
+How to contribute: [CONTRIBUTING](CONTRIBUTING.md).
