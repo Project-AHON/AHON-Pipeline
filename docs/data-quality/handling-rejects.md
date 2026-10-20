@@ -96,14 +96,14 @@ One finding per gate layer, from a full run on 2026-10-20.
 
 ## Known findings
 
-Counts from the full run on 2026-10-20 (`ahon_dev_crystal`; CMCI in test mode with 5 LGUs).
+Counts from the full run on 2026-10-20 (`ahon_dev_crystal`; CMCI in test mode with 5 LGUs). Each finding has an owner, who follows the process above. When a fix is in and the rerun confirms it (step 5), update the row.
 
-| Dataset | Check or reject table | Rows | Cause | Decision |
-| --- | --- | --- | --- | --- |
-| PSGC | `silver.psa_psgc_reject` | 12 (2 each in Q2_2024, April_2024 and Q4_2023; 6 in Q2_2021) | Source: rows with no geographic level | Keep rejected; to confirm |
-| PSGC | `psa_psgc_silver_area_name_no_broken_enye` | 1,824 | `ñ` shows as `Ã±` in names | Open: cause not known yet |
-| PSGC | `psa_psgc_silver_region_found` | 30,648 | Pipeline: Q2_2021 codes are the old 9-digit format padded to 10 | Open; Q2_2021 is not used downstream |
-| LDRRMF | `blgf_ldrrmf_annual_lgu_gold_psgc_matched` | 235 | Pipeline: LGU map change (example above) | Bugfix planned |
-| PHIVOLCS | `philvolcs_earthquake_silver_candidate_coverage` | 1,896 | Pipeline: locality pattern (example above) | Bugfix planned |
-| PHIVOLCS | `philvolcs_earthquake_silver_in_ph_bounds` | 22 | Epicentres outside the rule's approximate Philippine box (offshore or nearby events) | To check: source or rule |
-| CMCI | `cmci_platinum_cmci_pillar_coverage_complete` | 84 | Source: missing indicator scores (example above) | Keep; shown as incomplete |
+| Dataset | Check or reject table | Rows | Cause | Decision | Owner |
+| --- | --- | --- | --- | --- | --- |
+| PSGC | `silver.psa_psgc_reject` | 12 (2 each in Q2_2024, April_2024 and Q4_2023; 6 in Q2_2021) | Source: rows with no geographic level | Keep rejected; to confirm | Yanna |
+| PSGC | `psa_psgc_silver_area_name_no_broken_enye` | 1,824 | `ñ` shows as `Ã±` in names | Open: cause not known yet | Yanna |
+| PSGC | `psa_psgc_silver_region_found` | 30,648 | Pipeline: Q2_2021 codes are the old 9-digit format padded to 10 | Open; Q2_2021 is not used downstream | Yanna |
+| LDRRMF | `blgf_ldrrmf_annual_lgu_gold_psgc_matched` | 235 | Pipeline: LGU map change (example above) | Bugfix planned | Crystal |
+| PHIVOLCS | `philvolcs_earthquake_silver_candidate_coverage` | 1,896 | Pipeline: locality pattern (example above) | Bugfix planned | Jessy |
+| PHIVOLCS | `philvolcs_earthquake_silver_in_ph_bounds` | 22 | Epicentres outside the rule's approximate Philippine box (offshore or nearby events) | To check: source or rule | Jessy |
+| CMCI | `cmci_platinum_cmci_pillar_coverage_complete` | 84 | Source: missing indicator scores (example above) | Keep; shown as incomplete | Maki |
