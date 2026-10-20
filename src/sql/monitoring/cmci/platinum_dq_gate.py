@@ -1,36 +1,23 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, gold to platinum: cmci (decision 0012).
+DQ gate, gold to platinum: cmci.
 
-Run after src/sql/platinum/cmci_pillar_score.py. Checks
-platinum.cmci_pillar_score with Great Expectations, appends one row per rule
-to monitoring.dq_results, and stops the run if a stop rule FAILs. Report
-rules give WARN and do not stop it. Rule names start with the table name, like
-the other CMCI gates.
+Run after the cmci_platinum task (src/sql/datasets/cmci/pipeline.py --stage
+platinum). Checks platinum.cmci_pillar_coverage with Great Expectations,
+writes one row per rule to monitoring.dq_result, and stops the run if a stop
+rule FAILs. Report rules give WARN and do not stop it.
 
-Moved from tests/sql/monitoring/cmci_quality.py (platinum layer, 17 checks):
-the four not-null checks, one_row_per_psgc_year_pillar, psgc_is_approved,
-year_in_expected_domain, pillar_in_selected_scope,
-expected_indicator_count_matches_pillar, indicator_counts_are_valid,
-coverage_pct_is_valid, complete_status_is_consistent,
-insufficient_status_is_consistent and expected_platinum_row_count (all
-blocking there, stop here); score_status_in_domain (not blocking there, but
-cmci_pillar_score.py raises on it, so stop here); pillar_score_not_negative
-(not blocking there: report). Its table_not_empty is covered by the expected
-row count.
+Since #94 platinum is cmci_pillar_coverage: one row per LGU, year and pillar
+with how many of the pillar's indicators have a score (available) out of how
+many it has (expected), and COMPLETE or INSUFFICIENT_DATA. There is no pillar
+score any more, so the earlier cmci_pillar_score rules on scores and coverage
+percent are dropped; the count and status rules are kept.
 
-INSUFFICIENT_DATA rows are valid when their counts, coverage and NULL
-pillar_score_raw agree (decision 0009). No maximum is checked on
-pillar_score_raw: it is an unnormalised sum, not the official 0-20 score.
+Tested on ahon_dev_crystal (2026-10-20, test mode, 5 LGUs): no FAIL;
+WARN cmci_pillar_coverage_complete 84 rows (INSUFFICIENT_DATA pillars).
 
 Later: the CMCI resiliency columns of platinum.lgu_risk_profile get their own
 run_dq_gate call here once that table is built.
-
-Expected on ahon_dev: not run yet. On ahon (decision 0009 baseline,
-2026-10-12) all 17 platinum checks passed, 89,870 rows.
-
-Update EXPECTED_LGU_COUNT and LAST_YEAR when CMCI data or the approved
-mapping changes.
 """
 
 import os
@@ -53,82 +40,44 @@ from dq_gate import rule, run_dq_gate  # noqa: E402
 # 1. SETTINGS
 # ============================================================
 
-CATALOG = "ahon_dev"
+# Set by src/sql/common/run_python.py in the job; set them yourself in a notebook
+CATALOG = globals().get("PIPELINE_CATALOG", "ahon_dev")
+RUN_ID = globals().get("PIPELINE_RUN_ID", "interactive")
+PSGC_PERIOD = globals().get("PIPELINE_PERIOD", "Q2_2024")
 SOURCE_NAME = "cmci"
-PLATINUM_TABLE = f"{CATALOG}.platinum.cmci_pillar_score"
-CMCI_MAP_TABLE = f"{CATALOG}.reference.cmci_lgu_map"
-RESULTS_TABLE = f"{CATALOG}.monitoring.dq_results"
+PLATINUM_TABLE = f"{CATALOG}.platinum.cmci_pillar_coverage"
+DIM_TABLE = f"{CATALOG}.gold.dim_cmci_indicator"
+FACT_TABLE = f"{CATALOG}.gold.fact_cmci_indicator"
+RESULTS_TABLE = f"{CATALOG}.monitoring.dq_result"
+KEY_COLUMNS = ["psgc_code", "year", "pillar_name"]
 
-# Selected indicators per pillar (cmci_pillar_score.py, decision 0009)
-INDICATORS_BY_PILLAR = {
-    "Economic Dynamism": 4,
-    "Government Efficiency": 10,
-    "Infrastructure": 10,
-    "Resiliency": 10,
-    "Innovation": 1,
-}
-SCORE_STATUSES = ["COMPLETE", "INSUFFICIENT_DATA"]
+PILLARS = ["Economic Dynamism", "Government Efficiency", "Infrastructure", "Resiliency", "Innovation"]
+STATUSES = ["COMPLETE", "INSUFFICIENT_DATA"]
 
-# Change with new data (same constants as cmci_pillar_score.py and cmci_quality.py)
-EXPECTED_LGU_COUNT = 1634
-FIRST_YEAR, LAST_YEAR = 2014, 2024
-EXPECTED_ROWS = EXPECTED_LGU_COUNT * (LAST_YEAR - FIRST_YEAR + 1) * len(INDICATORS_BY_PILLAR)  # 89,870
+E = gx.expectations
 
 
 # ============================================================
 # 2. HELPER COLUMNS
 # ============================================================
 
-# *_value: NULL when the text is NULL or blank (cmci_quality.py counted both as missing).
-# in_cmci_map: psgc_code is in the approved mapping.
-# pillar_expected_count: selected indicators for the pillar (-1 for an unknown pillar, so it fails).
-# counts_valid, coverage_valid: one true/false per row for the multi-column checks in cmci_quality.py.
-# complete_consistent / insufficient_consistent: true/false for rows with that status, NULL otherwise.
-approved_codes = (
-    spark.table(CMCI_MAP_TABLE)
-    .where((F.col("match_status") == "MATCHED") & F.col("reviewed") & F.col("is_active"))
-    .select(F.trim("psgc_code").alias("psgc_code_trim"))
-    .distinct()
-    .withColumn("in_cmci_map", F.lit(True))
+# dim_expected_count = indicators per pillar in dim_cmci_indicator (compared with expected_indicator_count).
+# available_or_zero = available_indicator_count, 0 when the pillar has no fact rows (left join in the build).
+# status_consistent = COMPLETE exactly when every indicator of the pillar has a score.
+# Row count: every LGU-year in the fact has one row per pillar.
+expected_per_pillar = (
+    spark.table(DIM_TABLE).groupBy("pillar_name").agg(F.count("*").alias("dim_expected_count"))
 )
-
-pillar_map = F.create_map(*[x for p, n in INDICATORS_BY_PILLAR.items() for x in (F.lit(p), F.lit(n))])
-expected = F.col("indicators_expected")
-available = F.col("indicators_available")
-missing = F.col("indicators_missing")
-coverage = F.col("coverage_pct")
-score = F.col("pillar_score_raw")
-status = F.col("score_status")
-
-counts_valid = (
-    (expected >= 0) & (available >= 0) & (missing >= 0)
-    & (available <= expected) & (missing == expected - available)
+expected_rows = (
+    spark.table(FACT_TABLE).select("psgc_code", "year").distinct().count() * len(PILLARS)
 )
-# Same tolerance as cmci_quality.py: coverage_pct is rounded to 2 decimals by the build
-coverage_valid = (
-    coverage.between(0, 100)
-    & (F.abs(coverage - F.round(F.lit(100.0) * available / expected, 2)) <= 0.01)
-)
-complete_ok = (available == expected) & (missing == 0) & (coverage == 100.0) & score.isNotNull()
-insufficient_ok = (available < expected) & (missing > 0) & (coverage < 100.0) & score.isNull()
-
-platinum_check = spark.table(PLATINUM_TABLE)
-for c in ["psgc_code", "pillar_name", "score_status"]:
-    platinum_check = platinum_check.withColumn(f"{c}_value", F.when(F.trim(F.col(c)) != "", F.col(c)))
+available = F.coalesce(F.col("available_indicator_count"), F.lit(0))
 platinum_check = (
-    platinum_check
-    .withColumn("psgc_code_trim", F.trim("psgc_code"))
-    .join(approved_codes, on="psgc_code_trim", how="left")
-    .withColumn("in_cmci_map", F.coalesce(F.col("in_cmci_map"), F.lit(False)))
-    .withColumn("pillar_expected_count", F.coalesce(pillar_map[F.col("pillar_name")], F.lit(-1)))
-    .withColumn("counts_valid", F.coalesce(counts_valid, F.lit(False)))
-    # indicators_expected = 0 would divide by zero; such a row fails here and in the pillar count rule
-    .withColumn("coverage_valid", F.when(expected > 0, F.coalesce(coverage_valid, F.lit(False)))
-                .otherwise(F.lit(False)))
-    .withColumn("complete_consistent",
-                F.when(status == "COMPLETE", F.coalesce(complete_ok, F.lit(False))))
-    .withColumn("insufficient_consistent",
-                F.when(status == "INSUFFICIENT_DATA", F.coalesce(insufficient_ok, F.lit(False))))
+    spark.table(PLATINUM_TABLE)
+    .join(expected_per_pillar, on="pillar_name", how="left")
+    .withColumn("available_or_zero", available)
+    .withColumn("status_consistent",
+                (F.col("coverage_status") == "COMPLETE") == (available == F.col("expected_indicator_count")))
 )
 
 
@@ -136,50 +85,37 @@ platinum_check = (
 # 3. RULES
 # ============================================================
 
-E = gx.expectations
-T = "cmci_pillar_score"
 platinum_rules = [
-    # Stop rules (blocking in cmci_quality.py; cmci_pillar_score.py raises on the same conditions)
-    # Changes with new data: EXPECTED_ROWS
-    rule(E.ExpectTableRowCountToEqual(value=EXPECTED_ROWS), f"{T}_expected_platinum_row_count", "volume", "stop"),
+    # Stop rules
+    rule(E.ExpectTableRowCountToEqual(value=expected_rows),
+         "cmci_pillar_coverage_one_row_per_lgu_year_pillar_in_fact", "volume", "stop"),
 ] + [
-    rule(E.ExpectColumnValuesToNotBeNull(column=f"{c}_value"), f"{T}_{c}_not_null", "null", "stop")
-    for c in ["psgc_code", "pillar_name", "score_status"]
+    rule(E.ExpectColumnValuesToNotBeNull(column=c), f"cmci_pillar_coverage_{c}_not_null", "null", "stop")
+    for c in ["psgc_code", "year", "pillar_name", "source_period", "expected_indicator_count",
+              "coverage_status", "metric_version"]
 ] + [
-    rule(E.ExpectColumnValuesToNotBeNull(column="year"), f"{T}_year_not_null", "null", "stop"),
-    rule(E.ExpectCompoundColumnsToBeUnique(column_list=["psgc_code", "year", "pillar_name"]),
-         f"{T}_one_row_per_psgc_year_pillar", "unique", "stop"),
-    rule(E.ExpectColumnValuesToBeInSet(column="in_cmci_map", value_set=[True]),
-         f"{T}_psgc_is_approved", "referential_integrity", "stop"),
-    # Changes with new data: LAST_YEAR
-    rule(E.ExpectColumnValuesToBeBetween(column="year", min_value=FIRST_YEAR, max_value=LAST_YEAR),
-         f"{T}_year_in_expected_domain", "range", "stop"),
-    rule(E.ExpectColumnValuesToBeInSet(column="pillar_name", value_set=list(INDICATORS_BY_PILLAR)),
-         f"{T}_pillar_in_selected_scope", "accepted_values", "stop"),
-    rule(E.ExpectColumnPairValuesToBeEqual(column_A="indicators_expected", column_B="pillar_expected_count"),
-         f"{T}_expected_indicator_count_matches_pillar", "reconciliation", "stop"),
-    rule(E.ExpectColumnValuesToBeInSet(column="counts_valid", value_set=[True]),
-         f"{T}_indicator_counts_are_valid", "reconciliation", "stop"),
-    rule(E.ExpectColumnValuesToBeInSet(column="coverage_valid", value_set=[True]),
-         f"{T}_coverage_pct_is_valid", "reconciliation", "stop"),
-    rule(E.ExpectColumnValuesToBeInSet(column="complete_consistent", value_set=[True]),
-         f"{T}_complete_status_is_consistent", "reconciliation", "stop"),
-    rule(E.ExpectColumnValuesToBeInSet(column="insufficient_consistent", value_set=[True]),
-         f"{T}_insufficient_status_is_consistent", "reconciliation", "stop"),
-    rule(E.ExpectColumnValuesToBeInSet(column="score_status", value_set=SCORE_STATUSES),
-         f"{T}_score_status_in_domain", "accepted_values", "stop"),
-    # Report rule (advisory in cmci_quality.py; gold raw_score_not_negative already stops on the inputs)
-    rule(E.ExpectColumnValuesToBeBetween(column="pillar_score_raw", min_value=0),
-         f"{T}_pillar_score_not_negative", "range", "report"),
+    rule(E.ExpectCompoundColumnsToBeUnique(column_list=KEY_COLUMNS),
+         "cmci_pillar_coverage_one_row_per_key", "unique", "stop"),
+    rule(E.ExpectColumnValuesToBeInSet(column="pillar_name", value_set=PILLARS),
+         "cmci_pillar_coverage_pillar_name_valid", "accepted_values", "stop"),
+    rule(E.ExpectColumnValuesToBeInSet(column="source_period", value_set=[PSGC_PERIOD]),
+         "cmci_pillar_coverage_source_period_valid", "accepted_values", "stop"),
+    rule(E.ExpectColumnPairValuesToBeEqual(column_A="expected_indicator_count", column_B="dim_expected_count"),
+         "cmci_pillar_coverage_expected_count_matches_dim", "reconciliation", "stop"),
+    rule(E.ExpectColumnPairValuesAToBeGreaterThanB(column_A="expected_indicator_count",
+                                                   column_B="available_or_zero", or_equal=True),
+         "cmci_pillar_coverage_available_not_above_expected", "range", "stop"),
+    rule(E.ExpectColumnValuesToBeInSet(column="coverage_status", value_set=STATUSES),
+         "cmci_pillar_coverage_status_valid", "accepted_values", "stop"),
+    rule(E.ExpectColumnValuesToBeInSet(column="status_consistent", value_set=[True]),
+         "cmci_pillar_coverage_status_consistent", "reconciliation", "stop"),
+    # Report rule: pillars with a missing indicator score (INSUFFICIENT_DATA)
+    rule(E.ExpectColumnValuesToBeInSet(column="coverage_status", value_set=["COMPLETE"]),
+         "cmci_pillar_coverage_complete", "accepted_values", "report"),
 ]
-
-
-# ============================================================
-# 4. RUN THE GATE
-# ============================================================
 
 run_dq_gate(
     spark, platinum_check, platinum_rules,
-    source_name=SOURCE_NAME, layer="platinum", table_name=T,
-    key_columns=["psgc_code", "year", "pillar_name"], results_table=RESULTS_TABLE,
+    source_name=SOURCE_NAME, layer="platinum", table_name="cmci_pillar_coverage",
+    key_columns=KEY_COLUMNS, results_table=RESULTS_TABLE, run_id=RUN_ID,
 )

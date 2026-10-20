@@ -45,4 +45,4 @@ Numbers are never reused. A decision is never edited to change its meaning once 
 | [0017](0017-city-municipality-analysis-grain.md) | Analyse at city and municipality level | 2026-10-15 | Accepted |
 | [0018](0018-dq-gates-with-great-expectations.md) | Data quality gates with Great Expectations | 2026-10-15 | Proposed |
 | 0019 (record not present) | Risk and preparedness scores for the dashboard | 2026-10-16 | Proposed |
-| [0020 (proposed in PR #109)](https://github.com/Project-AHON/AHON-Pipeline/pull/109) | One data quality results table, `monitoring.dq_result` | 2026-10-19 | Proposed |
+| [0020](0020-one-dq-results-table.md) | One data quality results table, `monitoring.dq_result` | 2026-10-19 | Proposed |

@@ -1,9 +1,9 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, silver to gold: dim_lgu (decision 0012).
+DQ gate, silver to gold: dim_lgu.
 
 Run after src/sql/gold/dim_lgu.py. Checks gold.dim_lgu with Great Expectations,
-appends one row per rule to monitoring.dq_results, and stops the run if a stop
+writes one row per rule to monitoring.dq_result, and stops the run if a stop
 rule FAILs. Report rules give WARN and do not stop it.
 
 dim_lgu is one row per psgc_code from one silver period (SOURCE_PERIOD, Q2_2024).
@@ -11,7 +11,7 @@ Its MERGE keeps rows that are not in the period, so the volume and "in silver"
 rules are report rules. region_code, province_code and municipality_code hold
 silver's 10-digit region_psgc, province_psgc and citymun_psgc.
 
-Expected on ahon_dev: not run yet. About 43,760 rows (the Q2_2024 silver rows).
+Expected: about 43,760 rows (the Q2_2024 silver rows).
 Likely WARN: area_name_no_broken_enye (names such as "City of DasmariÃ±as").
 
 Unsure of:
@@ -44,15 +44,17 @@ from dq_gate import rule, run_dq_gate  # noqa: E402
 # 1. SETTINGS
 # ============================================================
 
-CATALOG = "ahon_dev"
+# Set by src/sql/common/run_python.py in the job; set them yourself in a notebook
+CATALOG = globals().get("PIPELINE_CATALOG", "ahon_dev")
+RUN_ID = globals().get("PIPELINE_RUN_ID", "interactive")
 SOURCE_NAME = "psa_psgc"
 SILVER_TABLE = f"{CATALOG}.silver.psa_psgc_clean"
 GOLD_TABLE = f"{CATALOG}.gold.dim_lgu"
-RESULTS_TABLE = f"{CATALOG}.monitoring.dq_results"
+RESULTS_TABLE = f"{CATALOG}.monitoring.dq_result"
 KEY_COLUMNS = ["area_name", "geographic_level", "psgc_code"]
 
 # Same as the source_period widget of dim_lgu.py; update when dim_lgu moves to a new snapshot
-SOURCE_PERIOD = "Q2_2024"
+SOURCE_PERIOD = globals().get("PIPELINE_PERIOD", "Q2_2024")
 
 GEOGRAPHIC_LEVELS = ["REG", "PROV", "CITY", "MUN", "SUBMUN", "BGY", "SGU"]
 
@@ -137,7 +139,7 @@ gold_rules = [
          "region_in_dim_lgu", "referential_integrity", "report"),
     rule(E.ExpectColumnValuesToBeInSet(column="barangay_parent_found", value_set=[True]),
          "barangay_parent_in_dim_lgu", "referential_integrity", "report"),
-    # Broken ñ: UTF-8 read as Latin-1 gives "Ã±" (decision 0008); fix belongs in silver
+    # Broken ñ: UTF-8 read as Latin-1 gives "Ã±"; fix belongs in silver
     rule(E.ExpectColumnValuesToNotMatchRegex(column="area_name", regex="Ã"),
          "area_name_no_broken_enye", "accepted_values", "report"),
 ]
@@ -151,5 +153,5 @@ print(f"Volume and in-silver checks use silver period {SOURCE_PERIOD}")
 run_dq_gate(
     spark, gold_check, gold_rules,
     source_name=SOURCE_NAME, layer="gold", table_name="dim_lgu",
-    key_columns=KEY_COLUMNS, results_table=RESULTS_TABLE,
+    key_columns=KEY_COLUMNS, results_table=RESULTS_TABLE, run_id=RUN_ID,
 )
