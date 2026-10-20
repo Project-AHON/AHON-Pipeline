@@ -42,7 +42,7 @@ Notepad asks to create the file. Paste the template below, change the **three ma
   "hf_revision": "9273d4b4d5af6d2a14e52451c45ac70a6e3012f5",
   "psgc_secret_scope": "ahon",
   "psgc_secret_key": "psgc-api-token",
-  "cmci_mapping_file": "",
+  "cmci_mapping_file": "/Volumes/ahon_dev_<yourname>/reference/source/<reviewed-Q2_2024-mapping-filename>.csv",
   "cmci_start_year": 2014,
   "cmci_end_year": 2024,
   "start_month": "2024-01",
@@ -90,7 +90,7 @@ The three values to change:
 
 Notes:
 - Keep the commas and quotes exactly as shown. A stray comma gives a JSON error.
-- `cmci_mapping_file` stays empty until the team has the reviewed CMCI mapping CSV. Until then do not run the CMCI tasks (see Step 5).
+- Use the reviewed Q2_2024 CMCI mapping CSV shipped in the repository; do not leave `cmci_mapping_file` empty. Upload that file using the repository's existing source-file upload procedure, then replace the example volume path in `cmci_mapping_file` with the exact path returned by that procedure under your `<catalog>.reference.<source_volume>` volume. Keep the reviewed file unchanged; do not create a new mapping or substitute an unreviewed one.
 - The values come from the team's earlier dev job. If something fails on a URL or `hf_revision`, ask the dataset owner whether it is still current.
 - Check the file has every key (prints only names, never values):
 
@@ -102,9 +102,19 @@ $missing = @($required | Where-Object { $_ -notin $settings.PSObject.Properties.
 $missing
 ```
 
-## Step 3: Save the PSGC token in Databricks (once)
+## Step 3: Request and save your PSGC token in Databricks (once)
 
-Get the token from the PSGC owner. Then run these two commands. **The second command asks you to paste the token at a hidden prompt** (you will not see the characters). Paste it without quotes and press Enter.
+### 3a. Request a token from the Philippine Statistics Authority
+
+1. Open the official [PSA Statistical Classification Systems API page](https://psa.gov.ph/classifications-api).
+2. Open the [PSA API Access Guide](https://psa.gov.ph/classifications-api/access-guide) and follow its **Request Your API Token** instructions to submit the request form.
+3. Check your email for the token issued by PSA. If you already have a valid token, you can use it instead.
+
+PSA tokens must be kept secure and must not be shared, sold, lent, committed to Git, or pasted into chat. Each developer should follow PSA's current token-request and usage requirements. See the [PSA API terms and conditions](https://psa.gov.ph/classifications-api/terms-and-conditions).
+
+### 3b. Store the token as a Databricks secret
+
+Run these commands. **The second command asks you to paste your token at a hidden prompt** (you will not see the characters). Paste it without quotes and press Enter.
 
 ```powershell
 databricks secrets create-scope ahon --profile <your-profile-name>
@@ -119,7 +129,7 @@ databricks secrets list-secrets ahon --profile <your-profile-name>
 
 You should see `psgc-api-token`. If `create-scope` says the scope already exists, skip it and run only `put-secret`. You only do this once, and again only if the token changes.
 
-The token goes only at that prompt. Never put it in the overrides file, a command line, Git or chat.
+The token goes only at that prompt. Never put it in the overrides file, a command line, Git or chat. Do not include the token in screenshots or logs.
 
 ## Step 4: Check the setup and deploy
 
@@ -152,7 +162,7 @@ Validate may print one warning about `.local/**`. That is harmless. Deploy uploa
 
    This confirms every task's files, dependencies and settings.
 
-## Step 5: Run the pipeline
+## Run
 
 One job, `ahon_pipeline`, does everything: it creates the catalog and tables, then builds each dataset. Use any new batch name.
 
@@ -167,13 +177,13 @@ One job, `ahon_pipeline`, does everything: it creates the catalog and tables, th
 
 `+<task>` includes every upstream task. The batch ID defaults to the job run ID. There is no schedule; runs are started by hand. Keep one run at a time (`max_concurrent_runs` = 1).
 
-**Do not run the whole job without `--only` until the reviewed CMCI mapping CSV exists and is configured**, because the CMCI tasks will fail.
+**Do not run the whole job without `--only` until the reviewed Q2_2024 CMCI mapping CSV has been uploaded using the existing procedure and `cmci_mapping_file` points to it**, because the CMCI tasks will fail.
 
 ### Everything except CMCI
 
 ```powershell
 $batch = "<yourname>-run-001"
-databricks bundle run ahon_pipeline -t dev --profile <your-profile-name> --params "batch_id=$batch" --only "+population_components,+population_total_gold,+funding_components,+earthquake_components,+osm_silver"
+databricks bundle run ahon_pipeline -t dev --profile <your-profile-name> --params "batch_id=$batch" --only "+population_components,+population_total_gold,+funding_components,+earthquake_components"
 ```
 
 ### PSGC only (a good first test, shorter)
@@ -223,7 +233,7 @@ Run order inside the job: `setup` first, then PSGC (`psgc_extract` → `psgc_bro
 ### CMCI
 
 - **Run:** `--only +cmci_platinum`
-- **Needs:** the reviewed mapping CSV in a volume (`cmci_mapping_file`, columns `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`), `cmci_start_year`, `cmci_end_year`, `cmci_run_mode` and the `cmci_*` request settings, and `dim_lgu`. Use `cmci_run_mode = test` until a full run is intended.
+- **Needs:** the reviewed Q2_2024 mapping CSV shipped in the repository, uploaded with the existing source-file upload procedure to the `<catalog>.reference.<source_volume>` volume, and `cmci_mapping_file` set to that uploaded file's path. The CSV columns are `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`; retain the reviewed file unchanged. Also configure `cmci_start_year`, `cmci_end_year`, `cmci_run_mode` and the `cmci_*` request settings, and ensure `dim_lgu` is available. Use `cmci_run_mode = test` until a full run is intended.
 - **Check:** `platinum.cmci_pillar_coverage` has rows for the requested years; `silver.cmci_reject` is empty or explained.
 - **If it fails:**
   - Mapping errors: codes must be unique, names one-to-one, `reviewed` true, and `source_period` equal to `dim_lgu`.
@@ -276,7 +286,7 @@ Before treating a gold table as current, check the latest `monitoring.dq_result`
 | `Warnings are not allowed in strict mode` | Run validate without `--strict`. |
 | Deploy seems stuck | Wait a few minutes. The first upload is large. |
 | A task fails | Open the run in Databricks (Jobs > your job > the run) and read the failed task's error. Send the task name and the last error line to the team. |
-| A CMCI task fails | Expected until the reviewed mapping CSV is supplied. Use `--only` as above. |
+| A CMCI task fails | Confirm the reviewed Q2_2024 mapping CSV was uploaded using the existing procedure and `cmci_mapping_file` points to its path in the reference volume; then inspect the task error. Use `--only` as above. |
 
 ## Do not
 
@@ -292,5 +302,9 @@ Before treating a gold table as current, check the latest `monitoring.dq_result`
 ```powershell
 databricks bundle run data_quality -t dev --profile <your-profile-name> --params "catalog=ahon_integration_<name>"
 ```
+
+It has no automatic retries; use a fresh catalog after a failure. It tests the code, not the real sources.
+
+
 
 It has no automatic retries; use a fresh catalog after a failure. It tests the code, not the real sources.
