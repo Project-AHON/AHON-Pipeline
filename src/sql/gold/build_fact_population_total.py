@@ -40,7 +40,7 @@ def build(spark, args):
         normalize(F.col("area_name")).alias("locality_key"),
     )
     reference = reference.groupBy("region_key", "province_key", "locality_key").agg(
-        F.sort_array(F.collect_set("psgc_code")).alias("candidate_codes")
+        F.sort_array(F.collect_set("psgc_code")).cast("array<string>").alias("candidate_codes")
     )
     fact = (
         silver.withColumn("region_key", normalize(F.col("region")))
