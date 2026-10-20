@@ -1299,3 +1299,4 @@ resources:
         depends_on:
         - task_key: earthquake_silver
         - task_key: dq_earthquake_silver
+        
