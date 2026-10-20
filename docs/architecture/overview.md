@@ -95,7 +95,7 @@ Tasks run on serverless compute with explicit timeout, retry and one concurrent 
 
 ## Data quality
 
-Build checks persist results in `monitoring.dq_result`. A blocking check prevents the associated downstream write where evaluated before that write; earlier successful statements and upstream tasks are not rolled back. This integration candidate runs twelve layer-gate tasks using the shared eight-column result contract. Census and OpenSTAT gates are independent. Unbuilt-table placeholders remain inactive. See [data quality](../data-quality/README.md) and [DQ gates](../data-quality/dq-gates.md).
+Build checks persist results in `monitoring.dq_result`. A blocking check prevents the associated downstream write where evaluated before that write; earlier successful statements and upstream tasks are not rolled back. Twelve data quality gate tasks check each finished table before the next layer reads it, and write to the same `monitoring.dq_result` table. A gate that fails skips the tasks that read the table it checked. The census and OpenSTAT population chains have separate gates. See [data quality](../data-quality/README.md) and [DQ gates](../data-quality/dq-gates.md).
 
 ## Why these choices
 

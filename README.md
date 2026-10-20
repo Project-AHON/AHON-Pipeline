@@ -89,34 +89,34 @@ Credentials (Databricks login, PSA token) and your bundle settings stay on your 
 
 ```
 AHON-Pipeline/
-â”œâ”€â”€ README.md                    # this file
-â”œâ”€â”€ CONTRIBUTING.md              # how the team works: branches, PRs, CI checks, review
-â”œâ”€â”€ databricks.yml               # Asset Bundle: dev and prod targets, variables, includes resources/
-â”œâ”€â”€ config/
-â”‚   â””â”€â”€ variable-overrides.example.json   # template for your private bundle settings
-â”œâ”€â”€ .github/
-â”‚   â”œâ”€â”€ workflows/               # CI checks and the reviewer auto-assign
-â”‚   â”œâ”€â”€ ISSUE_TEMPLATE/          # issue templates
-â”‚   â””â”€â”€ pull_request_template.md # PR template
-â”œâ”€â”€ resources/
-â”‚   â”œâ”€â”€ jobs/                    # ahon_pipeline, catalog_setup, data_quality (dev only)
-â”‚   â””â”€â”€ cmci_indicators.csv      # the selected CMCI indicators
-â”œâ”€â”€ src/
-â”‚   â””â”€â”€ sql/                     # all pipeline code, SQL and Python together
-â”‚       â”œâ”€â”€ 00_setup/            # catalog, schemas, volume and monitoring tables
-â”‚       â”œâ”€â”€ datasets/            # one folder per source dataset
-â”‚       â”‚   â””â”€â”€ <dataset>/
-â”‚       â”‚       â”œâ”€â”€ extract/     # pulls data from the source and writes raw files
-â”‚       â”‚       â”œâ”€â”€ bronze/      # loads raw files into bronze.<dataset>
-â”‚       â”‚       â””â”€â”€ silver/      # cleans into silver.<dataset>_clean (+ _reject)
-â”‚       â”œâ”€â”€ gold/                # dimensions and facts, combining datasets
-â”‚       â”œâ”€â”€ platinum/            # analysis views built from gold
-â”‚       â”œâ”€â”€ monitoring/          # DQ gates per dataset
-â”‚       â””â”€â”€ common/              # shared Python: runners, quality checks, DQ gate
-â”œâ”€â”€ notebooks/
-â”‚   â””â”€â”€ exploration/             # experiments only; jobs never run these
-â”œâ”€â”€ tests/                       # unit and job contract tests, mirroring src/sql/
-â””â”€â”€ docs/                        # see Documentation above
+├── README.md                    # this file
+├── CONTRIBUTING.md              # how the team works: branches, PRs, CI checks, review
+├── databricks.yml               # Asset Bundle: dev and prod targets, variables, includes resources/
+├── config/
+│   └── variable-overrides.example.json   # template for your private bundle settings
+├── .github/
+│   ├── workflows/               # CI checks and the reviewer auto-assign
+│   ├── ISSUE_TEMPLATE/          # issue templates
+│   └── pull_request_template.md # PR template
+├── resources/
+│   ├── jobs/                    # ahon_pipeline, catalog_setup, data_quality (dev only)
+│   └── cmci_indicators.csv      # the selected CMCI indicators
+├── src/
+│   └── sql/                     # all pipeline code, SQL and Python together
+│       ├── 00_setup/            # catalog, schemas, volume and monitoring tables
+│       ├── datasets/            # one folder per source dataset
+│       │   └── <dataset>/
+│       │       ├── extract/     # pulls data from the source and writes raw files
+│       │       ├── bronze/      # loads raw files into bronze.<dataset>
+│       │       └── silver/      # cleans into silver.<dataset>_clean (+ _reject)
+│       ├── gold/                # dimensions and facts, combining datasets
+│       ├── platinum/            # analysis views built from gold
+│       ├── monitoring/          # DQ gates per dataset
+│       └── common/              # shared Python: runners, quality checks, DQ gate
+├── notebooks/
+│   └── exploration/             # experiments only; jobs never run these
+├── tests/                       # unit and job contract tests, mirroring src/sql/
+└── docs/                        # see Documentation above
 ```
 
 ### Where things go
@@ -136,6 +136,6 @@ Yanna, Maki, Jessy, Crystal and Crizza. Who owns which dataset: [ownership](docs
 
 How to contribute: [CONTRIBUTING](CONTRIBUTING.md).
 
-## Layer-gate integration
+## Layer gates
 
-This integration candidate adds 12 layer-gate tasks after their corresponding builds. Census and OpenSTAT population have independent Silver and Gold gates. Blocking results stop dependent tasks; warning results remain visible. Gate and build checks share `monitoring.dq_result`. Earlier writes are not rolled back.
+The pipeline runs 12 layer-gate tasks after their corresponding builds. Census and OpenSTAT population have independent Silver and Gold gates. Blocking results stop dependent tasks; warning results remain visible. Gate and build checks share `monitoring.dq_result`. Earlier writes are not rolled back.

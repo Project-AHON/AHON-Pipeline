@@ -308,6 +308,6 @@ databricks bundle run data_quality -t dev --profile <your-profile-name> --params
 
 It has no automatic retries; use a fresh catalog after a failure. It tests the code, not the real sources.
 
+## Layer gates
 
-
-It has no automatic retries; use a fresh catalog after a failure. It tests the code, not the real sources.
+Twelve gates follow their builds. Census and OpenSTAT population have separate Silver/Gold gate entry points; selecting census components does not select OpenSTAT. All population gates receive the configured census year. A gate checks the build already written, so a failure skips dependents but does not roll back that build. See [gate contracts](../data-quality/dq-gates.md).

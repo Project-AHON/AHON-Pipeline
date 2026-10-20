@@ -1,6 +1,6 @@
 # Data quality gates
 
-This integration candidate activates 12 gates in `resources/jobs/ahon_job.yml`. Each gate checks its just-built layer, writes results, and blocks dependent tasks on BLOCKED or ERROR. WARNs do not stop a run. A post-build gate cannot roll back its build or earlier committed statements.
+The pipeline runs 12 gates in `resources/jobs/ahon_job.yml`. Each gate checks its just-built layer, writes results, and blocks dependent tasks on BLOCKED or ERROR. WARNs do not stop a run. A post-build gate cannot roll back its build or earlier committed statements.
 
 | Path | Silver gate | Gold gate | Platinum gate |
 | --- | --- | --- | --- |

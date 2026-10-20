@@ -76,7 +76,7 @@ One finding per gate layer, from a full run on 2026-10-20.
 ### Silver: PHIVOLCS locality not parsed (pipeline)
 
 - **Find:** `philvolcs_earthquake_silver_candidate_coverage` on `silver.philvolcs_earthquake_observation_clean` is WARN with 1,896 rows. That is every observation.
-- **Cause:** all rows have `candidate_status = 'unparsed'`. Bronze `Location` values look like `048  km N 60Ã‚Â° E of ...`, with two spaces before `km` and a mis-encoded degree sign. `LOCALITY_PATTERN` in the earthquake contract does not allow either, so this is a pipeline problem.
+- **Cause:** all rows have `candidate_status = 'unparsed'`. Bronze `Location` values look like `048  km N 60Â° E of ...`, with two spaces before `km` and a mis-encoded degree sign. `LOCALITY_PATTERN` in the earthquake contract does not allow either, so this is a pipeline problem.
 - **Act:** a `bugfix/` issue for the dataset owner. Widen the pattern, and have the silver upsert also update rows whose `candidate_status` changed.
 - **Close:** after the rerun, `candidate_coverage` should drop to the rows that are really ambiguous or unmatched. That number then goes in Known findings.
 
@@ -101,7 +101,7 @@ Counts from the full run on 2026-10-20 (`ahon_dev_crystal`; CMCI in test mode wi
 | Dataset | Check or reject table | Rows | Cause | Decision |
 | --- | --- | --- | --- | --- |
 | PSGC | `silver.psa_psgc_reject` | 12 (2 each in Q2_2024, April_2024 and Q4_2023; 6 in Q2_2021) | Source: rows with no geographic level | Keep rejected; to confirm |
-| PSGC | `psa_psgc_silver_area_name_no_broken_enye` | 1,824 | `Ã±` shows as `ÃƒÂ±` in names | Open: cause not known yet |
+| PSGC | `psa_psgc_silver_area_name_no_broken_enye` | 1,824 | `ñ` shows as `Ã±` in names | Open: cause not known yet |
 | PSGC | `psa_psgc_silver_region_found` | 30,648 | Pipeline: Q2_2021 codes are the old 9-digit format padded to 10 | Open; Q2_2021 is not used downstream |
 | LDRRMF | `blgf_ldrrmf_annual_lgu_gold_psgc_matched` | 235 | Pipeline: LGU map change (example above) | Bugfix planned |
 | PHIVOLCS | `philvolcs_earthquake_silver_candidate_coverage` | 1,896 | Pipeline: locality pattern (example above) | Bugfix planned |
