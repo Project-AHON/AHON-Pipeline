@@ -156,3 +156,17 @@ def test_census_components_have_no_auxiliary_population_ancestors():
     for name in ["dq_population_gold", "dq_population_openstat_silver", "dq_population_openstat_gold"]:
         params = tasks[name]["spark_python_task"]["parameters"]
         assert params[params.index("--census-year") + 1] == "${var.census_year}"
+
+
+def test_tasks_that_read_a_checked_table_wait_for_its_gate():
+    graph = next(job for _, name, job in jobs() if name == "ahon_pipeline")
+    dependencies = {t["task_key"]: {d["task_key"] for d in t.get("depends_on", [])} for t in graph["tasks"]}
+    # A gate depends on the build(s) whose table it checks
+    gates = {key: builds for key, builds in dependencies.items() if key.startswith("dq_")}
+    assert len(gates) == 12
+    for task, needs in dependencies.items():
+        if task.startswith("dq_"):
+            continue
+        for gate, builds in gates.items():
+            if needs & builds:
+                assert gate in needs, f"{task} reads {sorted(needs & builds)} but does not wait for {gate}"

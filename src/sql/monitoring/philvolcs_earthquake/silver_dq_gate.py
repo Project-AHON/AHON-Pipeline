@@ -44,8 +44,10 @@ try:
 except NameError:  # notebooks have no __file__; Databricks starts them in their own folder
     _here = os.getcwd()
 sys.path.append(os.path.abspath(os.path.join(_here, "..", "..", "common")))
+sys.path.append(os.path.abspath(os.path.join(_here, "..", "..", "datasets", "philvolcs_earthquake")))
 
 from dq_gate import rule, run_dq_gate  # noqa: E402
+from earthquake_contract import INVALID_OBSERVATION_SQL, flag_matches_validity  # noqa: E402
 
 
 # ============================================================
@@ -96,20 +98,12 @@ depth, mag = F.col("depth_km"), F.col("magnitude")
 event_time = F.col("event_time")
 in_bronze = F.col("row_in_bronze")
 
-# Same expression as `invalid` in observation_pipeline.py
 period_bad = (
     F.col("source_year").isNull() | F.col("source_month").isNull()
     | (F.col("source_year") != F.year(event_time)) | (F.col("source_month") != F.month(event_time))
 )
-event_invalid = F.coalesce(
-    event_time.isNull()
-    | bad_number(lat) | ~lat.between(-90, 90)
-    | bad_number(lon) | ~lon.between(-180, 180)
-    | bad_number(depth) | (depth < 0)
-    | bad_number(mag) | (mag < 0)
-    | period_bad,
-    F.lit(True),
-)
+# The same validity expression the build uses to set has_dq_issues (earthquake_contract.py)
+event_invalid = F.coalesce(F.expr(INVALID_OBSERVATION_SQL), F.lit(True))
 
 raw_match = F.lit(True)
 for silver_col, bronze_col in RAW_COLUMNS.items():
@@ -133,9 +127,9 @@ silver_check = (
     .withColumn("values_match_bronze", F.when(in_bronze, raw_match))
     .join(reject_ids, on="_observation_id", how="left")
     .withColumn("in_reject", F.coalesce(F.col("in_reject"), F.lit(False)))
-    # Every invalid observation must carry has_dq_issues = true (NULL flags: has_dq_issues_not_null)
-    .withColumn("invalid_is_flagged",
-                F.when(F.col("has_dq_issues").isNotNull(), F.col("has_dq_issues") | ~event_invalid))
+    # has_dq_issues must equal the validity check: invalid rows flagged, valid rows not
+    # (NULL flags give NULL here and are reported by has_dq_issues_not_null)
+    .withColumn("flag_matches_validity", flag_matches_validity(F.col("has_dq_issues"), event_invalid))
     .withColumn("event_values_finite",
                 ~(bad_number(lat) | bad_number(lon) | bad_number(depth) | bad_number(mag)))
     .withColumn("source_period_consistent", F.when(event_time.isNotNull(), ~period_bad))
@@ -169,8 +163,8 @@ silver_rules = [
     rule(E.ExpectColumnValuesToBeInSet(column="values_match_bronze", value_set=[True]),
          "values_match_bronze", "reconciliation", "stop"),
     rule(E.ExpectColumnValuesToNotBeNull(column="has_dq_issues"), "has_dq_issues_not_null", "null", "stop"),
-    rule(E.ExpectColumnValuesToBeInSet(column="invalid_is_flagged", value_set=[True]),
-         "invalid_is_flagged", "reconciliation", "stop"),
+    rule(E.ExpectColumnValuesToBeInSet(column="flag_matches_validity", value_set=[True]),
+         "flag_matches_validity", "reconciliation", "stop"),
     # The reject table holds exactly the flagged rows
     rule(E.ExpectColumnPairValuesToBeEqual(column_A="has_dq_issues", column_B="in_reject"),
          "reject_matches_flagged", "reconciliation", "stop"),

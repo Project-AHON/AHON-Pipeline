@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "common"))
-from earthquake_contract import LOCALITY_PATTERN, SOURCE_COLUMNS
+from earthquake_contract import INVALID_OBSERVATION_SQL, LOCALITY_PATTERN, SOURCE_COLUMNS
 from quality import check, unique, upsert
 from runtime import batch_path, completed_batch, parser, provenance
 
@@ -93,11 +93,7 @@ def silver(spark, args):
         )
     frame = frame.withColumn("source_year", F.expr("CASE WHEN Year RLIKE '^[0-9]{4}$' THEN try_cast(Year AS INT) END"))
     frame = frame.withColumn("source_month", F.expr("month(try_to_timestamp(concat('01 ', Month, ' 2000'), 'dd MMMM yyyy'))"))
-    invalid = "event_time IS NULL OR latitude IS NULL OR longitude IS NULL OR depth_km IS NULL OR magnitude IS NULL OR NOT latitude BETWEEN -90 AND 90 OR NOT longitude BETWEEN -180 AND 180 OR depth_km < 0 OR magnitude < 0 OR source_year IS NULL OR source_month IS NULL OR source_year <> year(event_time) OR source_month <> month(event_time)"
-    invalid += " OR " + " OR ".join(
-        f"isnan({c}) OR abs({c}) = double('Infinity')"
-        for c in ["latitude", "longitude", "depth_km", "magnitude"]
-    )
+    invalid = INVALID_OBSERVATION_SQL
     frame = frame.withColumn("has_dq_issues", F.expr(invalid)).withColumn(
         "_psgc_snapshot", F.lit(args.source_period)
     )
