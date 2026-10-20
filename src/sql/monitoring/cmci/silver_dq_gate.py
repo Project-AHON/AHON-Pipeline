@@ -62,7 +62,7 @@ KEY_COLUMNS = ["psgc_code", "year", "indicator_code"]
 
 # Update when CMCI publishes a new year
 YEARS = (2014, 2024)
-# resources/cmci_indicators.csv (35 indicators, decision 0009)
+# resources/cmci_indicators.csv (35 indicators)
 INDICATOR_CODES = [
     "les", "leg", "sle", "job", "cnd", "pipu", "bre", "rat", "chs", "css",
     "lgua", "bpls", "pao", "sp", "road", "dtp", "abu", "trans", "edu", "hea",

@@ -12,7 +12,7 @@ observations stay in silver with has_dq_issues = true and are also copied to
 silver.philvolcs_earthquake_reject, so validity rules are flag rules and the
 reject table must hold exactly the flagged rows. psgc_code stays NULL: a
 locality named in the PHIVOLCS text is not exposure, so the build only lists
-candidate codes (ADR 0009).
+candidate codes.
 
 Rules kept from the earlier gate (written for philvolcs_earthquake_data_clean):
 lineage, uniqueness, bronze reconciliation, has_dq_issues, PSGC blocked,
@@ -174,7 +174,7 @@ silver_rules = [
     # The reject table holds exactly the flagged rows
     rule(E.ExpectColumnPairValuesToBeEqual(column_A="has_dq_issues", column_B="in_reject"),
          "reject_matches_flagged", "reconciliation", "stop"),
-    # PSGC assignment stays withheld until the geographic meaning is approved (ADR 0009)
+    # PSGC assignment stays withheld until the geographic meaning is approved
     rule(E.ExpectColumnValuesToBeNull(column="psgc_code"), "psgc_code_withheld", "null", "stop"),
     rule(E.ExpectColumnValuesToBeInSet(column="geographic_assignment_status",
                                        value_set=["WITHHELD_LOCALITY_IS_NOT_EXPOSURE"]),
