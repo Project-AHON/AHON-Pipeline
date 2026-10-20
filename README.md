@@ -37,7 +37,7 @@ flowchart LR
   F --> G[["AHON dashboard"]]
 ```
 
-AHON is a batch pipeline on Databricks. Each source is downloaded into a folder of raw files, then refined in four layers: **bronze** keeps the data as received, **silver** cleans it and adds the official code of each city or municipality (the PSGC code), **gold** builds the tables used for analysis, and **platinum** prepares the views the dashboard reads. Every step checks its data before writing and records the result.
+AHON is a batch pipeline on Databricks. Each source is downloaded into a folder of raw files, then refined in four layers: **bronze** keeps the data as received, **silver** cleans it and adds the official code of each city or municipality (the PSGC code), **gold** builds the tables used for analysis, and **platinum** prepares the views the dashboard reads. Every step checks its data before writing and records the result, and a data quality gate checks each finished table before the next layer reads it.
 
 New to the acronyms? See the [glossary](docs/glossary.md).
 
@@ -71,7 +71,7 @@ Credentials (Databricks login, PSA token) and your bundle settings stay on your 
 | [docs/project](docs/project/) | Problem statement, assumptions and limitations, ownership |
 | [docs/data](docs/data/) | Sources, a data profile per source, and a data dictionary page per table |
 | [docs/architecture](docs/architecture/) | Overview, data model, source to target, analytics method, naming standard |
-| [docs/data-quality](docs/data-quality/) | How checks work, the DQ gates and the results table |
+| [docs/data-quality](docs/data-quality/) | How checks work, the DQ gates, the results table and handling rejects |
 | [docs/operations](docs/operations/) | Runbook: running, rerunning and recovering the pipeline |
 | [docs/getting-started](docs/getting-started/) | Setup for new team members |
 | [docs/decisions](docs/decisions/) | Decision records, one per decision |

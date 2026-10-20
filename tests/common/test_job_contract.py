@@ -65,10 +65,11 @@ def test_population_sources_keep_their_own_silver_and_gold_files():
         ("population_gold", "src/sql/gold/fact_population.py", "psgc_population_silver"),
         ("population_total_gold", "src/sql/gold/build_fact_population_total.py", "population_silver"),
     ]:
+        gates = {"dq_psgc_gold", "dq_population_silver"}
         args = tasks[key]["spark_python_task"]["parameters"]
         entry = args[args.index("--file" if "--file" in args else "--entry-point") + 1]
         assert entry == writer
-        assert {dep["task_key"] for dep in tasks[key]["depends_on"]} == {source, "dim_lgu"}
+        assert {dep["task_key"] for dep in tasks[key]["depends_on"]} == {source, "dim_lgu"} | gates
     assert (ROOT / "src/sql/gold/fact_population_candidate.sql").is_file()
 
 
@@ -77,9 +78,9 @@ def test_independent_sources_are_not_blocked_by_cmci_or_earthquake():
     dependencies = {t["task_key"]: {d["task_key"] for d in t.get("depends_on", [])} for t in graph["tasks"]}
     for name in ["psgc_extract", "population_extract", "ldrrmf_extract", "earthquake_extract", "osm_extract"]:
         assert dependencies[name] == {"setup"}
-    assert dependencies["ldrrmf_gold"] == {"ldrrmf_silver", "dim_lgu"}
-    assert dependencies["population_gold"] == {"psgc_population_silver", "dim_lgu"}
-    assert dependencies["earthquake_silver"] == {"earthquake_bronze", "psgc_silver"}
+    assert dependencies["ldrrmf_gold"] == {"ldrrmf_silver", "dim_lgu", "dq_ldrrmf_silver", "dq_psgc_gold"}
+    assert dependencies["population_gold"] == {"psgc_population_silver", "dim_lgu", "dq_population_silver", "dq_psgc_gold"}
+    assert dependencies["earthquake_silver"] == {"earthquake_bronze", "psgc_silver", "dq_psgc_silver"}
     assert not any("earthquake_gold" == task for task in dependencies)
 
 
@@ -101,7 +102,7 @@ def test_operational_settings_have_no_committed_defaults():
         for task in job["tasks"]:
             assert task["timeout_seconds"] == "${var.task_timeout_seconds}"
             params = task["spark_python_task"]["parameters"]
-            assert not any(value.startswith("https://") or value.startswith("/Volumes/") for value in params)
+            assert not any(value.startswith(("https://", "/Volumes/")) for value in params)
             for flag in ["--source-period", "--census-year", "--start-year", "--end-year", "--source-file", "--expected-rows", "--expected-profile"]:
                 if flag in params:
                     assert params[params.index(flag) + 1].startswith("${var.")

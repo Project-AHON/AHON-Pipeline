@@ -2,7 +2,7 @@
 
 How the pipeline checks data between layers with Great Expectations, and where each dataset's gate lives. The design is in [decision 0012](../decisions/0012-dq-gates-with-great-expectations.md); the results table is described in [dq-result](dq-result.md).
 
-Each gate is a task in `ahon_pipeline`, named `dq_<dataset>_<layer>` (for example `dq_ldrrmf_silver`), and runs after the build of the table it checks. Nothing waits on the gates yet: a gate FAIL fails the run, but the next build still runs. The checks inside each build (see the [data quality overview](README.md)) still stop a bad write before it happens.
+Each gate is a task in `ahon_pipeline`, named `dq_<dataset>_<layer>` (for example `dq_ldrrmf_silver`), and runs after the build of the table it checks. The next build depends on the gate, so a gate FAIL stops the layers after it (for example, `ldrrmf_gold` waits for `dq_ldrrmf_silver`, and every build that reads `gold.dim_lgu` waits for `dq_psgc_gold`). WARNs do not stop anything. The checks inside each build (see the [data quality overview](README.md)) still stop a bad write before it happens.
 
 ## Where the checks run
 
@@ -83,7 +83,7 @@ The older checks in `src/sql/monitoring/psa_psgc/*_dq.sql`, `philvolcs_earthquak
 2. Fill in the settings, the helper columns (if a rule spans several columns) and the rules. Start from the checks already in the dataset's build and DQ files.
 3. Run it on your development catalog and compare the counts with what you expect. Write the date and the counts in the file's docstring.
 4. List the rules on the [data dictionary](../data/data-dictionary/README.md) page of the table checked.
-5. Add the gate as a job task in `resources/jobs/ahon_job.yml`: copy an existing `dq_` task, point `--file` at the gate and set `depends_on` to the build. Update the task count in `tests/common/test_job_contract.py`. Do not start the task key with `cmci_` (that prefix is for tasks that take the indicator file).
+5. Add the gate as a job task in `resources/jobs/ahon_job.yml`: copy an existing `dq_` task, point `--file` at the gate and set `depends_on` to the build. Add the gate to `depends_on` of every task that reads the checked table, and keep each task below the tasks it depends on. Update the task count and the dependency sets in `tests/common/test_job_contract.py`. Do not start the task key with `cmci_` (that prefix is for tasks that take the indicator file).
 
 ## Gate file template
 
