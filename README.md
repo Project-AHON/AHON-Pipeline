@@ -138,4 +138,4 @@ How to contribute: [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Dashboard export candidate
 
-The component dashboard export is [available here](resources/dashboard/Project%20AHON%20LGU%20Command%20Center%20for%20DRRM.lvdash.json). It reads the maintained Platinum component contracts. See [dashboard status and import prerequisites](docs/insights/dashboard.md). It requires explicit catalog/schema binding and runtime query/render verification before release.
+The component dashboard export is [available here](resources/dashboard/lgu_command_center.lvdash.json). It reads the maintained Platinum component contracts. See [dashboard status and import prerequisites](docs/insights/dashboard.md). It requires explicit catalog/schema binding and runtime query/render verification before release.

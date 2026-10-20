@@ -10,21 +10,21 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_dashboard_queries_resolve_to_maintained_component_columns():
-    export = next((ROOT / "resources/dashboard").glob("*.lvdash.json"))
-    dashboard = json.loads(export.read_text())
+    export = ROOT / "resources/dashboard/lgu_command_center.lvdash.json"
+    dashboard = json.loads(export.read_text(encoding="utf-8"))
     sql_contracts = {
         "population_components": "src/sql/platinum/population_components.sql",
         "earthquake_observation_summary": "src/sql/platinum/earthquake_components.sql",
     }
     columns = {}
     for table, path in sql_contracts.items():
-        tree = sqlglot.parse_one((ROOT / path).read_text(), read="databricks")
+        tree = sqlglot.parse_one((ROOT / path).read_text(encoding="utf-8"), read="databricks")
         columns[table] = set(tree.find(exp.Select).named_selects)
-    funding = sqlglot.parse((ROOT / "src/sql/gold/build_fact_ldrrmf.sql").read_text(), read="databricks")
+    funding = sqlglot.parse((ROOT / "src/sql/gold/build_fact_ldrrmf.sql").read_text(encoding="utf-8"), read="databricks")
     candidate = next(tree for tree in funding if isinstance(tree, exp.Create))
     columns["funding_components"] = set(candidate.find(exp.Select).named_selects) | {
         "reference_area_name", "geographic_level", "interpretation"}
-    dictionary = (ROOT / "docs/data/data-dictionary/cmci_pillar_coverage.md").read_text()
+    dictionary = (ROOT / "docs/data/data-dictionary/cmci_pillar_coverage.md").read_text(encoding="utf-8")
     columns["cmci_pillar_coverage"] = set(re.findall(r"^\| `([^`]+)` \|", dictionary, re.M))
     datasets = {}
     for dataset in dashboard["datasets"]:
