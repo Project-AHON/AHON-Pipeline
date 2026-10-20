@@ -1,6 +1,6 @@
 # 0018: Data quality gates with Great Expectations
 
-- **Status:** Proposed
+- **Status:** Partly superseded by 0020 (where the gates write and how they run in the job)
 - **Date:** 2026-10-15
 
 ## Context

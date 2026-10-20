@@ -43,6 +43,6 @@ Numbers are never reused. A decision is never edited to change its meaning once 
 | [0015](0015-reconciled-source-contracts.md) | One executable pipeline and reconciled source contracts | 2026-10-14 | Accepted |
 | [0016](0016-shared-gx-quality-gates.md) | Use Great Expectations inside every build's checks | 2026-10-15 | Accepted |
 | [0017](0017-city-municipality-analysis-grain.md) | Analyse at city and municipality level | 2026-10-15 | Accepted |
-| [0018](0018-dq-gates-with-great-expectations.md) | Data quality gates with Great Expectations | 2026-10-15 | Proposed |
+| [0018](0018-dq-gates-with-great-expectations.md) | Data quality gates with Great Expectations | 2026-10-15 | Partly superseded by 0020 |
 | [0019](0019-risk-and-preparedness-scores.md) | Risk and preparedness scores for the dashboard | 2026-10-16 | Proposed |
-| [0020](0020-one-dq-results-table.md) | One data quality results table, `monitoring.dq_result` | 2026-10-19 | Proposed |
+| [0020](0020-one-dq-results-table.md) | One data quality results table, and gates that block the next build | 2026-10-20 | Proposed |
