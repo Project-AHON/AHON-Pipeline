@@ -1,0 +1,980 @@
+{
+  "datasets": [
+    {
+      "name": "ds_population",
+      "displayName": "Reported population",
+      "queryLines": [
+        "SELECT psgc_code, area_name, geographic_level, population_year, population, coverage_status, disposition, source_period\n",
+        "FROM population_components\n",
+        "ORDER BY population_year, psgc_code"
+      ]
+    },
+    {
+      "name": "ds_funding",
+      "displayName": "Funding reports",
+      "queryLines": [
+        "SELECT psgc_code, reference_area_name, lgu_name, lgu_type, fiscal_year, source_period, appropriation_70_pct, expenditure_70_pct, total_appropriation, total_expenditure, utilization_rate_70_pct, utilization_rate_total, match_status, has_dq_issues\n",
+        "FROM funding_components\n",
+        "ORDER BY fiscal_year, lgu_name"
+      ]
+    },
+    {
+      "name": "ds_cmci",
+      "displayName": "CMCI data coverage",
+      "queryLines": [
+        "SELECT psgc_code, year, pillar_name, source_period, expected_indicator_count, available_indicator_count, coverage_status, metric_version\n",
+        "FROM cmci_pillar_coverage\n",
+        "ORDER BY year, psgc_code, pillar_name"
+      ]
+    },
+    {
+      "name": "ds_earthquakes",
+      "displayName": "Earthquake observations",
+      "queryLines": [
+        "SELECT source_year, source_month, source_period, source_observations, invalid_observations, single_textual_candidates, ambiguous_textual_candidates, unresolved_textual_candidates, maximum_reported_magnitude\n",
+        "FROM earthquake_observation_summary\n",
+        "ORDER BY source_year, source_month, source_period"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "population",
+      "displayName": "Reported population",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "population_notes",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Reported population\n\nResident census population for cities and municipalities. Missing measurements stay NULL. Select a census year and PSGC snapshot; population is not annual earthquake exposure.\n\nThese are component outputs. Composite risk and preparedness rankings are not published here."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "population_period",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_population",
+                  "fields": [
+                    {
+                      "name": "population_year",
+                      "expression": "`population_year`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "Population Year"
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "population_year",
+                    "queryName": "main_query"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "population_snapshot",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_population",
+                  "fields": [
+                    {
+                      "name": "source_period",
+                      "expression": "`source_period`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "PSGC snapshot"
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "source_period",
+                    "queryName": "main_query"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "population_details",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_population",
+                  "fields": [
+                    {
+                      "name": "psgc_code",
+                      "expression": "`psgc_code`"
+                    },
+                    {
+                      "name": "area_name",
+                      "expression": "`area_name`"
+                    },
+                    {
+                      "name": "geographic_level",
+                      "expression": "`geographic_level`"
+                    },
+                    {
+                      "name": "population_year",
+                      "expression": "`population_year`"
+                    },
+                    {
+                      "name": "population",
+                      "expression": "`population`"
+                    },
+                    {
+                      "name": "coverage_status",
+                      "expression": "`coverage_status`"
+                    },
+                    {
+                      "name": "disposition",
+                      "expression": "`disposition`"
+                    },
+                    {
+                      "name": "source_period",
+                      "expression": "`source_period`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "frame": {
+                "showTitle": true,
+                "title": "Reported population"
+              },
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "psgc_code",
+                    "displayName": "Psgc Code"
+                  },
+                  {
+                    "fieldName": "area_name",
+                    "displayName": "Area Name"
+                  },
+                  {
+                    "fieldName": "geographic_level",
+                    "displayName": "Geographic Level"
+                  },
+                  {
+                    "fieldName": "population_year",
+                    "displayName": "Population Year"
+                  },
+                  {
+                    "fieldName": "population",
+                    "displayName": "Population"
+                  },
+                  {
+                    "fieldName": "coverage_status",
+                    "displayName": "Coverage Status"
+                  },
+                  {
+                    "fieldName": "disposition",
+                    "displayName": "Disposition"
+                  },
+                  {
+                    "fieldName": "source_period",
+                    "displayName": "Source Period"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 12,
+            "height": 10
+          }
+        }
+      ]
+    },
+    {
+      "name": "funding",
+      "displayName": "Funding reports",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "funding_notes",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Funding reports\n\nCity and municipality reports as published. Funding utilization is not measured preparedness. Ratios above one remain uncapped, zero denominators remain NULL, and unmatched reports retain NULL PSGC codes.\n\nThese are component outputs. Composite risk and preparedness rankings are not published here."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "funding_period",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_funding",
+                  "fields": [
+                    {
+                      "name": "fiscal_year",
+                      "expression": "`fiscal_year`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "Fiscal Year"
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "fiscal_year",
+                    "queryName": "main_query"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "funding_snapshot",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_funding",
+                  "fields": [
+                    {
+                      "name": "source_period",
+                      "expression": "`source_period`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "PSGC snapshot"
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "source_period",
+                    "queryName": "main_query"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "funding_details",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_funding",
+                  "fields": [
+                    {
+                      "name": "psgc_code",
+                      "expression": "`psgc_code`"
+                    },
+                    {
+                      "name": "reference_area_name",
+                      "expression": "`reference_area_name`"
+                    },
+                    {
+                      "name": "lgu_name",
+                      "expression": "`lgu_name`"
+                    },
+                    {
+                      "name": "lgu_type",
+                      "expression": "`lgu_type`"
+                    },
+                    {
+                      "name": "fiscal_year",
+                      "expression": "`fiscal_year`"
+                    },
+                    {
+                      "name": "source_period",
+                      "expression": "`source_period`"
+                    },
+                    {
+                      "name": "appropriation_70_pct",
+                      "expression": "`appropriation_70_pct`"
+                    },
+                    {
+                      "name": "expenditure_70_pct",
+                      "expression": "`expenditure_70_pct`"
+                    },
+                    {
+                      "name": "total_appropriation",
+                      "expression": "`total_appropriation`"
+                    },
+                    {
+                      "name": "total_expenditure",
+                      "expression": "`total_expenditure`"
+                    },
+                    {
+                      "name": "utilization_rate_70_pct",
+                      "expression": "`utilization_rate_70_pct`"
+                    },
+                    {
+                      "name": "utilization_rate_total",
+                      "expression": "`utilization_rate_total`"
+                    },
+                    {
+                      "name": "match_status",
+                      "expression": "`match_status`"
+                    },
+                    {
+                      "name": "has_dq_issues",
+                      "expression": "`has_dq_issues`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "frame": {
+                "showTitle": true,
+                "title": "Funding reports"
+              },
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "psgc_code",
+                    "displayName": "Psgc Code"
+                  },
+                  {
+                    "fieldName": "reference_area_name",
+                    "displayName": "Reference Area Name"
+                  },
+                  {
+                    "fieldName": "lgu_name",
+                    "displayName": "Lgu Name"
+                  },
+                  {
+                    "fieldName": "lgu_type",
+                    "displayName": "Lgu Type"
+                  },
+                  {
+                    "fieldName": "fiscal_year",
+                    "displayName": "Fiscal Year"
+                  },
+                  {
+                    "fieldName": "source_period",
+                    "displayName": "Source Period"
+                  },
+                  {
+                    "fieldName": "appropriation_70_pct",
+                    "displayName": "Appropriation 70 Pct"
+                  },
+                  {
+                    "fieldName": "expenditure_70_pct",
+                    "displayName": "Expenditure 70 Pct"
+                  },
+                  {
+                    "fieldName": "total_appropriation",
+                    "displayName": "Total Appropriation"
+                  },
+                  {
+                    "fieldName": "total_expenditure",
+                    "displayName": "Total Expenditure"
+                  },
+                  {
+                    "fieldName": "utilization_rate_70_pct",
+                    "displayName": "Utilization Rate 70 Pct"
+                  },
+                  {
+                    "fieldName": "utilization_rate_total",
+                    "displayName": "Utilization Rate Total"
+                  },
+                  {
+                    "fieldName": "match_status",
+                    "displayName": "Match Status"
+                  },
+                  {
+                    "fieldName": "has_dq_issues",
+                    "displayName": "Has Dq Issues"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 12,
+            "height": 10
+          }
+        }
+      ]
+    },
+    {
+      "name": "cmci",
+      "displayName": "CMCI data coverage",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "cmci_notes",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# CMCI data coverage\n\nCompleteness of the selected indicator subset. Coverage is not readiness, an official pillar score or a ranking. Raw scores of unlike indicators are not averaged. Select a CMCI edition and PSGC snapshot.\n\nThese are component outputs. Composite risk and preparedness rankings are not published here."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "cmci_period",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_cmci",
+                  "fields": [
+                    {
+                      "name": "year",
+                      "expression": "`year`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "Year"
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "year",
+                    "queryName": "main_query"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cmci_snapshot",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_cmci",
+                  "fields": [
+                    {
+                      "name": "source_period",
+                      "expression": "`source_period`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "PSGC snapshot"
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "source_period",
+                    "queryName": "main_query"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cmci_details",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_cmci",
+                  "fields": [
+                    {
+                      "name": "psgc_code",
+                      "expression": "`psgc_code`"
+                    },
+                    {
+                      "name": "year",
+                      "expression": "`year`"
+                    },
+                    {
+                      "name": "pillar_name",
+                      "expression": "`pillar_name`"
+                    },
+                    {
+                      "name": "source_period",
+                      "expression": "`source_period`"
+                    },
+                    {
+                      "name": "expected_indicator_count",
+                      "expression": "`expected_indicator_count`"
+                    },
+                    {
+                      "name": "available_indicator_count",
+                      "expression": "`available_indicator_count`"
+                    },
+                    {
+                      "name": "coverage_status",
+                      "expression": "`coverage_status`"
+                    },
+                    {
+                      "name": "metric_version",
+                      "expression": "`metric_version`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "frame": {
+                "showTitle": true,
+                "title": "CMCI data coverage"
+              },
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "psgc_code",
+                    "displayName": "Psgc Code"
+                  },
+                  {
+                    "fieldName": "year",
+                    "displayName": "Year"
+                  },
+                  {
+                    "fieldName": "pillar_name",
+                    "displayName": "Pillar Name"
+                  },
+                  {
+                    "fieldName": "source_period",
+                    "displayName": "Source Period"
+                  },
+                  {
+                    "fieldName": "expected_indicator_count",
+                    "displayName": "Expected Indicator Count"
+                  },
+                  {
+                    "fieldName": "available_indicator_count",
+                    "displayName": "Available Indicator Count"
+                  },
+                  {
+                    "fieldName": "coverage_status",
+                    "displayName": "Coverage Status"
+                  },
+                  {
+                    "fieldName": "metric_version",
+                    "displayName": "Metric Version"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 12,
+            "height": 10
+          }
+        }
+      ]
+    },
+    {
+      "name": "earthquakes",
+      "displayName": "Earthquake observations",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "earthquakes_notes",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Earthquake observations\n\nNational monthly listing observations, not deduplicated events or LGU exposure/risk. Locality candidates are unassigned. The listing year is independent of fiscal and census years; a month without observations may have no summary row.\n\nThese are component outputs. Composite risk and preparedness rankings are not published here."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "earthquakes_period",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_earthquakes",
+                  "fields": [
+                    {
+                      "name": "source_year",
+                      "expression": "`source_year`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "Source Year"
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "source_year",
+                    "queryName": "main_query"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "earthquakes_snapshot",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_earthquakes",
+                  "fields": [
+                    {
+                      "name": "source_period",
+                      "expression": "`source_period`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "PSGC snapshot"
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "source_period",
+                    "queryName": "main_query"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "earthquakes_details",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_earthquakes",
+                  "fields": [
+                    {
+                      "name": "source_year",
+                      "expression": "`source_year`"
+                    },
+                    {
+                      "name": "source_month",
+                      "expression": "`source_month`"
+                    },
+                    {
+                      "name": "source_period",
+                      "expression": "`source_period`"
+                    },
+                    {
+                      "name": "source_observations",
+                      "expression": "`source_observations`"
+                    },
+                    {
+                      "name": "invalid_observations",
+                      "expression": "`invalid_observations`"
+                    },
+                    {
+                      "name": "single_textual_candidates",
+                      "expression": "`single_textual_candidates`"
+                    },
+                    {
+                      "name": "ambiguous_textual_candidates",
+                      "expression": "`ambiguous_textual_candidates`"
+                    },
+                    {
+                      "name": "unresolved_textual_candidates",
+                      "expression": "`unresolved_textual_candidates`"
+                    },
+                    {
+                      "name": "maximum_reported_magnitude",
+                      "expression": "`maximum_reported_magnitude`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "frame": {
+                "showTitle": true,
+                "title": "Earthquake observations"
+              },
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "source_year",
+                    "displayName": "Source Year"
+                  },
+                  {
+                    "fieldName": "source_month",
+                    "displayName": "Source Month"
+                  },
+                  {
+                    "fieldName": "source_period",
+                    "displayName": "Source Period"
+                  },
+                  {
+                    "fieldName": "source_observations",
+                    "displayName": "Source Observations"
+                  },
+                  {
+                    "fieldName": "invalid_observations",
+                    "displayName": "Invalid Observations"
+                  },
+                  {
+                    "fieldName": "single_textual_candidates",
+                    "displayName": "Single Textual Candidates"
+                  },
+                  {
+                    "fieldName": "ambiguous_textual_candidates",
+                    "displayName": "Ambiguous Textual Candidates"
+                  },
+                  {
+                    "fieldName": "unresolved_textual_candidates",
+                    "displayName": "Unresolved Textual Candidates"
+                  },
+                  {
+                    "fieldName": "maximum_reported_magnitude",
+                    "displayName": "Maximum Reported Magnitude"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 12,
+            "height": 10
+          }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#F6FAFB"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#FFFFFF"
+      },
+      "widgetBorderColor": {
+        "light": "#D7E1E9",
+        "dark": "#D7E1E9"
+      },
+      "fontColor": {
+        "light": "#374151",
+        "dark": "#191A1B"
+      },
+      "selectionColor": {
+        "light": "#5FA8D3",
+        "dark": "#5FA8D3"
+      },
+      "visualizationColors": [
+        "#5FA8D3",
+        "#70BEE1",
+        "#89CCE7",
+        "#A1DAEC",
+        "#B3E6DC",
+        "#89C7A8",
+        "#6EAD80",
+        "#589F60",
+        "#478743",
+        "#356C2A"
+      ],
+      "widgetHeaderAlignment": "LEFT",
+      "fontSettings": {
+        "base": {
+          "fontColor": {
+            "light": "#374151",
+            "dark": "#191A1B"
+          }
+        },
+        "fieldTitle": {
+          "fontColor": {
+            "dark": "#060607"
+          }
+        }
+      },
+      "gridLineColor": {
+        "light": "#E5EBF0",
+        "dark": "#E5EBF0"
+      },
+      "axisLineColor": {
+        "dark": "#1D1C1C"
+      }
+    },
+    "applyModeEnabled": false
+  }
+}
