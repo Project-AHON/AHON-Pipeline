@@ -100,7 +100,7 @@ Counts from the full run on 2026-10-20 (`ahon_dev_crystal`; CMCI in test mode wi
 
 | Dataset | Check or reject table | Rows | Cause | Decision |
 | --- | --- | --- | --- | --- |
-| PSGC | `silver.psa_psgc_reject` | 12 (2 per period, 6 in Q2_2021) | Source: rows with no geographic level | Keep rejected; to confirm |
+| PSGC | `silver.psa_psgc_reject` | 12 (2 each in Q2_2024, April_2024 and Q4_2023; 6 in Q2_2021) | Source: rows with no geographic level | Keep rejected; to confirm |
 | PSGC | `psa_psgc_silver_area_name_no_broken_enye` | 1,824 | `ñ` shows as `Ã±` in names | Open: cause not known yet |
 | PSGC | `psa_psgc_silver_region_found` | 30,648 | Pipeline: Q2_2021 codes are the old 9-digit format padded to 10 | Open; Q2_2021 is not used downstream |
 | LDRRMF | `blgf_ldrrmf_annual_lgu_gold_psgc_matched` | 235 | Pipeline: LGU map change (example above) | Bugfix planned |

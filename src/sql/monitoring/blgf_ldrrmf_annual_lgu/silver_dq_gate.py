@@ -15,10 +15,10 @@ it. Two runs, one per DataFrame checked:
 Rows the build cannot use go to silver.blgf_ldrrmf_annual_lgu_reject, and the
 build then stops, so a clean run leaves the reject table empty.
 
-Expected on ahon_dev (2026-10-15, before the PSGC columns and the reject
-table): 14 PASS, 3 WARN (negative_amount 3 rows, zero_appropriation 187,
-overspent 388). New rule psgc_matched expected WARN, 5 rows (old Maguindanao
-province, FY2018 to FY2022).
+Tested on ahon_dev_crystal (2026-10-20): no FAIL, 19 PASS, 4 WARN.
+WARN psgc_matched 235 (5 old Maguindanao province rows plus 230 the LGU
+map marks needs_review since #94; 5 expected after that fix), and the
+flag rules negative_amount, zero_appropriation and overspent.
 
 Update FISCAL_YEARS when a new BLGF year is loaded (same as the bundle
 variables ldrrmf_start_year and ldrrmf_end_year).
