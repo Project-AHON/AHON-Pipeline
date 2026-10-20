@@ -1,54 +1,61 @@
-"""Bind dashboard fields to maintained serving contracts, not personal catalogs."""
+"""Guard the original PR105 presentation while repairing dataset contracts."""
+import copy
+import hashlib
 import json
-import re
 from pathlib import Path
 
 import sqlglot
 from sqlglot import exp
 
 ROOT = Path(__file__).resolve().parents[2]
+EXPORT = ROOT / "resources/dashboard/lgu_command_center.lvdash.json"
+CONTRACT = ROOT / "tests/fixtures/dashboard_original_contract.json"
 
 
-def test_dashboard_queries_resolve_to_maintained_component_columns():
-    export = ROOT / "resources/dashboard/lgu_command_center.lvdash.json"
-    dashboard = json.loads(export.read_text(encoding="utf-8"))
-    sql_contracts = {
-        "population_components": "src/sql/platinum/population_components.sql",
-        "earthquake_observation_summary": "src/sql/platinum/earthquake_components.sql",
-    }
-    columns = {}
-    for table, path in sql_contracts.items():
-        tree = sqlglot.parse_one((ROOT / path).read_text(encoding="utf-8"), read="databricks")
-        columns[table] = set(tree.find(exp.Select).named_selects)
-    funding = sqlglot.parse((ROOT / "src/sql/gold/build_fact_ldrrmf.sql").read_text(encoding="utf-8"), read="databricks")
-    candidate = next(tree for tree in funding if isinstance(tree, exp.Create))
-    columns["funding_components"] = set(candidate.find(exp.Select).named_selects) | {
-        "reference_area_name", "geographic_level", "interpretation"}
-    dictionary = (ROOT / "docs/data/data-dictionary/cmci_pillar_coverage.md").read_text(encoding="utf-8")
-    columns["cmci_pillar_coverage"] = set(re.findall(r"^\| `([^`]+)` \|", dictionary, re.M))
-    datasets = {}
-    for dataset in dashboard["datasets"]:
-        query = sqlglot.parse_one("".join(dataset["queryLines"]), read="databricks")
-        tables = list(query.find_all(exp.Table))
-        assert len(tables) == 1 and not tables[0].db and not tables[0].catalog
-        table = tables[0].name
-        assert table in columns
-        assert set(query.named_selects) <= columns[table]
-        assert not list(query.find_all(exp.AggFunc)), "Do not combine unlike scores or reference periods"
-        datasets[dataset["name"]] = set(query.named_selects)
-    assert len(datasets) == 4
-    for page in dashboard["pages"]:
+def test_original_dashboard_structure_and_output_bindings_are_preserved():
+    dashboard = json.loads(EXPORT.read_text(encoding="utf-8"))
+    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    presentation = copy.deepcopy(dashboard)
+    for page in presentation["pages"]:
         for entry in page["layout"]:
             widget = entry["widget"]
-            if "spec" not in widget:
-                continue
-            spec = widget["spec"]
-            assert spec["version"] == 2
-            for query in widget["queries"]:
-                fields = query["query"]["fields"]
-                names = {field["name"] for field in fields}
-                assert names <= datasets[query["query"]["datasetName"]]
-                encoded = spec["encodings"].get("columns", spec["encodings"].get("fields", []))
-                assert {field["fieldName"] for field in encoded} <= names
-                if spec["widgetType"] == "table":
-                    assert query["query"]["disaggregated"] is True
+            # Titles and explanatory text may correct misleading terminology.
+            widget.pop("multilineTextboxSpec", None)
+            if "spec" in widget:
+                widget["spec"].pop("frame", None)
+    presentation = {key: presentation[key] for key in ["pages", "relationshipGraphs", "uiSettings"]}
+    digest = hashlib.sha256(json.dumps(presentation, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    assert digest == contract["structure_sha256"], "Original pages/widgets/layout/filter bindings changed"
+    actual = {}
+    for dataset in dashboard["datasets"]:
+        query = sqlglot.parse_one(dataset["config"]["source"], read="databricks")
+        assert isinstance(query, exp.Select)
+        actual[dataset["name"]] = query.named_selects
+        for table in query.find_all(exp.Table):
+            if table.catalog:
+                assert table.catalog == "ahon_dev"
+                assert (table.db, table.name) in {
+                    ("gold", "dim_lgu"), ("gold", "fact_population"),
+                    ("gold", "fact_ldrrmf"), ("gold", "fact_cmci_indicator"),
+                    ("gold", "dim_cmci_indicator"),
+                    ("silver", "philvolcs_earthquake_observation_clean"),
+                }
+    assert actual == contract["dataset_columns"], "Existing widget output-column contracts changed"
+
+
+def test_unavailable_geometry_and_methods_are_not_fabricated():
+    dashboard = json.loads(EXPORT.read_text(encoding="utf-8"))
+    datasets = {d["name"]: d["config"] for d in dashboard["datasets"]}
+    city = sqlglot.parse_one(datasets["lgu_city_map"]["source"], read="databricks")
+    withheld = {"geometry_wkt", "quake_count", "max_magnitude", "cmci_total_score", "cmci_overall_score"}
+    for field in city.expressions:
+        if field.alias_or_name in withheld:
+            assert isinstance(field.this, exp.Cast) and isinstance(field.this.this, exp.Null)
+    earthquake = datasets["earthquake_events"]["source"]
+    assert "WHERE NOT has_dq_issues" in earthquake
+    assert "CAST(NULL AS STRING) AS region_code" in earthquake
+    for name in ["lgu_funding", "lgu_funding_yoy", "lgu_city_map"]:
+        sql = datasets[name]["source"].upper()
+        assert "REGEXP_REPLACE" not in sql and "LPAD(" not in sql
+    measures = {m["name"]: m for m in datasets["lgu_city_map"]["measures"]}
+    assert measures["cmci_resiliency"]["expr"] == "AVG(cmci_resiliency)"

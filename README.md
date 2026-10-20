@@ -136,6 +136,6 @@ Yanna, Maki, Jessy, Crystal and Crizza. Who owns which dataset: [ownership](docs
 
 How to contribute: [CONTRIBUTING](CONTRIBUTING.md).
 
-## Dashboard export candidate
+## Dashboard export
 
-The component dashboard export is [available here](resources/dashboard/lgu_command_center.lvdash.json). It reads the maintained Platinum component contracts. See [dashboard status and import prerequisites](docs/insights/dashboard.md). It requires explicit catalog/schema binding and runtime query/render verification before release.
+The [dashboard export](resources/dashboard/lgu_command_center.lvdash.json) preserves the original PR #105 pages, widgets and layout with targeted query fixes. See [dashboard status and import prerequisites](docs/insights/dashboard.md): missing funding/CMCI tables, boundary geometry and unapproved scoring methods still limit runtime availability.
