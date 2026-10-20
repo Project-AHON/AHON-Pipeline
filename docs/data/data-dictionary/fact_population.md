@@ -7,7 +7,7 @@
 - **Owner:** Crizza
 - **Joins to:** `gold.dim_lgu` on `psgc_code`
 
-Only `CITY`/`MUN` records are analytical population rows. See [decision 0012](../../decisions/0012-city-municipality-analysis-grain.md).
+Only `CITY`/`MUN` records are analytical population rows. See [decision 0017](../../decisions/0017-city-municipality-analysis-grain.md).
 
 | Column | Type | Description | Notes |
 | --- | --- | --- | --- |

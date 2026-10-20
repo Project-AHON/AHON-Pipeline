@@ -2,7 +2,7 @@
 
 ## Summary
 
-Earthquake data in the Philippines is spread across agencies, formats and place names, so local leaders rarely see the full picture. Project AHON combines these sources, matched to one code per city or municipality, to show where earthquake risk is high, where preparedness falls short, and what to strengthen first.
+Earthquake data in the Philippines is spread across agencies, formats and place names, so local leaders rarely see the full picture. Project AHON aims to combine these sources with reviewed city and municipality identities to show where earthquake risk is high, where preparedness falls short, and what to strengthen first.
 
 ## Business problem
 
@@ -23,14 +23,16 @@ How can LGU leaders understand and communicate earthquake risk to plan effective
 | Secondary users | Provincial and regional DRRM offices | See which LGUs in their area need support first |
 | Other stakeholders | Researchers, civil society and the public | Open, traceable data on earthquake risk and local preparedness |
 
-## What AHON provides
+## Intended product and current delivery
 
-**Main product: the AHON dashboard.** Maps and views that show each city and municipality's earthquake risk, its preparedness, and the gap between them, so leaders can see where to act first.
+The dashboard and analytical questions describe the intended product. Current implemented outputs are the documented component tables and views. Validated LGU risk and preparedness rankings remain dependent on approved methodology, geographic meaning and implementation.
+
+**Intended main product: the AHON dashboard.** Maps and views that show each city and municipality's earthquake risk, its preparedness, and the gap between them, so leaders can see where to act first.
 
 Behind the dashboard:
 
 - **One trusted source:** earthquake, population, LGU capacity and disaster fund data combined in one place, each record traceable to its original file.
-- **One shared key:** every record matched to the Philippine Standard Geographic Code (PSGC) of its city or municipality.
+- **One shared key where supported:** reviewed LGU joins use PSGC codes. Unmatched funding retains NULL codes, earthquakes retain locality candidates without assignment.
 - **Checked data:** data quality checks between each step, with results recorded.
 
 ## Expected impact

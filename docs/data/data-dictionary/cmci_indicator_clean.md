@@ -30,4 +30,4 @@ When the same key arrives more than once, the latest observation wins (first by 
 - Missing CMCI values are represented as `NULL`, not zero.
 - Some indicators may be unavailable for particular LGUs or years.
 - The portal's numeric value is kept as `raw_score`; units, direction and scoring method are not published per indicator. A lower raw value across different indicators does not mean weaker preparedness.
-- Eight PSGC municipalities in the BARMM Special Geographic Area have no rows. See the [CMCI data profile](../data-profile/cmci.md#known-psgc-only-source-gaps).
+- Eight PSGC municipalities in the BARMM Special Geographic Area have no rows. See the [CMCI data profile](../data-profile/cmci-profile.md#known-psgc-only-source-gaps).

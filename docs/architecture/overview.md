@@ -1,6 +1,6 @@
 # Architecture overview
 
-Project AHON is a batch pipeline on Databricks. It lands public government data in a Unity Catalog volume, refines it through bronze, silver, gold and platinum layers, and serves city and municipality tables to the AHON dashboard. Every dataset is linked by one key, the 10-digit PSGC code.
+Project AHON is a batch pipeline on Databricks. It lands public government data in a Unity Catalog volume, refines it through bronze, silver, gold and platinum layers, and serves city and municipality tables to the AHON dashboard. The 10-digit PSGC code is the conformed LGU identifier for supported analytical joins. Some funding reports remain unmatched. Earthquake observations contain locality candidates but no assigned PSGC identity.
 
 ## Diagram
 
@@ -16,7 +16,7 @@ flowchart LR
     b["PSGC<br/>Earthquakes<br/>CMCI<br/>LDRRMF"]
   end
   subgraph SILVER["4 · Silver: cleaned + checked"]
-    v["PSGC<br/>Population<br/>Earthquakes<br/>CMCI<br/>LDRRMF<br/><i>PSGC code added to each</i>"]
+    v["PSGC<br/>Population<br/>Earthquakes<br/>CMCI<br/>LDRRMF"]
   end
   subgraph GOLD["5 · Gold: analysis tables"]
     g["LGU list (dim_lgu)<br/>Population<br/>CMCI indicators<br/>LDRRMF funds"]
@@ -28,11 +28,13 @@ flowchart LR
   DQ[("Data quality results<br/>monitoring.dq_result")]
 
   s --> l --> b --> v --> g --> p --> DASH
+  v --> e["Earthquake observation summary (Platinum)"]
+  e --> DASH
   v -. checks .-> DQ
   g -. checks .-> DQ
 ```
 
-How to read it: each box is one layer, and each item inside is one dataset at that layer. Population has no bronze table of its own (it arrives inside the PSGC data), and earthquakes have no gold table yet. The exact table names are in the table below and in [source to target](source-to-target.md). Acronyms are explained in the [glossary](../glossary.md).
+How to read it: each box is one layer, and each item inside is one dataset at that layer. Population has no bronze table of its own (it arrives inside the PSGC data), and earthquakes have no gold table yet. The exact table names are in the table below and in [source to target](source-to-target.md). Acronyms are explained in the [glossary](glossary.md).
 
 ## Data flow by dataset
 
@@ -44,7 +46,7 @@ How to read it: each box is one layer, and each item inside is one dataset at th
 | CMCI | `cmci_raw_indicator_batch_html` | `cmci_indicator_clean` (uses `reference.cmci_lgu_map`) | `fact_cmci_indicator`, `dim_cmci_indicator` | `cmci_pillar_coverage` |
 | BLGF LDRRMF | `blgf_ldrrmf_annual_lgu` | `blgf_ldrrmf_annual_lgu_clean` (uses `reference.blgf_ldrrmf_lgu_map`) | `fact_ldrrmf` | `funding_components` |
 
-PSGC runs first: `dim_lgu` and the PSGC silver table are the reference every other dataset matches against. Each dataset's table pages are in the [data dictionary](../data/data-dictionary/README.md); script-level mapping is in [source-to-target](source-to-target.md).
+`dim_lgu` and PSGC Silver provide references for dependent branches. Earthquakes use PSGC Silver for candidates. Independent extracts can run after setup. Each dataset's table pages are in the [data dictionary](../data/data-dictionary/README.md); script-level mapping is in [source-to-target](source-to-target.md).
 
 ## Ingestion
 
@@ -59,9 +61,9 @@ PSGC runs first: `dim_lgu` and the PSGC silver table are the reference every oth
 | Bronze | Source values kept as received (mostly text), plus provenance: `_source_name`, `_source_ref`, `_source_digest`, `_ingested_at`, `_batch_id`, `_row_hash`, `_observation_id`. Loads stop on a changed header, row count or checksum. |
 | Silver | Types, trims and validates values; derives fiscal year, hierarchy codes and similar fields; attaches PSGC codes through reviewed reference maps. Bad rows are flagged with `has_dq_issues` or copied to a `_reject` table; nothing is silently dropped. |
 | Gold | Conformed dimension (`dim_lgu`) and facts keyed by `psgc_code`, with fixed grains such as city/municipality × census year or LGU × fiscal year. |
-| Platinum | Views for analysis and the dashboard, limited to cities and municipalities. |
+| Platinum | Population and funding component views, the persisted CMCI coverage table, and a monthly earthquake observation summary without LGU assignment. |
 
-All layers merge on business keys. Absent rows are not deleted, an older delivery cannot overwrite a newer correction, and a schema change stops the build for review. The analysis grain is the city or municipality ([decision 0017](../decisions/0017-city-municipality-analysis-grain.md)).
+Bronze preserves observations using each dataset's observation identity. Silver and Gold use their documented observation or business keys. Writes do not delete records merely because they disappear from a later delivery. Updates follow each writer's change conditions; the pipeline does not provide one transaction spanning all tables or tasks. Schema changes require review. The analysis grain is the city or municipality ([decision 0017](../decisions/0017-city-municipality-analysis-grain.md)).
 
 ## Storage
 
@@ -77,7 +79,7 @@ Names follow the [naming standard](naming-standard.md).
 
 ## Serving
 
-The AHON dashboard reads the gold and platinum tables. It joins every dataset on `psgc_code` through `dim_lgu`. How the dashboard turns these into risk and preparedness measures is in [analytics method](analytics-method.md).
+The available Gold and Platinum components support the developing dashboard. Supported LGU joins use `psgc_code` through `dim_lgu`; earthquake summaries have no assigned LGU key. The main bundle contains no dashboard resource or publication schedule. [Analytics method](analytics-method.md) distinguishes proposed scores from implemented outputs; see [dashboard status](../insights/dashboard.md).
 
 ## Orchestration
 
@@ -93,7 +95,7 @@ Tasks run on serverless compute with explicit timeout, retry and one concurrent 
 
 ## Data quality
 
-Checks run inside every build. Stop rules fail the task before the target table is written, so dependent tasks do not run on bad data. Flag and warning rules keep the rows and record a count. Results are written to the `monitoring` schema. Great Expectations gates between layers record rule results in one DQ results table. See [data quality](../data-quality/README.md) and [DQ gates](../data-quality/dq-gates.md).
+Build checks persist results in `monitoring.dq_result`. A blocking check prevents the associated downstream write where evaluated before that write; earlier successful statements and upstream tasks are not rolled back. Standalone layer-gate files are not tasks in the current main-branch job. Their result schema and table references require alignment before activation. See [data quality](../data-quality/README.md) and [DQ gates](../data-quality/dq-gates.md).
 
 ## Why these choices
 
@@ -105,9 +107,9 @@ Checks run inside every build. Stop rules fail the task before the target table 
 | Reviewed reference maps for names | Name matching is reviewed once and stored, instead of guessed at join time |
 | Hugging Face for source files | Versioned, shared copies of files that have no API, pinned to a commit |
 | Databricks Asset Bundle | Jobs, tasks and parameters live in the repository and deploy the same way for every developer |
-| Merge without deletes | Reruns are safe, and corrections never erase history |
+| Merge without deletes | Absent keys are retained; Delta history and recorded lineage support investigation, subject to retention |
 | Great Expectations | Shared, recorded data quality rules on Spark tables |
 
 ## Outside the analytical path
 
-The job also runs two sources that the dashboard does not use: OpenStreetMap features (bronze and silver only) and PSA OpenSTAT urban population (`fact_population_total`). They are kept for later use and cross-checking; see [sources](../data/sources.md).
+The job also runs PSA OpenSTAT urban population (`fact_population_total`) outside the primary intended dashboard path. It is retained for cross-checking; see [sources](../data/sources.md).

@@ -1,9 +1,9 @@
 # %pip install great_expectations==1.23.1
 """
-Shared data quality gate for the medallion layers (decision 0010).
+Legacy standalone data quality gate for the medallion layers (decision 0018).
 
 run_dq_gate() runs a list of Great Expectations (GX) rules on a Spark DataFrame
-as one suite, appends one row per rule to monitoring.dq_result, then raises
+as one suite, appends one legacy 15-field row per rule to the supplied results table, then raises
 an error if any stop rule FAILed or a check hit an ERROR. WARN rows (flag,
 fix and report rules) are recorded but do not stop the run.
 
@@ -12,7 +12,7 @@ Usage from a gate file:
     E = gx.expectations
     rules = [rule(E.ExpectColumnValuesToNotBeNull(column="x"), "x_not_null", "null", "stop")]
     run_dq_gate(spark, df, rules, source_name=..., layer=..., table_name=...,
-                key_columns=[...], results_table="ahon_dev.monitoring.dq_result")
+                key_columns=[...], results_table="ahon_dev.monitoring.dq_results")
 """
 
 import uuid

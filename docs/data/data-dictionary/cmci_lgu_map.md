@@ -17,8 +17,8 @@
 ## Notes
 
 - Unique code and source-name relationships are checked. Only reviewed mappings are used; there is no fuzzy matching.
-- How the 1,634 approved mappings were built is described in the [CMCI data profile](../data-profile/cmci.md#matching-to-psgc).
+- How the 1,634 approved mappings were built is described in the [CMCI data profile](../data-profile/cmci-profile.md#matching-to-psgc).
 
 ## Known issues
 
-- Eight valid PSGC municipalities in the BARMM Special Geographic Area have no CMCI locality record, so they have no mapping. See the [CMCI data profile](../data-profile/cmci.md#known-psgc-only-source-gaps).
+- Eight valid PSGC municipalities in the BARMM Special Geographic Area have no CMCI locality record, so they have no mapping. See the [CMCI data profile](../data-profile/cmci-profile.md#known-psgc-only-source-gaps).

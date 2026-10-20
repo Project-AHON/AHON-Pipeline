@@ -17,7 +17,7 @@ variables:
   hf_repo:
     description: hf repo
   hf_revision:
-    description: Pinned source commit containing BLGF and OSM assets
+    description: Pinned source commit containing BLGF assets
   psgc_secret_scope:
     description: Existing PSA token secret scope
   psgc_secret_key:
@@ -82,10 +82,6 @@ variables:
     description: cmci http backoff
   cmci_metric_version:
     description: cmci metric version
-  osm_folder:
-    description: osm folder
-  osm_shapefile_stems:
-    description: JSON list of approved shapefile stems in the selected source revision
   request_timeout:
     description: request timeout
   earthquake_archive_url_template:

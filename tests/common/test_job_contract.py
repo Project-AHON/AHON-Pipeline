@@ -42,7 +42,7 @@ def test_every_task_has_packaged_executable_assets_and_bounded_retries():
             ast.parse(path.read_text(encoding="utf-8"))
             if "--file" in args:
                 assert (ROOT / args[args.index("--file") + 1]).is_file()
-    assert count == 32
+    assert count == 29
 
 
 def test_batch_jobs_use_standard_compute_without_duplicate_execution():
@@ -75,7 +75,7 @@ def test_population_sources_keep_their_own_silver_and_gold_files():
 def test_independent_sources_are_not_blocked_by_cmci_or_earthquake():
     graph = next(job for _, name, job in jobs() if name == "ahon_pipeline")
     dependencies = {t["task_key"]: {d["task_key"] for d in t.get("depends_on", [])} for t in graph["tasks"]}
-    for name in ["psgc_extract", "population_extract", "ldrrmf_extract", "earthquake_extract", "osm_extract"]:
+    for name in ["psgc_extract", "population_extract", "ldrrmf_extract", "earthquake_extract"]:
         assert dependencies[name] == {"setup"}
     assert dependencies["ldrrmf_gold"] == {"ldrrmf_silver", "dim_lgu"}
     assert dependencies["population_gold"] == {"psgc_population_silver", "dim_lgu"}

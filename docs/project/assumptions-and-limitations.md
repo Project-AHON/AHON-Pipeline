@@ -3,10 +3,10 @@
 ## Assumptions
 
 - **Unit of analysis:** the city or municipality, identified by its PSGC code. Provinces, regions and barangays are not analysis rows.
-- **One PSGC snapshot:** all datasets are matched to one selected PSGC release (currently Q2 2024). Boundaries and names from other years are mapped to that release.
+- **One PSGC snapshot:** all datasets are matched to one selected PSGC release (currently Q2 2024). Only reviewed mappings support that release; unmatched records and ambiguous candidates remain explicit.
 - **Sources as published:** PHIVOLCS, PSA, CMCI and BLGF data are taken as published. AHON does not correct source values; it flags problems.
 - **Missing is not zero:** a missing value means no data, not zero people, zero funds or a low score.
-- **Population:** the latest PSA Population count is used for every year of analysis.
+- **Population:** use the explicitly configured census year. Population is not interpolated or silently reused as annual exposure for other reference years.
 - **Preparedness:** LGU capacity (CMCI) and use of the 70% LDRRMF fund are used as indicators of preparedness. They do not measure it fully.
 
 ## Limitations
@@ -23,9 +23,9 @@
 
 ### Method
 
-- Risk and preparedness scores are indicators for comparing LGUs, not official ratings or engineering risk estimates.
+- Composite risk and preparedness scores are proposed and unimplemented. They require approved methods and geographic meaning before comparison or publication.
 - No ground-shaking model, soil, fault distance or building data is used.
-- Datasets cover different years; results compare the latest available year for each.
+- Datasets cover different periods. Every comparison must state its fiscal, census and CMCI reference years and earthquake observation window. Temporal alignment requires an explicit analytical decision.
 
 ### Pipeline
 

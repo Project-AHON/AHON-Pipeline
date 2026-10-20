@@ -2,9 +2,17 @@
 
 Project AHON is a data-driven disaster and hazard monitoring platform designed to provide actionable insights that strengthen disaster preparedness and decision-making.
 
-Earthquake data in the Philippines is spread across agencies, formats and place names, so local leaders rarely see the full picture. AHON combines these sources, matched to one code per city or municipality, to show where earthquake risk is high, where preparedness falls short, and what to strengthen first. The main product is the AHON dashboard; this repository holds the pipeline that feeds it.
+Earthquake data in the Philippines is spread across agencies, formats and place names, so local leaders rarely see the full picture. AHON aims to combine these sources with reviewed city and municipality identities to show where earthquake risk is high, where preparedness falls short, and what to strengthen first. The main product is the AHON dashboard; this repository holds the pipeline that feeds it.
 
-## Questions AHON answers
+## Implementation status
+
+The current pipeline publishes geographic references, reported census population, CMCI indicator measurements and coverage, disaster-fund components, and earthquake observation summaries.
+
+The analytical questions below describe the project's intended outcomes. Composite LGU risk, preparedness and vulnerability rankings are not yet implemented as approved pipeline outputs. Earthquake locality candidates are reported, but observations are not assigned to LGUs as exposure or impact.
+
+The dashboard remains under development. See [dashboard status](docs/insights/dashboard.md).
+
+## Questions AHON aims to answer
 
 1. What is each LGU's earthquake risk level?
 2. How prepared is each LGU relative to its risk?
@@ -37,7 +45,7 @@ flowchart LR
   F --> G[["AHON dashboard"]]
 ```
 
-AHON is a batch pipeline on Databricks. Each source is downloaded into a folder of raw files, then refined in four layers: **bronze** keeps the data as received, **silver** cleans it and adds the official code of each city or municipality (the PSGC code), **gold** builds the tables used for analysis, and **platinum** prepares the views the dashboard reads. Every step checks its data before writing and records the result.
+AHON is a batch pipeline on Databricks. Each source is downloaded into a folder of raw files, then refined in four layers: **bronze** keeps the data as received, **silver** cleans and types source data, preserves quality findings, and attaches reviewed PSGC identities where supported. Earthquake observations retain locality candidates with geographic assignment withheld; unmatched funding reports retain a NULL PSGC code. **Gold** builds the tables used for analysis, and **platinum** prepares the views the dashboard reads. Build checks record quality results. Earlier successful writes are not rolled back when a later check fails.
 
 New to the acronyms? See the [glossary](docs/architecture/glossary.md).
 
@@ -47,7 +55,7 @@ Layer-by-layer diagram: [architecture overview](docs/architecture/overview.md), 
 
 New to the repository? Read in this order:
 
-1. This README, and the [glossary](docs/architecture/glossary.md)) for acronyms.
+1. This README, and the [glossary](docs/architecture/glossary.md) for acronyms.
 2. [Architecture overview](docs/architecture/overview.md): how data moves through the layers.
 3. [Setup](docs/getting-started/setup.md): tools, Databricks access, settings and your first run.
 4. [Runbook](docs/operations/runbook.md): running one dataset, rerunning and fixing a failed run.
@@ -67,7 +75,7 @@ Credentials (Databricks login, PSA token) and your bundle settings stay on your 
 
 | Folder | What is in it |
 | --- | --- |
-| [docs/glossary.md](docs/architecture/glossary.md) | Acronyms and terms |
+| [docs/architecture/glossary.md](docs/architecture/glossary.md) | Acronyms and terms |
 | [docs/project](docs/project/) | Problem statement, assumptions and limitations, ownership |
 | [docs/data](docs/data/) | Sources, a data profile per source, and a data dictionary page per table |
 | [docs/architecture](docs/architecture/) | Overview, data model, source to target, analytics method, naming standard |

@@ -1,7 +1,7 @@
 # cmci_raw_indicator_batch_html
 
 - **Table:** `bronze.cmci_raw_indicator_batch_html`
-- **Source:** Department of Trade and Industry, CMCI Data Portal. See the [CMCI data profile](../data-profile/cmci.md).
+- **Source:** Department of Trade and Industry, CMCI Data Portal. See the [CMCI data profile](../data-profile/cmci-profile.md).
 - **One row is:** one immutable source-response observation: one CMCI request containing a batch of LGUs, all requested years and all selected indicators
 - **Loaded by:** `src/sql/datasets/cmci/pipeline.py --stage bronze`
 - **Row hash covers:** `response_html`, `mappings_json`, `years_json`, `source_period`, `response_sha256`
