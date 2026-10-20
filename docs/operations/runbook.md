@@ -40,7 +40,7 @@ Notepad asks to create the file. Paste the template below, change the **three ma
   "census_year": 2024,
   "hf_repo": "Jess-Christine/Project-AHON",
   "hf_revision": "9273d4b4d5af6d2a14e52451c45ac70a6e3012f5",
-  "psgc_secret_scope": "ahon",
+  "psgc_secret_scope": "ahon-dev-yourname",
   "psgc_secret_key": "psgc-api-token",
   "cmci_mapping_file": "/Volumes/ahon_dev_<yourname>/reference/source/<reviewed-Q2_2024-mapping-filename>.csv",
   "cmci_start_year": 2014,
@@ -83,10 +83,11 @@ Notepad asks to create the file. Paste the template below, change the **three ma
 }
 ```
 
-The three values to change:
+The values to change:
 1. `run_as`: your Databricks login email.
 2. `catalog`: your own catalog name, for example `ahon_dev_maria`. Use a name nobody else uses.
 3. `workspace_root`: your email and name again, so your files stay separate from everyone else's.
+4. `psgc_secret_scope`: replace `yourname` in `ahon-dev-yourname` with your own unique identifier. Use the exact same scope name in Step 3's commands and this setting.
 
 Notes:
 - Keep the commas and quotes exactly as shown. A stray comma gives a JSON error.
@@ -112,24 +113,26 @@ $missing
 
 PSA tokens must be kept secure and must not be shared, sold, lent, committed to Git, or pasted into chat. Each developer should follow PSA's current token-request and usage requirements. See the [PSA API terms and conditions](https://psa.gov.ph/classifications-api/terms-and-conditions).
 
-### 3b. Store the token as a Databricks secret
+### 3b. Store the token in your own Databricks secret scope
+
+Use a **developer-specific scope** so personal PSA tokens do not overwrite one another in a shared workspace. For example, use `ahon-dev-maria` for a developer whose chosen identifier is `maria`. Replace `ahon-dev-maria` in the commands below with your own unique scope name, then set `psgc_secret_scope` in `variable-overrides.json` to that exact same value. A different Databricks CLI profile does not create a separate secret namespace within the same workspace.
 
 Run these commands. **The second command asks you to paste your token at a hidden prompt** (you will not see the characters). Paste it without quotes and press Enter.
 
 ```powershell
-databricks secrets create-scope ahon --profile <your-profile-name>
-databricks secrets put-secret ahon psgc-api-token --profile <your-profile-name>
+databricks secrets create-scope ahon-dev-maria --profile <your-profile-name>
+databricks secrets put-secret ahon-dev-maria psgc-api-token --profile <your-profile-name>
 ```
 
-Check it saved (this shows the key name, never the value):
+Check that the key exists (this shows the key name, never the value):
 
 ```powershell
-databricks secrets list-secrets ahon --profile <your-profile-name>
+databricks secrets list-secrets ahon-dev-maria --profile <your-profile-name>
 ```
 
-You should see `psgc-api-token`. If `create-scope` says the scope already exists, skip it and run only `put-secret`. You only do this once, and again only if the token changes.
+You should see `psgc-api-token`. If `create-scope` says the scope already exists, do not create it again; continue only if the scope is yours and you intend to use it. During initial setup, add your token with `put-secret` once. **Important:** `put-secret` overwrites the value of an existing key. Run it again only when you intentionally rotate or replace your own token, and never use another developer's scope for your personal token.
 
-The token goes only at that prompt. Never put it in the overrides file, a command line, Git or chat. Do not include the token in screenshots or logs.
+The token goes only at that hidden prompt. Never put it in the overrides file, a command line, Git or chat. Do not include the token in screenshots or logs.
 
 ## Step 4: Check the setup and deploy
 
@@ -281,7 +284,7 @@ Before treating a gold table as current, check the latest `monitoring.dq_result`
 | What you see | Meaning and fix |
 | --- | --- |
 | `Valid: NO` on your profile | Run the login line from Step 1 again. |
-| `Error: Scope ahon does not exist!` | Do Step 3. |
+| `Error: Scope ahon-dev-<your-identifier> does not exist!` | Check that you created your developer-specific scope in Step 3 and that `psgc_secret_scope` in `variable-overrides.json` matches it exactly. |
 | `Fill required inputs` or a JSON error | Re-run the check in Step 2 and look at the key it names. |
 | `Warnings are not allowed in strict mode` | Run validate without `--strict`. |
 | Deploy seems stuck | Wait a few minutes. The first upload is large. |
