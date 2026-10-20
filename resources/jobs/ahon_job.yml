@@ -1011,3 +1011,275 @@ resources:
         run_if: ALL_SUCCESS
         depends_on:
         - task_key: earthquake_silver
+      - task_key: dq_psgc_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/psa_psgc/silver_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: psgc_silver
+      - task_key: dq_psgc_gold
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/psa_psgc/gold_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: dim_lgu
+      - task_key: dq_population_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/psa_population/silver_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: psgc_population_silver
+        - task_key: population_silver
+      - task_key: dq_population_gold
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/psa_population/gold_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: population_gold
+        - task_key: population_total_gold
+      - task_key: dq_ldrrmf_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/blgf_ldrrmf_annual_lgu/silver_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: ldrrmf_silver
+      - task_key: dq_ldrrmf_gold
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/blgf_ldrrmf_annual_lgu/gold_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: ldrrmf_gold
+      - task_key: dq_earthquake_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/philvolcs_earthquake/silver_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: earthquake_silver
+      - task_key: dq_cmci_silver
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/cmci/silver_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: cmci_silver
+      - task_key: dq_cmci_gold
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/cmci/gold_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: cmci_gold
+      - task_key: dq_cmci_platinum
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_python.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/monitoring/cmci/platinum_dq_gate.py
+          - --source-period
+          - ${var.source_period}
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: 0
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: cmci_platinum

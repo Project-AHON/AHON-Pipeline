@@ -2,7 +2,7 @@
 
 How the pipeline checks data between layers with Great Expectations, and where each dataset's gate lives. The design is in [decision 0012](../decisions/0012-dq-gates-with-great-expectations.md); the results table is described in [dq-result](dq-result.md).
 
-The gates are being built. Today the job runs the checks inside each build (see the [data quality overview](README.md)); the gate files below run in a notebook and are not yet tasks in `ahon_pipeline`.
+Each gate is a task in `ahon_pipeline`, named `dq_<dataset>_<layer>` (for example `dq_ldrrmf_silver`), and runs after the build of the table it checks. Nothing waits on the gates yet: a gate FAIL fails the run, but the next build still runs. The checks inside each build (see the [data quality overview](README.md)) still stop a bad write before it happens.
 
 ## Where the checks run
 
@@ -83,7 +83,7 @@ The older checks in `src/sql/monitoring/psa_psgc/*_dq.sql`, `philvolcs_earthquak
 2. Fill in the settings, the helper columns (if a rule spans several columns) and the rules. Start from the checks already in the dataset's build and DQ files.
 3. Run it on your development catalog and compare the counts with what you expect. Write the date and the counts in the file's docstring.
 4. List the rules on the [data dictionary](../data/data-dictionary/README.md) page of the table checked.
-5. Add the gate as a job task after the build in `resources/jobs/ahon_job.yml`.
+5. Add the gate as a job task in `resources/jobs/ahon_job.yml`: copy an existing `dq_` task, point `--file` at the gate and set `depends_on` to the build. Update the task count in `tests/common/test_job_contract.py`. Do not start the task key with `cmci_` (that prefix is for tasks that take the indicator file).
 
 ## Gate file template
 

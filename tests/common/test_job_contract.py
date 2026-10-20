@@ -42,7 +42,7 @@ def test_every_task_has_packaged_executable_assets_and_bounded_retries():
             ast.parse(path.read_text(encoding="utf-8"))
             if "--file" in args:
                 assert (ROOT / args[args.index("--file") + 1]).is_file()
-    assert count == 32
+    assert count == 42
 
 
 def test_batch_jobs_use_standard_compute_without_duplicate_execution():
