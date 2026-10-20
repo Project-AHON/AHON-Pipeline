@@ -60,7 +60,7 @@ The planned `platinum.lgu_risk_profile` (one city or municipality per row, for t
 | CMCI | Maki | `cmci/silver_dq_gate.py` | `silver.cmci_indicator_clean` | Drafted, not run |
 | | | `cmci/gold_dq_gate.py` | `gold.dim_cmci_indicator`, `gold.fact_cmci_indicator` | Drafted, not run |
 | | | `cmci/platinum_dq_gate.py` | `platinum.cmci_pillar_coverage`; later `platinum.lgu_risk_profile`: CMCI columns | Drafted, not run |
-| PHIVOLCS earthquakes | Jessy | `philvolcs_earthquake/silver_dq_gate.py` | `silver.philvolcs_earthquake_observation_clean` | Drafted, not run |
+| PHIVOLCS earthquakes | Jessy | `philvolcs_earthquake/silver_dq_gate.py` | `silver.philvolcs_earthquake_observation_clean` | Run in a notebook on `ahon_dev_crystal` (2026-10-20): no FAIL; WARN 22 events outside the Philippine box, 1,896 observations with no single PSGC candidate (the locality pattern does not parse the source text yet) |
 | | | `philvolcs_earthquake/gold_dq_gate.py` | gold earthquake table | Placeholder, table not built |
 | | | `philvolcs_earthquake/platinum_dq_gate.py` | `platinum.lgu_risk_profile`: earthquake columns | Placeholder, table not built |
 
@@ -73,7 +73,7 @@ Shared files, used by every gate:
 | File | Purpose |
 | --- | --- |
 | `src/sql/common/dq_gate.py` | `rule()` and `run_dq_gate()`: runs the rules, records the results, stops on FAIL or ERROR |
-| `src/sql/00_setup/07_dq_results.sql` | Creates the old gate results table, still named by the CMCI and PHIVOLCS gate files (removed once they write to `dq_result`) |
+| `src/sql/00_setup/07_dq_results.sql` | Creates the old gate results table, still named by the CMCI gate files (removed once they write to `dq_result`) |
 
 The older checks in `src/sql/monitoring/psa_psgc/*_dq.sql`, `philvolcs_earthquake/*_dq.sql`, `psa_population/*_dq_check.py` and `tests/sql/monitoring/cmci_quality.py` keep running until their gate replaces them. The bronze ones become DQ Inspect checks in the load scripts or stay where they are.
 

@@ -56,7 +56,7 @@ ORDER BY checked_at DESC;
 ## Known issues
 
 - **CMCI writes elsewhere.** `tests/sql/monitoring/cmci_quality.py` still writes to `quality.dq_results` with its own columns. Moving it is follow-up work with its owner.
-- **Some gates still name the old results table.** The CMCI and PHIVOLCS gate files still pass `monitoring.dq_results` and are updated in the same issue as the PSGC, population and LDRRMF gates.
+- **Some gates still name the old results table.** The CMCI gate files still pass `monitoring.dq_results` and are updated in the same issue as the other gates.
 
 ## Open
 
