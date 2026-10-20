@@ -1,5 +1,5 @@
 """
-DQ gate, silver to gold: philvolcs_earthquake (decision 0012). NOT WRITTEN YET.
+DQ gate, silver to gold: philvolcs_earthquake. NOT WRITTEN YET.
 
 The gold earthquake table is not built. run_earthquake.py --stage gold calls
 src/sql/gold/build_fact_earthquake_event.sql, which is not in main, and ADR 0009

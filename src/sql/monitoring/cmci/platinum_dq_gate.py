@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, gold to platinum: cmci (decision 0012).
+DQ gate, gold to platinum: cmci.
 
 Run after the cmci_platinum task (src/sql/datasets/cmci/pipeline.py --stage
 platinum). Checks platinum.cmci_pillar_coverage with Great Expectations,

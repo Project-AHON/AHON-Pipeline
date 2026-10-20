@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, bronze to silver: philvolcs_earthquake (decision 0012, observations per ADR 0009).
+DQ gate, bronze to silver: philvolcs_earthquake.
 
 Run after the earthquake_silver task (observation_pipeline.py --stage silver).
 Checks silver.philvolcs_earthquake_observation_clean with Great Expectations,

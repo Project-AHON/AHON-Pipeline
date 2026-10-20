@@ -94,4 +94,4 @@ Gate files are in `src/sql/monitoring/<dataset>/<layer>_dq_gate.py`. Rules, resu
 - [Handling rejects and DQ findings](handling-rejects.md): what to do when a check is `WARN` or `BLOCKED`
 - [Runbook](../operations/runbook.md): running, rerunning and recovering
 - [Naming standard](../architecture/naming-standard.md): `monitoring` schema and `dq_` tables
-- Decisions: [0011 shared GX quality gates](../decisions/0011-shared-gx-quality-gates.md), [0012 DQ gates with Great Expectations](../decisions/0012-dq-gates-with-great-expectations.md), [0007 silver provenance and DQ flag](../decisions/0007-silver-provenance-and-dq-flag.md)
+- Decisions: [0016 shared GX quality gates](../decisions/0016-shared-gx-quality-gates.md), [0018 DQ gates with Great Expectations](../decisions/0018-dq-gates-with-great-expectations.md), [0008 silver provenance and DQ flag](../decisions/0008-silver-provenance-and-dq-flag.md)

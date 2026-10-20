@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, silver to gold: dim_lgu (decision 0012).
+DQ gate, silver to gold: dim_lgu.
 
 Run after src/sql/gold/dim_lgu.py. Checks gold.dim_lgu with Great Expectations,
 writes one row per rule to monitoring.dq_result, and stops the run if a stop
@@ -139,7 +139,7 @@ gold_rules = [
          "region_in_dim_lgu", "referential_integrity", "report"),
     rule(E.ExpectColumnValuesToBeInSet(column="barangay_parent_found", value_set=[True]),
          "barangay_parent_in_dim_lgu", "referential_integrity", "report"),
-    # Broken ñ: UTF-8 read as Latin-1 gives "Ã±" (decision 0008); fix belongs in silver
+    # Broken ñ: UTF-8 read as Latin-1 gives "Ã±"; fix belongs in silver
     rule(E.ExpectColumnValuesToNotMatchRegex(column="area_name", regex="Ã"),
          "area_name_no_broken_enye", "accepted_values", "report"),
 ]

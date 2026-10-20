@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, bronze to silver: cmci (decision 0012).
+DQ gate, bronze to silver: cmci.
 
 Run after the cmci_silver task (src/sql/datasets/cmci/pipeline.py --stage
 silver). Checks silver.cmci_indicator_clean with Great Expectations, writes one

@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-Shared data quality gate for the medallion layers (decision 0010).
+Shared data quality gate for the medallion layers.
 
 run_dq_gate() runs a list of Great Expectations (GX) rules on a Spark DataFrame
 as one suite, writes one row per rule to monitoring.dq_result (the same table

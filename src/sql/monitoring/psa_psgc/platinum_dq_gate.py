@@ -1,5 +1,5 @@
 """
-DQ gate, gold to platinum: psa_psgc (decision 0012).
+DQ gate, gold to platinum: psa_psgc.
 
 Not active yet: platinum.lgu_risk_profile is not built. When it is, this gate
 checks the PSGC columns it brings into that table (psgc_code, LGU names and

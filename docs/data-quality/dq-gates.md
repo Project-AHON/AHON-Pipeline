@@ -1,6 +1,6 @@
 # Data quality gates
 
-How the pipeline checks data between layers with Great Expectations, and where each dataset's gate lives. The design is in [decision 0012](../decisions/0012-dq-gates-with-great-expectations.md); the results table is described in [dq-result](dq-result.md).
+How the pipeline checks data between layers with Great Expectations, and where each dataset's gate lives. The design is in [decision 0018](../decisions/0018-dq-gates-with-great-expectations.md); the results table is described in [dq-result](dq-result.md).
 
 Each gate is a task in `ahon_pipeline`, named `dq_<dataset>_<layer>` (for example `dq_ldrrmf_silver`), and runs after the build of the table it checks. The next build depends on the gate, so a gate FAIL stops the layers after it (for example, `ldrrmf_gold` waits for `dq_ldrrmf_silver`, and every build that reads `gold.dim_lgu` waits for `dq_psgc_gold`). WARNs do not stop anything. The checks inside each build (see the [data quality overview](README.md)) still stop a bad write before it happens.
 
@@ -90,7 +90,7 @@ The older checks in `src/sql/monitoring/psa_psgc/*_dq.sql`, `philvolcs_earthquak
 ```python
 # %pip install great_expectations==1.23.1
 """
-DQ gate, <from layer> to <layer>: <dataset> (decision 0012).
+DQ gate, <from layer> to <layer>: <dataset> (decisions 0018, 0020).
 
 Run after <build file>. Expected on <catalog> (<date>): <n> PASS, <n> WARN (<which>).
 """

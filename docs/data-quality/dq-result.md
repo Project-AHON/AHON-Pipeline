@@ -4,7 +4,7 @@ Every check in the `ahon_pipeline` job writes its result to `<catalog>.monitorin
 
 - **One row is:** one check on one table in one batch
 - **Key:** `run_id` + `check_id` + `table_name`. A rerun of the same check in the same batch replaces its row.
-- **Created by:** the `setup` task, and again by `check()` if missing ([decision 0011](../decisions/0011-shared-gx-quality-gates.md))
+- **Created by:** the `setup` task, and again by `check()` if missing ([decision 0016](../decisions/0016-shared-gx-quality-gates.md))
 
 | Column | Type | Description | Notes |
 | --- | --- | --- | --- |

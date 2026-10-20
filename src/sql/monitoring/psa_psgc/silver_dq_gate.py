@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, bronze to silver: psa_psgc (decision 0012).
+DQ gate, bronze to silver: psa_psgc.
 
 Run after src/sql/datasets/psa_psgc/silver/psa_psgc_clean.py. Checks
 silver.psa_psgc_clean with Great Expectations, appends one row per rule to
@@ -168,7 +168,7 @@ silver_rules = [
          "area_name_no_footnote_marker", "accepted_values", "report"),
     rule(E.ExpectColumnValuesToNotMatchRegex(column="area_name", regex=r"^\s|\s$"),
          "area_name_trimmed", "accepted_values", "report"),
-    # Broken ñ: UTF-8 read as Latin-1 gives "Ã±" (decision 0008); "Ã" alone never appears in PSGC names
+    # Broken ñ: UTF-8 read as Latin-1 gives "Ã±"; "Ã" alone never appears in PSGC names
     rule(E.ExpectColumnValuesToNotMatchRegex(column="area_name", regex="Ã"),
          "area_name_no_broken_enye", "accepted_values", "report"),
     rule(E.ExpectColumnValuesToNotBeNull(column="province_city"), "province_city_not_null", "null", "report"),

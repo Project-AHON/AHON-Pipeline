@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, bronze to silver: blgf_ldrrmf_annual_lgu (decision 0012).
+DQ gate, bronze to silver: blgf_ldrrmf_annual_lgu.
 
 Run after clean_blgf_ldrrmf_annual_lgu.sql. Checks the silver table with
 Great Expectations, writes one row per rule to monitoring.dq_result, and stops

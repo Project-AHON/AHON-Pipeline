@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, silver to gold: cmci (decision 0012).
+DQ gate, silver to gold: cmci.
 
 Run after the cmci_gold task (src/sql/datasets/cmci/pipeline.py --stage gold).
 Checks the two CMCI gold tables with Great Expectations, writes one row per
@@ -17,7 +17,7 @@ latest value was rejected keeps its row with raw_score NULL.
 
 Kept from the earlier gate: dim row count, not-null, unique, pillar names;
 fact not-null keys, one row per key, years, indicator in dim, raw_score not
-negative, the 2022 to 2024 score rules (decision 0009), raw_score present
+negative, the 2022 to 2024 score rules, raw_score present
 (report), psgc_code in dim_lgu (now stop: the build stops on it too). The
 earlier fixed fact row count (1,634 LGUs) is now row_count_matches_silver,
 because a test run loads only a few LGUs.
@@ -60,12 +60,12 @@ DIM_LGU_TABLE = f"{CATALOG}.gold.dim_lgu"
 RESULTS_TABLE = f"{CATALOG}.monitoring.dq_result"
 KEY_COLUMNS = ["psgc_code", "year", "indicator_code"]
 
-EXPECTED_INDICATOR_COUNT = 35  # resources/cmci_indicators.csv, fixed by decision 0009
+EXPECTED_INDICATOR_COUNT = 35  # resources/cmci_indicators.csv
 PILLARS = ["Economic Dynamism", "Government Efficiency", "Infrastructure", "Resiliency", "Innovation"]
 # Update when CMCI publishes a new year
 YEARS = (2014, 2024)
 
-# 2022 to 2024 scoring rules (decision 0009): non-null scores at most 2.0001, and three indicators
+# 2022 to 2024 scoring rules: non-null scores at most 2.0001, and three indicators
 # with fixed values. Older years use other scales (2.5, 3.3333, 4.1667), so they are not checked.
 RECENT_FIRST_YEAR, RECENT_LAST_YEAR = 2022, 2024
 RECENT_SCORE_MAX = 2.0001

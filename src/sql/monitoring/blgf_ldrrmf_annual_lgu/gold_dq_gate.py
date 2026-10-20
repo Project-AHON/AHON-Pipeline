@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, silver to gold: fact_ldrrmf (decision 0012).
+DQ gate, silver to gold: fact_ldrrmf.
 
 Run after build_fact_ldrrmf.sql. Checks gold.fact_ldrrmf with Great Expectations,
 writes one row per rule to monitoring.dq_result, and stops the run if a stop

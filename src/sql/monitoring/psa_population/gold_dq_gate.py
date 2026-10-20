@@ -1,6 +1,6 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, silver to gold: psa_population (decision 0012).
+DQ gate, silver to gold: psa_population.
 
 Writes one row per rule to monitoring.dq_result and stops the run if a stop
 rule FAILs. Report rules give WARN and do not stop it. Two parts:
