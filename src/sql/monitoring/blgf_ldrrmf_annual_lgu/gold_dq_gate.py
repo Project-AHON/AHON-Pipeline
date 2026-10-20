@@ -3,20 +3,25 @@
 DQ gate, silver to gold: fact_ldrrmf (decision 0012).
 
 Run after build_fact_ldrrmf.sql. Checks gold.fact_ldrrmf with Great Expectations,
-appends one row per rule to monitoring.dq_results, and stops the run if a stop
+writes one row per rule to monitoring.dq_result, and stops the run if a stop
 rule FAILs. Report rules give WARN and do not stop it. Three runs, one per
 DataFrame checked:
 
 1. fact_ldrrmf itself: the build's stop checks, repeated after the write, plus
-   a report rule for rows without a PSGC code.
+   a report rule for rows without a PSGC code. match_confidence is always NULL
+   now (the matcher only accepts exact matches), so its rule passes trivially;
+   match_status_valid is the real check.
 2. lgu_type against the dim_lgu level of the matched code (report).
 3. Coverage: every province, city and municipality in dim_lgu has a row in
    the latest fiscal year (report).
 
-Expected on ahon_dev (2026-10-15):
-1. 5 PASS, 1 WARN (psgc_matched: the 5 old Maguindanao province rows, FY2018 to FY2022).
-2. WARN, 20 rows: cityhood (Calaca, Santo Tomas, Baliuag, Carmona) and Pateros.
-3. WARN, 8 rows: the BARMM Special Geographic Area towns (codes 19999...), created in 2024.
+Tested on ahon_dev_crystal (2026-10-20): no FAIL.
+1. WARN psgc_matched 235 (5 old Maguindanao province rows plus 230 the LGU
+   map marks needs_review since #94), utilization_rate_not_negative 2.
+2. WARN, 4 rows: Baliuag (Municipality in BLGF, City in PSGC). Before #94 also
+   Calaca, Santo Tomas, Carmona and Pateros (20 rows).
+3. WARN, 43 rows: the 8 BARMM Special Geographic Area towns (codes 19999...,
+   created in 2024) plus 35 cities without a code because of needs_review.
 """
 
 import os
@@ -39,12 +44,14 @@ from dq_gate import rule, run_dq_gate  # noqa: E402
 # 1. SETTINGS
 # ============================================================
 
-CATALOG = "ahon_dev"
+# Set by src/sql/common/run_python.py in the job; set them yourself in a notebook
+CATALOG = globals().get("PIPELINE_CATALOG", "ahon_dev")
+RUN_ID = globals().get("PIPELINE_RUN_ID", "interactive")
 SOURCE_NAME = "blgf_ldrrmf_annual_lgu"
 SILVER_TABLE = f"{CATALOG}.silver.blgf_ldrrmf_annual_lgu_clean"
 GOLD_TABLE = f"{CATALOG}.gold.fact_ldrrmf"
 DIM_LGU_TABLE = f"{CATALOG}.gold.dim_lgu"
-RESULTS_TABLE = f"{CATALOG}.monitoring.dq_results"
+RESULTS_TABLE = f"{CATALOG}.monitoring.dq_result"
 KEY_COLUMNS = ["lgu_name", "province", "fiscal_year"]
 
 E = gx.expectations
@@ -58,13 +65,17 @@ dim_lgu = spark.table(DIM_LGU_TABLE)
 
 # Referential check: a left join to dim_lgu adds in_dim_lgu (true/false, NULL when psgc_code is NULL).
 # GX skips NULLs, so rows without a code are left to the psgc_matched report rule.
+# min_utilization_rate = smallest of the three rates (NULL when every budget is 0).
 silver_rows = spark.table(SILVER_TABLE).count()
+dim_periods = [r[0] for r in dim_lgu.select("source_period").distinct().collect()]
 dim_codes = dim_lgu.select("psgc_code").distinct().withColumn("in_dim_lgu", F.lit(True))
 gold_check = (
     gold_df
     .join(dim_codes, on="psgc_code", how="left")
     .withColumn("in_dim_lgu",
                 F.when(F.col("psgc_code").isNotNull(), F.coalesce(F.col("in_dim_lgu"), F.lit(False))))
+    .withColumn("min_utilization_rate",
+                F.least("utilization_rate_70_pct", "utilization_rate_30_pct", "utilization_rate_total"))
 )
 
 gold_rules = [
@@ -78,6 +89,13 @@ gold_rules = [
          "psgc_code_in_dim_lgu", "referential_integrity", "stop"),
     rule(E.ExpectColumnValuesToBeBetween(column="match_confidence", min_value=0, max_value=1),
          "match_confidence_valid", "range", "stop"),
+    rule(E.ExpectColumnValuesToBeInSet(column="match_status", value_set=["exact", "unmatched"]),
+         "match_status_valid", "accepted_values", "stop"),
+    rule(E.ExpectColumnValuesToBeInSet(column="source_period", value_set=dim_periods),
+         "source_period_in_dim_lgu", "referential_integrity", "stop"),
+    # Flag rule: negative amounts give a negative rate (the silver negative_amount rows)
+    rule(E.ExpectColumnValuesToBeBetween(column="min_utilization_rate", min_value=0),
+         "utilization_rate_not_negative", "range", "flag"),
     # Report rule: rows without a PSGC code (expected: the old Maguindanao province rows)
     rule(E.ExpectColumnValuesToNotBeNull(column="psgc_code"), "psgc_matched", "null", "report"),
 ]
@@ -85,7 +103,7 @@ gold_rules = [
 run_dq_gate(
     spark, gold_check, gold_rules,
     source_name=SOURCE_NAME, layer="gold", table_name="fact_ldrrmf",
-    key_columns=KEY_COLUMNS, results_table=RESULTS_TABLE,
+    key_columns=KEY_COLUMNS, results_table=RESULTS_TABLE, run_id=RUN_ID,
 )
 
 
@@ -111,7 +129,7 @@ run_dq_gate(
     [rule(E.ExpectColumnPairValuesToBeEqual(column_A="expected_level", column_B="dim_level"),
           "lgu_type_matches_psgc_level", "referential_integrity", "report")],
     source_name=SOURCE_NAME, layer="gold", table_name="fact_ldrrmf",
-    key_columns=KEY_COLUMNS, results_table=RESULTS_TABLE,
+    key_columns=KEY_COLUMNS, results_table=RESULTS_TABLE, run_id=RUN_ID,
 )
 
 
@@ -138,5 +156,5 @@ run_dq_gate(
     [rule(E.ExpectColumnValuesToBeInSet(column="has_ldrrmf", value_set=[True]),
           "dim_lgu_has_ldrrmf_latest_year", "referential_integrity", "report")],
     source_name=SOURCE_NAME, layer="gold", table_name="fact_ldrrmf",
-    key_columns=["area_name", "geographic_level", "psgc_code"], results_table=RESULTS_TABLE,
+    key_columns=["area_name", "geographic_level", "psgc_code"], results_table=RESULTS_TABLE, run_id=RUN_ID,
 )

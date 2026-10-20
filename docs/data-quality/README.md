@@ -47,7 +47,7 @@ Every check writes one row to `<catalog>.monitoring.dq_result`, keyed by `(run_i
 | `checked_at` | timestamp (UTC) | When the check ran |
 | `validation_result` | string | GX result JSON with the expectation metadata and GX version. NULL on older rows until their checks rerun. |
 
-The table is created by the `setup` task. Full column details: [dq-results](dq-results.md).
+The table is created by the `setup` task. Full column details: [dq-result](dq-result.md).
 
 ## Reading the results
 
