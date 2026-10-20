@@ -57,9 +57,9 @@ The planned `platinum.lgu_risk_profile` (one city or municipality per row, for t
 | PSA Population | Crizza | `psa_population/silver_dq_gate.py` | Part A: `silver.psgc_city_population_clean`; part B (OpenSTAT): `silver.psa_population_clean` | Run in a notebook on `ahon_dev_crystal` (2026-10-20): no FAIL; WARN is 16 census records not accepted |
 | | | `psa_population/gold_dq_gate.py` | Part A: `gold.fact_population`; part B (OpenSTAT): `gold.fact_population_total` | Run in a notebook on `ahon_dev_crystal` (2026-10-20): no FAIL; WARNs are 19 cities with no population and 44 OpenSTAT city rows not mapped to PSGC |
 | | | `psa_population/platinum_dq_gate.py` | `platinum.lgu_risk_profile`: population columns | Placeholder, table not built |
-| CMCI | Maki | `cmci/silver_dq_gate.py` | `silver.cmci_indicator_clean` | Drafted, not run |
-| | | `cmci/gold_dq_gate.py` | `gold.dim_cmci_indicator`, `gold.fact_cmci_indicator` | Drafted, not run |
-| | | `cmci/platinum_dq_gate.py` | `platinum.cmci_pillar_coverage`; later `platinum.lgu_risk_profile`: CMCI columns | Drafted, not run |
+| CMCI | Maki | `cmci/silver_dq_gate.py` | `silver.cmci_indicator_clean` | Run in a notebook on `ahon_dev_crystal` (2026-10-20, test mode, 5 LGUs): no FAIL; WARN 312 indicator values with no score |
+| | | `cmci/gold_dq_gate.py` | `gold.dim_cmci_indicator`, `gold.fact_cmci_indicator` | Run in a notebook on `ahon_dev_crystal` (2026-10-20, test mode, 5 LGUs): no FAIL; WARN the same 312 values with no score |
+| | | `cmci/platinum_dq_gate.py` | `platinum.cmci_pillar_coverage`; later `platinum.lgu_risk_profile`: CMCI columns | Run in a notebook on `ahon_dev_crystal` (2026-10-20, test mode, 5 LGUs): no FAIL; WARN 84 pillars with INSUFFICIENT_DATA |
 | PHIVOLCS earthquakes | Jessy | `philvolcs_earthquake/silver_dq_gate.py` | `silver.philvolcs_earthquake_observation_clean` | Run in a notebook on `ahon_dev_crystal` (2026-10-20): no FAIL; WARN 22 events outside the Philippine box, 1,896 observations with no single PSGC candidate (the locality pattern does not parse the source text yet) |
 | | | `philvolcs_earthquake/gold_dq_gate.py` | gold earthquake table | Placeholder, table not built |
 | | | `philvolcs_earthquake/platinum_dq_gate.py` | `platinum.lgu_risk_profile`: earthquake columns | Placeholder, table not built |
@@ -73,7 +73,7 @@ Shared files, used by every gate:
 | File | Purpose |
 | --- | --- |
 | `src/sql/common/dq_gate.py` | `rule()` and `run_dq_gate()`: runs the rules, records the results, stops on FAIL or ERROR |
-| `src/sql/00_setup/07_dq_results.sql` | Creates the old gate results table, still named by the CMCI gate files (removed once they write to `dq_result`) |
+| `src/sql/00_setup/07_dq_results.sql` | Creates the old gate results table, which no gate uses any more (to be removed) |
 
 The older checks in `src/sql/monitoring/psa_psgc/*_dq.sql`, `philvolcs_earthquake/*_dq.sql`, `psa_population/*_dq_check.py` and `tests/sql/monitoring/cmci_quality.py` keep running until their gate replaces them. The bronze ones become DQ Inspect checks in the load scripts or stay where they are.
 
