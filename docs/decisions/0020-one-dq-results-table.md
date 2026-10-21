@@ -1,6 +1,6 @@
 # 0020: One data quality results table, and gates that block the next build
 
-- **Status:** Proposed
+- **Status:** Accepted; implemented in #109 (commit 501ead9)
 - **Date:** 2026-10-20
 - **Updates:** [0018](0018-dq-gates-with-great-expectations.md) (where the gates write, and how they run in the job); keeps [0016](0016-shared-gx-quality-gates.md)
 

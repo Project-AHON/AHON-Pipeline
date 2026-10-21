@@ -1,6 +1,6 @@
 # 0009: Configure Databricks Asset Bundle deployment
 
-- **Status:** Superseded
+- **Status:** Partly superseded by [0015](0015-reconciled-source-contracts.md)
 - **Date:** 2026-10-11
 
 ## Context

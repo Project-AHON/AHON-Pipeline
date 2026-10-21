@@ -51,7 +51,7 @@ By schema:
 | `reference` | Plain name for the lookup; LGU name-to-PSGC maps end in `_lgu_map` | `cmci_lgu_map`, `blgf_ldrrmf_lgu_map` |
 | `gold` | `dim_` prefix for dimensions, `fact_` prefix for facts | `dim_lgu`, `fact_ldrrmf`, `fact_population` |
 | `platinum` | Named for what it shows; no prefix | `funding_components`, `cmci_pillar_coverage` |
-| `monitoring` | `dq_` prefix for data quality tables | `dq_results` |
+| `monitoring` | `dq_` prefix for data quality tables | `dq_result` |
 
 Silver may attach PSGC codes from `reference` maps and from the PSGC silver table. Measures from different datasets are combined only in gold and platinum.
 
