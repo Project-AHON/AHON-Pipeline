@@ -30,19 +30,19 @@ Numbers are never reused. A decision is never edited to change its meaning once 
 | [0002](0002-team-workflow.md) | Team workflow | 2026-10-04 | Accepted |
 | [0003](0003-repository-structure.md) | Repository structure | 2026-10-04 | Accepted |
 | [0004](0004-source-file-landing-hugging-face.md) | Land source files through Hugging Face | 2026-10-04 | Accepted |
-| [0005](0005-reference-source-volume.md) | Reference source volume | Historical date unverified | Original text unavailable; implementation summary |
+| [0005](0005-reference-source-volume.md) | Raw files land in a volume in the reference schema | 2026-10-05 | Accepted |
 | [0006](0006-cmci-mapping-and-ingestion.md) | CMCI locality mapping and incremental ingestion | 2026-10-06 | Partly superseded by 0015 |
 | [0007](0007-cmci-silver.md) | Store CMCI silver data by pillar | 2026-10-09 | Superseded by 0015 |
 | [0008](0008-silver-provenance-and-dq-flag.md) | Silver keeps provenance columns and marks DQ problems in one column | 2026-10-09 | Accepted |
 | [0009](0009-DAB-and-jobs.md) | Configure Databricks Asset Bundle deployment | 2026-10-11 | Partly superseded by 0015 |
 | [0010](0010-cmci-gold-analytical-model.md) | CMCI gold analytical model | 2026-10-12 | Partly superseded by 0015 |
 | [0011](0011-cmci-great-expectations-data-quality.md) | CMCI Great Expectations data quality framework | 2026-10-12 | Superseded by 0016 and 0018 |
-| [0012](0012-psgc-snapshot-silver.md) | PSGC snapshot and Silver codes | Historical date unverified | Original text unavailable; implementation summary |
+| [0012](0012-psgc-snapshot-silver.md) | One PSGC snapshot, with PSGC codes attached in silver | 2026-10-12 | Accepted |
 | [0013](0013-ldrrmf-psgc-matching-in-silver.md) | Match LDRRMF to PSGC codes in silver through a reference map | 2026-10-12 | Accepted |
 | [0014](0014-earthquake-observations-and-locality-candidates.md) | Keep earthquake observations and report locality candidates | 2026-10-12 | Proposed |
 | [0015](0015-reconciled-source-contracts.md) | One executable pipeline and reconciled source contracts | 2026-10-14 | Accepted |
 | [0016](0016-shared-gx-quality-gates.md) | Use Great Expectations inside every build's checks | 2026-10-15 | Accepted |
 | [0017](0017-city-municipality-analysis-grain.md) | Analyse at city and municipality level | 2026-10-15 | Accepted |
 | [0018](0018-dq-gates-with-great-expectations.md) | Data quality gates with Great Expectations | 2026-10-15 | Partly superseded by 0020 |
-| 0019 (record not present) | Risk and preparedness scores for the dashboard | 2026-10-16 | Proposed |
-| [0020](0020-one-dq-results-table.md) | One data quality results table, and gates that block the next build | 2026-10-20 | Proposed |
+| [0019](0019-risk-and-preparedness-scores.md) | Risk and preparedness scores for the dashboard | 2026-10-16 | Proposed |
+| [0020](0020-one-dq-results-table.md) | One data quality results table, and gates that block the next build | 2026-10-20 | Accepted |

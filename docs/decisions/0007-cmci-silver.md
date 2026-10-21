@@ -1,6 +1,6 @@
-# 0006: Store CMCI Silver data by pillar
+# 0007: Store CMCI Silver data by pillar
 
-- **Status:** Superseded
+- **Status:** Superseded by [0015](0015-reconciled-source-contracts.md)
 - **Date:** 2026-10-09
 
 ## Context
