@@ -1,6 +1,6 @@
 # 0013: Match LDRRMF to PSGC codes in silver through a reference map
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-12
 
 ## Context
