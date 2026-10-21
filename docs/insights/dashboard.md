@@ -2,7 +2,6 @@
 
 The export is `resources/dashboard/Project AHON LGU Command Center for DRRM Plans.lvdash.json`. The latest upload ending at commit `1fd90da` adds a Baseline Comparison page and selection-status counters, and removes the old filename. This CI repair preserves all six pages, 47 widgets, eleven dataset identities, visible titles, text, relationship graph, theme, positions, chart types and filter queries from that upload. The reviewed presentation fingerprint is recorded with that commit in the test fixture. Existing output-column names are preserved, and funding adds the missing `utilization_tier` column required by the new counter. Some original labels still refer to readiness or unsupported totals; correct those labels before publication.
 
-The filename change caused `FileNotFoundError` in CI. Tests and documentation now reference the uploaded filename. The upload also restored legacy SQL, so maintained source references, missing-input handling and coverage formatting are repaired without deleting the new page or counters. The baseline dataset reuses the maintained city projection instead of copying the unbuilt boundary query; its unsupported score/exposure values remain NULL. Province/city legends use the PSGC dimension rather than boundary name rematching.
 
 ## Review fixes without a layout redesign
 
