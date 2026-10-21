@@ -8,7 +8,7 @@
         "  job_name, batch_id, job_run_id, started_at, ended_at,\r\n",
         "  round(duration_seconds / 60, 1) AS duration_min,\r\n",
         "  coalesce(result_state, 'RUNNING') AS result_state, termination_code,\r\n",
-        "  tasks_total, tasks_succeeded, tasks_failed, tasks_skipped, tasks_cancelled,\r\n",
+        "  tasks_total, tasks_succeeded, tasks_failed, tasks_skipped, tasks_blocked, tasks_cancelled, tasks_running,\r\n",
         "  dq_pass, dq_warn, dq_blocked, dq_error\r\n",
         "FROM monitoring.run_log\r\n",
         "WHERE job_name LIKE '%ahon_pipeline'"
@@ -31,7 +31,7 @@
       "displayName": "pipeline_last_run",
       "queryLines": [
         "SELECT\r\n",
-        "  coalesce(result_state, 'RUNNING') AS last_status,\r\n",
+        "  result_state                      AS last_status,\r\n",
         "  ended_at                          AS last_run_at,\r\n",
         "  round(duration_seconds / 60, 1)   AS last_duration_min,\r\n",
         "  tasks_failed                      AS last_tasks_failed,\r\n",
@@ -39,7 +39,8 @@
         "  date_format(ended_at, 'MMM d, yyyy h:mm a') AS last_run_date\r\n",
         "FROM monitoring.run_log\r\n",
         "WHERE job_name LIKE '%ahon_pipeline'\r\n",
-        "ORDER BY started_at DESC\r\n",
+        "  AND ended_at IS NOT NULL\r\n",
+        "ORDER BY ended_at DESC\r\n",
         "LIMIT 1"
       ]
     }
@@ -126,7 +127,7 @@
                   "fields": []
                 },
                 "description": {
-                  "value": "<span style=\"text-align:center;display:block\">Average time per run, from start to end, including time in queue</span>",
+                  "value": "<span style=\"text-align:center;display:block;\">Average time per finished run, from start to end, including time in queue. Runs still in progress are left out</span>",
                   "fields": []
                 }
               },
@@ -313,6 +314,10 @@
                       "expression": "`tasks_skipped`"
                     },
                     {
+                      "name": "tasks_blocked",
+                      "expression": "`tasks_blocked`"
+                    },
+                    {
                       "name": "tasks_cancelled",
                       "expression": "`tasks_cancelled`"
                     },
@@ -352,7 +357,7 @@
                   "fields": []
                 },
                 "description": {
-                  "value": "<span style=\"text-align:center;display:block;\">One row per run, newest first. Skipped tasks come from a DQ gate that blocked or from tasks not selected with --only. DQ counts are for the run’s batch\\_id; runs that share a batch\\_id show the same counts</span>",
+                  "value": "<span style=\"text-align:center;display:block;\">One row per run, newest first. Skipped tasks were not selected with --only; blocked tasks were stopped by a failed upstream task, such as a DQ gate. Duration is empty while a run is still running. DQ counts are for the run’s batch\\_id; runs that share a batch\\_id show the same counts</span>",
                   "fields": []
                 }
               },
@@ -383,6 +388,10 @@
                   {
                     "fieldName": "tasks_skipped",
                     "displayName": "Tasks Skipped"
+                  },
+                  {
+                    "fieldName": "tasks_blocked",
+                    "displayName": "Tasks Blocked"
                   },
                   {
                     "fieldName": "tasks_cancelled",
@@ -453,7 +462,7 @@
                   "fields": []
                 },
                 "description": {
-                  "value": "<span style=\"text-align:center;display:block\">When the latest ahon\\_pipeline run ended</span>",
+                  "value": "<span style=\"text-align:center;display:block;\">When the latest finished ahon\\_pipeline run ended (UTC)</span>",
                   "fields": []
                 }
               },
@@ -513,6 +522,10 @@
                 "showDescription": true,
                 "title": {
                   "value": "Run",
+                  "fields": []
+                },
+                "description": {
+                  "value": "Pick a run to see its tasks. With no run picked, the page shows the tasks of every run",
                   "fields": []
                 }
               },
@@ -686,7 +699,7 @@
                   "fields": []
                 },
                 "description": {
-                  "value": "<span style=\"text-align:center;display:block\">Every task in the selected run, in the order of newest first. Attempts above 1 mean the task was retried or repaired</span>",
+                  "value": "<span style=\"text-align:center;display:block;\">Every task in the selected run, newest first. BLOCKED means an upstream task failed, SKIPPED means it was not selected with --only. Attempts above 1 mean the task was retried or repaired</span>",
                   "fields": []
                 }
               },
