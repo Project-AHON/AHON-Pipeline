@@ -1,6 +1,6 @@
 # 0011: CMCI Great Expectations data quality framework
 
-- **Status:** Accepted
+- **Status:** Superseded by [0016](0016-shared-gx-quality-gates.md) and [0018](0018-dq-gates-with-great-expectations.md)
 - **Date:** 2026-10-12
 
 ## Context

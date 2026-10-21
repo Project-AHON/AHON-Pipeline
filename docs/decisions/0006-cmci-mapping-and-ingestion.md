@@ -1,6 +1,6 @@
 # 0006: CMCI locality mapping and incremental ingestion
 
-- **Status:** Superseded
+- **Status:** Partly superseded by [0015](0015-reconciled-source-contracts.md)
 - **Date:** 2026-10-06
 
 ## Context

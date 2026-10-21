@@ -15,171 +15,16 @@ The pipeline is the job `ahon_pipeline` in `resources/jobs/ahon_job.yml`. Which 
 | PSGC token | A credential for the PSA PSGC API. It is stored in Databricks as a secret, never in a file, Git, or chat. |
 | Bundle | The job definitions in the repository. `deploy` copies them to your workspace, while `run` starts a job. |
 
-## Step 1: Log in to Databricks once
+## First time
 
-Run from PowerShell:
+Do the [setup](../getting-started/setup.md) steps once before your first run:
 
-```powershell
-databricks auth login --host https://<your-workspace>.cloud.databricks.com --profile <your-profile-name>
-databricks auth profiles
-```
-
-Your profile should show `Valid: YES`. If it shows `Valid: NO`, run the login command again.
-
-## Step 2: Create your private overrides file
-
-The authoritative configuration template is:
-
-`config/variable-overrides.example.json`
-
-Do not copy configuration values from archived documentation, previous job runs, another developer's overrides file, or an older version of this runbook.
-
-From the repository root, where `databricks.yml` is located, run:
-
-```powershell
-New-Item -ItemType Directory -Path .databricks/bundle/dev -Force | Out-Null
-
-Copy-Item `
-  config/variable-overrides.example.json `
-  .databricks/bundle/dev/variable-overrides.json
-```
-
-Open the copied file in Notepad:
-
-```powershell
-notepad .databricks/bundle/dev/variable-overrides.json
-```
-
-Complete every required value according to [setup](../getting-started/setup.md).
-
-At minimum, confirm these developer-specific settings:
-
-- `run_as.user_name`: your Databricks login email
-- `catalog`: your unique development catalog
-- `workspace_root`: your isolated Databricks workspace path
-- `psgc_secret_scope`: your developer-specific secret scope
-- `cmci_mapping_file`: the exact volume path of the approved reviewed Q2_2024 CMCI mapping CSV
-
-The repository includes the approved reviewed mapping at:
-
-`src/sql/datasets/cmci/silver/cmci_reviewed_mapping_Q2_2024.csv`
-
-Upload this file using the procedure in [setup](../getting-started/setup.md). Then set `cmci_mapping_file` to its exact uploaded volume path.
-
-Do not create a new mapping, modify the reviewed file, or substitute an unreviewed mapping.
-
-Keep `.databricks/bundle/dev/variable-overrides.json` private. Never commit it or paste its contents into an issue, pull request, log, screenshot, or chat.
-
-### Check the required configuration keys
-
-This check prints key names only. It does not print configuration values:
-
-```powershell
-$settings = Get-Content `
-  .databricks/bundle/dev/variable-overrides.json `
-  -Raw | ConvertFrom-Json
-
-$required = (
-  Get-Content config/variable-overrides.example.json -Raw |
-  ConvertFrom-Json
-).PSObject.Properties.Name
-
-$missing = @(
-  $required | Where-Object {
-    $_ -notin $settings.PSObject.Properties.Name -or
-    $null -eq $settings.$_ -or
-    (
-      $settings.$_ -is [string] -and
-      [string]::IsNullOrWhiteSpace($settings.$_)
-    )
-  }
-)
-
-"Keys expected: $($required.Count)"
-"Missing, null, or blank: $($missing.Count)"
-$missing
-```
-
-Expected result:
-
-```text
-Missing, null, or blank: 0
-```
-
-If keys are missing, update your private overrides file. Do not add undocumented keys only because they appeared in an older runbook or another developer's configuration.
-
-## Step 3: Request and save your PSGC token in Databricks once
-
-### 3a. Request a token from the Philippine Statistics Authority
-
-1. Open the official [PSA Statistical Classification Systems API page](https://psa.gov.ph/classifications-api).
-2. Open the [PSA API Access Guide](https://psa.gov.ph/classifications-api/access-guide).
-3. Follow the **Request Your API Token** instructions.
-4. Check your email for the token issued by PSA. If you already have a valid token, you can use it instead.
-
-PSA tokens must not be shared, sold, lent, committed to Git, or pasted into chat.
-
-Each developer must follow PSA's current token-request and usage requirements. See the [PSA API terms and conditions](https://psa.gov.ph/classifications-api/terms-and-conditions).
-
-### 3b. Store the token in your Databricks secret scope
-
-Use a developer-specific scope so personal PSA tokens do not overwrite one another in a shared workspace.
-
-For example, use `ahon-dev-maria` for a developer whose identifier is `maria`.
-
-Replace `ahon-dev-maria` below with your own unique scope name. Set `psgc_secret_scope` in `variable-overrides.json` to that exact same name.
-
-A different Databricks CLI profile does not create a separate secret namespace within the same workspace.
-
-Run:
-
-```powershell
-databricks secrets create-scope ahon-dev-maria --profile <your-profile-name>
-databricks secrets put-secret ahon-dev-maria psgc-api-token --profile <your-profile-name>
-```
-
-The second command asks you to paste your token at a hidden prompt. You will not see the characters. Paste the token without quotes and press Enter.
-
-Check that the key exists:
-
-```powershell
-databricks secrets list-secrets ahon-dev-maria --profile <your-profile-name>
-```
-
-You should see `psgc-api-token`.
-
-If `create-scope` says the scope already exists, do not create it again. Continue only if the scope belongs to you and you intend to use it.
-
-**Important:** `put-secret` overwrites an existing value. Run it again only when intentionally rotating or replacing your own token. Never use another developer's scope for your personal token.
-
-The token belongs only at the hidden prompt. Never put it in the overrides file, command arguments, Git, chat, screenshots, or logs.
-
-## Step 4: Check the setup and deploy
-
-Confirm that you have completed:
-
-- Databricks CLI authentication
-- Bundle variable overrides
-- PSGC token secret
-- `cmci_mapping_file` set to the planned volume path
-
-For a new workspace, deploy and run `catalog_setup` first, then upload the reviewed CMCI mapping using the procedure in [setup](../getting-started/setup.md). Do not run a CMCI task until the uploaded file exists at the configured path.
-
-Run strict validation:
-
-```powershell
-databricks bundle validate --strict -t dev --profile <your-profile-name>
-```
-
-Do not remove `--strict` to bypass an unexpected warning. Review and resolve the warning.
-
-After validation passes, deploy:
-
-```powershell
-databricks bundle deploy -t dev --profile <your-profile-name>
-```
-
-Deployment uploads the repository files and creates the configured jobs in your workspace. It may take several minutes, especially if the repository is stored in OneDrive.
+1. [Install the tools](../getting-started/setup.md#1-install-the-tools).
+2. [Log in to Databricks](../getting-started/setup.md#2-log-in-to-databricks) with a CLI profile.
+3. [Fill in the bundle settings](../getting-started/setup.md#3-fill-in-the-bundle-settings) in your private overrides file, and run its required-key check.
+4. [Get and store your PSGC token](../getting-started/setup.md#4-get-and-store-your-psgc-token): request your own token from PSA and store it in your own secret scope.
+5. [Place the CMCI mapping file](../getting-started/setup.md#5-place-the-cmci-mapping-file). For a new workspace, this is where `catalog_setup` runs first. Do not run a CMCI task until the uploaded file exists at the configured path.
+6. [Validate and deploy](../getting-started/setup.md#7-validate-and-deploy).
 
 ## Before every run
 
@@ -195,7 +40,7 @@ Deployment uploads the repository files and creates the configured jobs in your 
 4. Optionally run the local job-contract test:
 
    ```powershell
-   python -m pytest tests/common/testjobcontract.py -q
+   python -m pytest tests/common/test_job_contract.py -q
    ```
 
 This local test does not use Databricks cloud compute. It confirms that the job tasks reference valid files, dependencies, and settings.
@@ -417,15 +262,15 @@ Checks evaluated before a write prevent that write. Earlier successful statement
 
 Before treating a Gold table as current, inspect the latest `monitoring.dq_result` rows for its task.
 
-See ../data-quality/README.md for the purpose of each rule.
+See the [data quality overview](../data-quality/README.md) for the purpose of each rule.
 
 ## When something goes wrong
 
 | What you see | Meaning and fix |
 | --- | --- |
-| `Valid: NO` | Run the login command from Step 1 again. |
+| `Valid: NO` | Run the login command in [setup step 2](../getting-started/setup.md#2-log-in-to-databricks) again. |
 | Secret scope does not exist | Confirm that you created your developer-specific scope and that `psgc_secret_scope` matches it exactly. |
-| Missing required input or JSON error | Rerun the required-key check from Step 2 and correct the key it identifies. |
+| Missing required input or JSON error | Rerun the [required-key check](../getting-started/setup.md#check-the-private-overrides-file) and correct the key it identifies. |
 | Strict validation warning | Review and fix the warning. Do not remove `--strict` only to bypass it. |
 | Deployment appears stuck | Wait several minutes. The first bundle upload can take longer, especially in OneDrive. |
 | Pipeline task fails | Open the failed Databricks task and inspect its final error. |
