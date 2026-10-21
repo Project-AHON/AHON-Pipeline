@@ -85,6 +85,31 @@ resources:
         min_retry_interval_millis: ${var.retry_interval_millis}
         retry_on_timeout: false
         run_if: ALL_SUCCESS
+      - task_key: dashboard_views
+        spark_python_task:
+          python_file: ../../src/sql/common/launch.py
+          source: WORKSPACE
+          parameters:
+          - --repo-root
+          - ${workspace.file_path}
+          - --entry-point
+          - src/sql/common/run_sql.py
+          - --catalog
+          - '{{job.parameters.catalog}}'
+          - --source-volume
+          - ${var.source_volume}
+          - --batch-id
+          - '{{job.parameters.batch_id}}'
+          - --file
+          - src/sql/00_setup/07_dq_check_views.sql
+        environment_key: core
+        timeout_seconds: ${var.task_timeout_seconds}
+        max_retries: ${var.task_retries}
+        min_retry_interval_millis: ${var.retry_interval_millis}
+        retry_on_timeout: false
+        run_if: ALL_SUCCESS
+        depends_on:
+        - task_key: setup
       - task_key: psgc_extract
         spark_python_task:
           python_file: ../../src/sql/common/launch.py

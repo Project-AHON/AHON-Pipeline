@@ -8,6 +8,8 @@ variables:
     description: Explicit job identity object with user_name or service_principal_name; production must use its approved identity
   catalog:
     description: Catalog to process; use a fresh isolated catalog for development verification
+  warehouse_id:
+    description: SQL warehouse ID the data quality dashboard runs its queries on
   source_volume:
     description: source volume
   source_period:
@@ -117,3 +119,11 @@ targets:
     mode: production
     workspace:
       root_path: ${var.workspace_root}
+resources:
+  dashboards:
+    ahon_data_quality:
+      display_name: AHON Data Quality Monitoring
+      file_path: ./resources/dashboards/ahon_data_quality.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}
+      embed_credentials: false
