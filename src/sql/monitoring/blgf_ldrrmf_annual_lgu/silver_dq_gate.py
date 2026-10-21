@@ -9,8 +9,9 @@ it. Two runs, one per DataFrame checked:
 
 1. blgf_ldrrmf_annual_lgu_clean itself: the build's stop checks repeated after
    the write, the PSGC columns silver now carries, and the has_dq_issues flags.
-2. Rows per fiscal year: every bronze LGU-year is in silver (stop), and the
-   reject table has no rows for that year (report).
+2. Rows in this delivery, per fiscal year: every LGU-year in the delivery the
+   build read (bronze _batch_id = the job's batch_id) is in silver (stop), and
+   the reject table has no rows from that delivery (report).
 
 Rows the build cannot use go to silver.blgf_ldrrmf_annual_lgu_reject, and the
 build then stops, so a clean run leaves the reject table empty.
@@ -135,40 +136,59 @@ run_dq_gate(
 
 
 # ============================================================
-# 4. ROWS PER FISCAL YEAR: BRONZE vs SILVER AND REJECTS
+# 4. ROWS IN THIS DELIVERY: BRONZE vs SILVER AND REJECTS
 # ============================================================
 
-# One row per fiscal year. Bronze can hold the same LGU-year from several batches, so it is
-# counted by distinct LGU-year (the silver key), the same way the build counts it.
-# rows_unaccounted = bronze LGU-years not in silver (stop). reject_rows = rows in the reject
-# table for that year (report: the build stops when it rejects a row, so this should be 0).
-fiscal_year_from_ref = F.regexp_extract("_source_ref", r"FY([0-9]{4})", 1).cast("int")
-bronze_keys = (
-    spark.table(BRONZE_TABLE)
-    .select(fiscal_year_from_ref.alias("fiscal_year"),
-            *[F.trim(c).alias(c) for c in ["region", "province", "lgu_name", "lgu_type"]])
-    .distinct()
-    .groupBy("fiscal_year").agg(F.count("*").alias("bronze_rows"))
-)
-silver_counts = silver_df.groupBy("fiscal_year").agg(F.count("*").alias("silver_rows"))
-if spark.catalog.tableExists(REJECT_TABLE):
-    reject_counts = spark.table(REJECT_TABLE).groupBy("fiscal_year").agg(F.count("*").alias("reject_rows"))
-else:
-    reject_counts = spark.createDataFrame([], "fiscal_year int, reject_rows long")
+# The build reads one delivery (bronze rows with _batch_id = the job's batch_id) and merges it
+# into silver by LGU-year, so this check compares the same scope and grain: one row per fiscal
+# year, delivery_rows = distinct LGU-years in this delivery, silver_rows = how many of them are
+# in silver, rows_unaccounted = the rest (stop). Older deliveries are not compared, so a report
+# that was rejected and later corrected under another identity (for example a corrected
+# lgu_name) stays in bronze and in the reject table but does not block the next delivery.
+# reject_rows = this delivery's rows in the reject table (report: the build stops when it
+# rejects a row, so this should be 0). In a notebook, where RUN_ID is not a bronze batch,
+# the latest delivery is checked.
+def delivery_volume_check(bronze_df, silver_df, reject_df, batch_id):
+    from pyspark.sql import functions as F
 
-volume_check = (
-    bronze_keys
-    .join(silver_counts, "fiscal_year", "full")
-    .join(reject_counts, "fiscal_year", "full")
-    .fillna(0, subset=["bronze_rows", "silver_rows", "reject_rows"])
-    .withColumn("rows_unaccounted", F.col("bronze_rows") - F.col("silver_rows"))
-)
+    if not bronze_df.where(F.col("_batch_id") == batch_id).limit(1).count():
+        batch_id = bronze_df.orderBy(F.col("_ingested_at").desc()).select("_batch_id").first()[0]
+    fiscal_year = F.regexp_extract("_source_ref", r"FY([0-9]{4})", 1).cast("int")
+    delivery = (
+        bronze_df.where(F.col("_batch_id") == batch_id)
+        .select(fiscal_year.alias("fiscal_year"),
+                *[F.trim(c).alias(c) for c in ["region", "province", "lgu_name", "lgu_type"]])
+        .distinct()
+        .alias("d")
+    )
+    in_silver = silver_df.select(*LGU_KEY).distinct().withColumn("_in_silver", F.lit(True)).alias("s")
+    matched = delivery.join(
+        in_silver, [F.col(f"d.{c}").eqNullSafe(F.col(f"s.{c}")) for c in LGU_KEY], "left"
+    ).select(F.col("d.fiscal_year").alias("fiscal_year"), F.col("_in_silver").isNotNull().alias("in_silver"))
+    counts = matched.groupBy("fiscal_year").agg(
+        F.count("*").alias("delivery_rows"), F.sum(F.col("in_silver").cast("long")).alias("silver_rows"))
+    rejects = (reject_df.where(F.col("_batch_id") == batch_id)
+               .groupBy("fiscal_year").agg(F.count("*").alias("reject_rows")))
+    return (
+        counts.join(rejects, "fiscal_year", "full")
+        .fillna(0, subset=["delivery_rows", "silver_rows", "reject_rows"])
+        .withColumn("rows_unaccounted", F.col("delivery_rows") - F.col("silver_rows"))
+        .withColumn("batch_id", F.lit(batch_id))
+    )
+
+
+# The build creates the reject table only the first time a row is rejected
+if spark.catalog.tableExists(REJECT_TABLE):
+    reject_df = spark.table(REJECT_TABLE)
+else:
+    reject_df = spark.createDataFrame([], "fiscal_year int, _batch_id string")
+volume_check = delivery_volume_check(spark.table(BRONZE_TABLE), silver_df, reject_df, RUN_ID)
 volume_check.orderBy("fiscal_year").show()
 
 run_dq_gate(
     spark, volume_check,
     [rule(E.ExpectColumnValuesToBeInSet(column="rows_unaccounted", value_set=[0]),
-          "rows_per_year_match_bronze", "volume", "stop"),
+          "delivery_rows_in_silver", "volume", "stop"),
      rule(E.ExpectColumnValuesToBeInSet(column="reject_rows", value_set=[0]),
           "no_rejected_rows", "volume", "report")],
     source_name=SOURCE_NAME, layer="silver", table_name="blgf_ldrrmf_annual_lgu_clean",

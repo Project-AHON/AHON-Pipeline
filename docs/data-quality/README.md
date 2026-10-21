@@ -12,8 +12,8 @@ The failure metric can count failing rows, a row-count difference, or one failed
 
 The AHON Data Quality Monitoring dashboard (`resources/dashboards/ahon_data_quality.lvdash.json`) answers: how many checks passed, what is broken, whether anything stopped the run, which datasets are affected and when data was last checked. Its Check detail page drills down from dataset to check to the failing rows' sample keys. It reads two views that the `dashboard_views` task creates (`src/sql/00_setup/07_dq_check_views.sql`):
 
-- `monitoring.dq_check_result`: every result in `dq_result` with dataset, layer, check type and owner added. Execution markers and the removed OSM checks are left out.
-- `monitoring.dq_check_status`: the current result of each check (latest by `checked_at`). A check that has not run within an hour of its table's newest check (for example a renamed rule) drops out.
+- `monitoring.dq_check_result`: every result in `dq_result` with dataset, layer, check type and owner added. Execution markers are kept as check stage `Task run`; the removed OSM checks are left out.
+- `monitoring.dq_check_status`: the current result of each check (latest by `checked_at`). A check that has not run within an hour of its table's newest check (for example a renamed rule) drops out. A task run shows only while its latest result failed, so a failed script counts as a critical failure until it succeeds again. A task that fails before it writes any result (for example a direct extractor) does not show here; check the job run.
 
 Build checks have no rule type yet, so their check type is derived from the check name. The dashboard is defined in `databricks.yml`, and `bundle deploy` creates it with the bundle's `catalog` and `warehouse_id`.
 

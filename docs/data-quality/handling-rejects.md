@@ -67,7 +67,7 @@ Rerun the dataset's tasks (see the [runbook](../operations/runbook.md)) and run 
 - the check is PASS, or
 - its `failed_count` matches what was recorded in [Known findings](#known-findings).
 
-For silver, the gate's volume rule should show bronze = silver + rejects again. Update the decision column in Known findings once the finding is closed.
+For silver, the gate's volume rule should show that every row of the delivery that was rerun is in silver or in the reject table again. Update the decision column in Known findings once the finding is closed.
 
 ## Examples
 

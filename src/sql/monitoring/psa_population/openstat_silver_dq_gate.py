@@ -37,10 +37,6 @@ CITY_LEVEL = 3
 # total_minus_urban (compared with rural_population), missing_geo_part / extra_geo_part (the path
 # parts region, province and city_municipality against geo_level, NULL when geo_level is NULL),
 # location_trimmed (an empty name after trimming).
-openstat_bronze_rows = spark.table(OPENSTAT_BRONZE_TABLE).count()
-# The build creates the reject table only the first time a row is rejected
-openstat_reject_rows = spark.table(OPENSTAT_REJECT_TABLE).count() if spark.catalog.tableExists(OPENSTAT_REJECT_TABLE) else 0
-
 geo_level = F.col("geo_level")
 openstat_check = (
     spark.table(OPENSTAT_SILVER_TABLE)
@@ -92,10 +88,7 @@ openstat_rules = [
          "geo_parts_present_for_level", "accepted_values", "stop"),
     rule(E.ExpectColumnValuesToBeInSet(column="extra_geo_part", value_set=[False]),
          "no_geo_parts_below_level", "accepted_values", "stop"),
-    # Report rules (not guaranteed by the build; see the docstring)
-    # Every bronze row is either in silver or in the rejects table
-    rule(E.ExpectTableRowCountToEqual(value=openstat_bronze_rows - openstat_reject_rows),
-         "silver_plus_rejects_match_bronze", "volume", "report"),
+    # Report rule (not guaranteed by the build)
     # Update the value set when a new census year is loaded
     rule(E.ExpectColumnValuesToBeInSet(column="census_year", value_set=[CENSUS_YEAR]),
          "census_year_valid", "accepted_values", "report"),
@@ -103,13 +96,54 @@ openstat_rules = [
 
 
 # ============================================================
-# B4. RUN THE GATE
+# B4. DELIVERY ACCOUNTING
 # ============================================================
 
-print(f"Bronze rows {openstat_bronze_rows:,}, rejects table rows {openstat_reject_rows:,}")
+# Bronze keeps every delivery, while the build reads one delivery (bronze _batch_id = the job's
+# batch_id) and merges it into silver by geographic_location and census_year, so a valid second
+# delivery adds bronze rows but no silver rows. This compares the same scope and grain: every
+# bronze observation in this delivery is in silver or in the reject table, matched on
+# _observation_id. The writer can put a rejected row in both tables, so nothing is subtracted.
+# In a notebook, where RUN_ID is not a bronze batch, the latest delivery is checked.
+def delivery_accounting(bronze_df, silver_df, reject_df, batch_id):
+    from pyspark.sql import functions as F
+
+    if not bronze_df.where(F.col("_batch_id") == batch_id).limit(1).count():
+        batch_id = bronze_df.orderBy(F.col("_ingested_at").desc()).select("_batch_id").first()[0]
+    delivery = bronze_df.where(F.col("_batch_id") == batch_id).select("_observation_id").distinct()
+    landed = silver_df.select("_observation_id").union(reject_df.select("_observation_id")).distinct()
+    unaccounted = delivery.join(landed, "_observation_id", "left_anti")
+    return (
+        delivery.agg(F.count("*").alias("delivery_rows"))
+        .crossJoin(unaccounted.agg(F.count("*").alias("rows_unaccounted")))
+        .withColumn("batch_id", F.lit(batch_id))
+    )
+
+
+# The build creates the reject table only the first time a row is rejected
+if spark.catalog.tableExists(OPENSTAT_REJECT_TABLE):
+    openstat_reject_df = spark.table(OPENSTAT_REJECT_TABLE)
+else:
+    openstat_reject_df = spark.createDataFrame([], "_observation_id string")
+openstat_accounting = delivery_accounting(
+    spark.table(OPENSTAT_BRONZE_TABLE), spark.table(OPENSTAT_SILVER_TABLE), openstat_reject_df, RUN_ID)
+openstat_accounting.show()
+
+
+# ============================================================
+# B5. RUN THE GATE
+# ============================================================
+
 run_dq_gate(
     spark, openstat_check, openstat_rules,
     source_name=OPENSTAT_SOURCE_NAME, layer="silver", table_name="psa_population_clean",
     key_columns=["geographic_location", "census_year"],
     results_table=RESULTS_TABLE, run_id=RUN_ID,
+)
+run_dq_gate(
+    spark, openstat_accounting,
+    [rule(E.ExpectColumnValuesToBeInSet(column="rows_unaccounted", value_set=[0]),
+          "delivery_rows_in_silver_or_rejects", "volume", "report")],
+    source_name=OPENSTAT_SOURCE_NAME, layer="silver", table_name="psa_population_clean",
+    key_columns=["batch_id"], results_table=RESULTS_TABLE, run_id=RUN_ID,
 )
