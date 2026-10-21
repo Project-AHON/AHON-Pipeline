@@ -1,5 +1,5 @@
 """
-DQ gate, gold to platinum: psa_population (decision 0012).
+DQ gate, gold to platinum: psa_population.
 
 Not built yet: platinum.lgu_risk_profile does not exist. This file holds the
 plan only, so there is no code to run.

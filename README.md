@@ -135,3 +135,7 @@ Names follow the [naming standard](docs/architecture/naming-standard.md).
 Yanna, Maki, Jessy, Crystal and Crizza. Who owns which dataset: [ownership](docs/project/ownership.md).
 
 How to contribute: [CONTRIBUTING](CONTRIBUTING.md).
+
+## Layer gates
+
+The pipeline runs 12 layer-gate tasks after their corresponding builds. Census and OpenSTAT population have independent Silver and Gold gates. Blocking results stop dependent tasks; warning results remain visible. Gate and build checks share `monitoring.dq_result`. Earlier writes are not rolled back.

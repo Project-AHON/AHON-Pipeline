@@ -17,6 +17,24 @@ SOURCE_COLUMNS = [
 LINEAGE = ["_source_name", "_source_ref", "_ingested_at", "_batch_id", "_row_hash"]
 LOCALITY_PATTERN = r"(?i)^[0-9]+ km [NSEW0-9°º .]+ of ([^()]+) \(([^()]+)\)$"
 
+INVALID_OBSERVATION_SQL = " OR ".join(
+    [
+        "event_time IS NULL", "latitude IS NULL", "longitude IS NULL", "depth_km IS NULL",
+        "magnitude IS NULL", "NOT latitude BETWEEN -90 AND 90", "NOT longitude BETWEEN -180 AND 180",
+        "depth_km < 0", "magnitude < 0", "source_year IS NULL", "source_month IS NULL",
+        "source_year <> year(event_time)", "source_month <> month(event_time)",
+    ]
+    + [f"isnan({c}) OR abs({c}) = double('Infinity')" for c in ["latitude", "longitude", "depth_km", "magnitude"]]
+)
+
+
+def flag_matches_validity(flag, invalid):
+    """True when has_dq_issues equals the validity check: invalid rows flagged, valid rows not.
+
+    Works on Spark columns and pandas Series alike. A NULL flag gives NULL, which GX skips
+    (has_dq_issues_not_null covers it).
+    """
+    return flag == invalid
 
 def normalize(value):
     """Case and whitespace only: keep accents, City of, Santo and other tokens."""

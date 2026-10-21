@@ -1,5 +1,5 @@
 """
-DQ gate, gold to platinum: philvolcs_earthquake (decision 0012). NOT WRITTEN YET.
+DQ gate, gold to platinum: philvolcs_earthquake. NOT WRITTEN YET.
 
 Checks the earthquake count columns of platinum.lgu_risk_profile. That table and
 the gold earthquake table it reads from are not built yet, so there is no code

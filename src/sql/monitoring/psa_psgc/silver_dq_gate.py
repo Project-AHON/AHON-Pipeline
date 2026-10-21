@@ -1,23 +1,24 @@
 # %pip install great_expectations==1.23.1
 """
-DQ gate, bronze to silver: psa_psgc (decision 0012).
+DQ gate, bronze to silver: psa_psgc.
 
 Run after src/sql/datasets/psa_psgc/silver/psa_psgc_clean.py. Checks
 silver.psa_psgc_clean with Great Expectations, appends one row per rule to
-monitoring.dq_results, and stops the run if a stop rule FAILs. Report rules
+monitoring.dq_result, and stops the run if a stop rule FAILs. Report rules
 give WARN and do not stop it. Ports src/sql/monitoring/psa_psgc/silver_dq.sql
 (checks 01 to 15, 18). Two runs, one per DataFrame checked:
 
 1. psa_psgc_clean itself: the build's checks (stop) and the silver_dq.sql
    checks (stop where silver_dq.sql says FAIL, report where it says WARN).
-2. Rows per API period, silver against bronze (report).
+2. Rows per API period: bronze = silver + reject tables (report).
 
 Silver keeps every API period (Q2_2024, April_2024, Q4_2023, Q2_2021) and its
 key is psgc_code + geographic_level + _api_period.
 
-Expected on ahon_dev: not run yet. Likely WARN: area_name_no_broken_enye
-(names such as "City of DasmariÃ±as"); rows_per_period_match_bronze passes with
-the 2 placeholder rows per period that have no geographic_level.
+Expected: likely WARN on area_name_no_broken_enye (names such as
+"City of DasmariÃ±as"). Rows the build rejects land in silver.psa_psgc_reject
+(invalid geographic fields) and silver.psa_psgc_code_reject (invalid codes), so
+rows_per_period_match_bronze expects bronze = silver + both reject tables.
 
 Unsure of:
 - geographic_level_valid: value set from the data dictionary (SGU added to the
@@ -49,19 +50,18 @@ from dq_gate import rule, run_dq_gate  # noqa: E402
 # 1. SETTINGS
 # ============================================================
 
-CATALOG = "ahon_dev"
+# Set by src/sql/common/run_python.py in the job; set them yourself in a notebook
+CATALOG = globals().get("PIPELINE_CATALOG", "ahon_dev")
+RUN_ID = globals().get("PIPELINE_RUN_ID", "interactive")
 SOURCE_NAME = "psa_psgc"
 BRONZE_TABLE = f"{CATALOG}.bronze.psa_psgc"
 SILVER_TABLE = f"{CATALOG}.silver.psa_psgc_clean"
-RESULTS_TABLE = f"{CATALOG}.monitoring.dq_results"
+REJECT_TABLES = [f"{CATALOG}.silver.psa_psgc_reject", f"{CATALOG}.silver.psa_psgc_code_reject"]
+RESULTS_TABLE = f"{CATALOG}.monitoring.dq_result"
 KEY_COLUMNS = ["area_name", "psgc_code", "geographic_level", "_api_period"]
 
 # Update when a new PSGC snapshot is loaded
 EXPECTED_PERIODS = ["Q2_2024", "April_2024", "Q4_2023", "Q2_2021"]
-
-# Bronze rows per period that silver drops: PSA placeholder rows with no
-# geographic_level (see Known issues in psa_psgc_data.md). Recheck with new data.
-MAX_ROWS_DROPPED_PER_PERIOD = 2
 
 GEOGRAPHIC_LEVELS = ["REG", "PROV", "CITY", "MUN", "SUBMUN", "BGY", "SGU"]
 
@@ -168,7 +168,7 @@ silver_rules = [
          "area_name_no_footnote_marker", "accepted_values", "report"),
     rule(E.ExpectColumnValuesToNotMatchRegex(column="area_name", regex=r"^\s|\s$"),
          "area_name_trimmed", "accepted_values", "report"),
-    # Broken ñ: UTF-8 read as Latin-1 gives "Ã±" (decision 0008); "Ã" alone never appears in PSGC names
+    # Broken ñ: UTF-8 read as Latin-1 gives "Ã±"; "Ã" alone never appears in PSGC names
     rule(E.ExpectColumnValuesToNotMatchRegex(column="area_name", regex="Ã"),
          "area_name_no_broken_enye", "accepted_values", "report"),
     rule(E.ExpectColumnValuesToNotBeNull(column="province_city"), "province_city_not_null", "null", "report"),
@@ -183,7 +183,7 @@ silver_rules = [
 run_dq_gate(
     spark, silver_check, silver_rules,
     source_name=SOURCE_NAME, layer="silver", table_name="psa_psgc_clean",
-    key_columns=KEY_COLUMNS, results_table=RESULTS_TABLE,
+    key_columns=KEY_COLUMNS, results_table=RESULTS_TABLE, run_id=RUN_ID,
 )
 
 
@@ -191,22 +191,33 @@ run_dq_gate(
 # 4. VOLUME: ROWS PER PERIOD, SILVER AGAINST BRONZE
 # ============================================================
 
-# Silver drops bronze rows without area_name or geographic_level and keeps one row per key, and
-# its MERGE keeps old rows, so the counts are not equal: compare per period instead of in total.
-# A period missing on either side gives a large or negative rows_dropped and fails the rule.
-bronze_counts = spark.table(BRONZE_TABLE).groupBy("_api_period").agg(F.count("*").alias("bronze_rows"))
-silver_counts = silver_df.groupBy("_api_period").agg(F.count("*").alias("silver_rows"))
+# Every bronze row ends up in silver or in a reject table, so per period
+# rows_unaccounted = bronze - silver - rejects should be 0. Compared per period because
+# silver keeps old periods. A missing reject table counts as 0 rejects.
+def period_rows(table, name):
+    return spark.table(table).groupBy("_api_period").agg(F.count("*").alias(name))
+
+
 period_counts = (
-    bronze_counts.join(silver_counts, on="_api_period", how="full")
-    .fillna(0, subset=["bronze_rows", "silver_rows"])
-    .withColumn("rows_dropped", F.col("bronze_rows") - F.col("silver_rows"))
+    period_rows(BRONZE_TABLE, "bronze_rows")
+    .join(period_rows(SILVER_TABLE, "silver_rows"), on="_api_period", how="full")
 )
+reject_columns = []
+for i, table in enumerate(REJECT_TABLES):
+    if spark.catalog.tableExists(table):
+        period_counts = period_counts.join(period_rows(table, f"reject_rows_{i}"), on="_api_period", how="left")
+        reject_columns.append(f"reject_rows_{i}")
+period_counts = period_counts.fillna(0)
+rejected = sum((F.col(c) for c in reject_columns), F.lit(0))
+period_counts = period_counts.withColumn(
+    "rows_unaccounted", F.col("bronze_rows") - F.col("silver_rows") - rejected
+)
+period_counts.show()
 
 run_dq_gate(
     spark, period_counts,
-    [rule(E.ExpectColumnValuesToBeBetween(column="rows_dropped", min_value=0,
-                                          max_value=MAX_ROWS_DROPPED_PER_PERIOD),
+    [rule(E.ExpectColumnValuesToBeBetween(column="rows_unaccounted", min_value=0, max_value=0),
           "rows_per_period_match_bronze", "volume", "report")],
     source_name=SOURCE_NAME, layer="silver", table_name="psa_psgc_clean",
-    key_columns=["_api_period"], results_table=RESULTS_TABLE,
+    key_columns=["_api_period"], results_table=RESULTS_TABLE, run_id=RUN_ID,
 )
