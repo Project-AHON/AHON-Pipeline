@@ -262,7 +262,7 @@ Checks evaluated before a write prevent that write. Earlier successful statement
 
 Before treating a Gold table as current, inspect the latest `monitoring.dq_result` rows for its task.
 
-See ../data-quality/README.md for the purpose of each rule.
+See the [data quality overview](../data-quality/README.md) for the purpose of each rule.
 
 ## When something goes wrong
 
