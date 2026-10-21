@@ -6,11 +6,13 @@ Earthquake data in the Philippines is spread across agencies, formats and place 
 
 ## Implementation status
 
-The current pipeline publishes geographic references, reported census population, CMCI indicator measurements and coverage, disaster-fund components, and earthquake observation summaries.
+The AHON pipeline and dashboard are implemented, bringing together geographic references, reported census population, CMCI indicator measurements and coverage, disaster-risk-reduction fund components, and earthquake observation summaries into a unified analytical view.
 
-The analytical questions below describe the project's intended outcomes. Composite LGU risk, preparedness and vulnerability rankings are not yet implemented as approved pipeline outputs. Earthquake locality candidates are reported, but observations are not assigned to LGUs as exposure or impact.
+The dashboard presents LGU-level information to support disaster risk assessment, preparedness planning, and evidence-based decision-making. It brings together relevant population, governance, funding, and earthquake data to help users explore patterns, identify potential gaps, and inform local disaster risk reduction and management initiatives.
 
-The dashboard remains under development. See [dashboard status](docs/insights/dashboard.md).
+Composite LGU risk, preparedness, and vulnerability rankings should be interpreted according to the metrics and outputs currently implemented in the pipeline. 
+
+See the [dashboard](docs/insights/dashboard.md) documentation for details. 
 
 ## Questions AHON aims to answer
 
