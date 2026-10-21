@@ -87,6 +87,8 @@ A 2024 census is not annual exposure for every CMCI or fiscal year. Each measure
 
 ## Decisions required before implementation
 
+The [dashboard export](../insights/dashboard.md) preserves the original presentation while withholding unsupported metrics. Its compatibility field `cmci_readiness` means selected-indicator data coverage, not readiness. Cross-indicator score totals and averages remain NULL because unlike raw units have no agreed additive scale. City geometry, geographic earthquake attribution and composite risk outputs remain unavailable pending reviewed inputs and methods. Its province utilization bands (below 50%, 50% to below 65%, at least 65%, and missing) describe the unweighted mean of reported city/municipality LGU-year utilization ratios; they are not approved risk or preparedness thresholds.
+
 | Decision | Proposed option (not an implemented default) |
 | --- | --- |
 | Strong earthquake cut-off | Magnitude 5.0 |
