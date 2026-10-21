@@ -138,4 +138,4 @@ How to contribute: [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Dashboard export
 
-The [dashboard export](resources/dashboard/lgu_command_center.lvdash.json) preserves the original PR #105 pages, widgets and layout with targeted query fixes. See [dashboard status and import prerequisites](docs/insights/dashboard.md): missing funding/CMCI tables, boundary geometry and unapproved scoring methods still limit runtime availability.
+The [dashboard export](resources/dashboard/Project%20AHON%20LGU%20Command%20Center%20for%20DRRM%20Plans.lvdash.json) preserves the latest uploaded PR #105 pages, widgets and layout with targeted query fixes. See [dashboard status and import prerequisites](docs/insights/dashboard.md): missing funding/CMCI tables, boundary geometry and unapproved scoring methods still limit runtime availability.

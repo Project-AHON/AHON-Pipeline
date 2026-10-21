@@ -1,9 +1,10 @@
 {
   "original_commit": "27888d6694938ab916824ef56809a04fc3089c63",
-  "structure_sha256": "4ede3bf3ae74758055fafc8ebae979c9bae010fabbda1de87e11d6ccd7e47236",
+  "structure_sha256": "75cf580f230327602284d9671b395a70e57c82fa5a446e1b5618ba3261b3d678",
   "dataset_columns": {
     "lgu_cmci": [
       "psgc_code",
+      "province_city",
       "area_name",
       "province_code",
       "region_code",
@@ -39,7 +40,8 @@
       "region_name",
       "total_appropriation",
       "total_expenditure",
-      "utilization_rate_total"
+      "utilization_rate_total",
+      "utilization_tier"
     ],
     "lgu_registry": [
       "psgc_code",
@@ -158,6 +160,16 @@
       "total_appropriation",
       "total_expenditure",
       "utilization_rate_total"
+    ],
+    "lgu_baseline_long": [
+      "province_city",
+      "lgu_name",
+      "province",
+      "lgu_type",
+      "metric_group",
+      "metric_label",
+      "metric_value"
     ]
-  }
+  },
+  "presentation_commit": "1fd90daa4ffcd7fdd1764f0ec9eb49e06897665c"
 }

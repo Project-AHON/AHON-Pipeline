@@ -1,6 +1,8 @@
 # Dashboard status and import prerequisites
 
-The export is `resources/dashboard/lgu_command_center.lvdash.json`. Its original five pages, 41 widgets, ten dataset identities, relationship graph, theme, positions, chart types, filter queries and output-column names are preserved from PR #105 commit `27888d6694938ab916824ef56809a04fc3089c63`. The CI repair after upload `af96a16` changes dataset configurations only; all uploaded pages, visible titles, text, relationships and theme remain unchanged. Some original labels still refer to readiness or unsupported totals; correct those labels before publication. This replaces the unwanted four-page table redesign.
+The export is `resources/dashboard/Project AHON LGU Command Center for DRRM Plans.lvdash.json`. The latest upload ending at commit `1fd90da` adds a Baseline Comparison page and selection-status counters, and removes the old filename. This CI repair preserves all six pages, 47 widgets, eleven dataset identities, visible titles, text, relationship graph, theme, positions, chart types and filter queries from that upload. The reviewed presentation fingerprint is recorded with that commit in the test fixture. Existing output-column names are preserved, and funding adds the missing `utilization_tier` column required by the new counter. Some original labels still refer to readiness or unsupported totals; correct those labels before publication.
+
+The filename change caused `FileNotFoundError` in CI. Tests and documentation now reference the uploaded filename. The upload also restored legacy SQL, so maintained source references, missing-input handling and coverage formatting are repaired without deleting the new page or counters. The baseline dataset reuses the maintained city projection instead of copying the unbuilt boundary query; its unsupported score/exposure values remain NULL. Province/city legends use the PSGC dimension rather than boundary name rematching.
 
 ## Review fixes without a layout redesign
 
@@ -13,7 +15,7 @@ The export is `resources/dashboard/lgu_command_center.lvdash.json`. Its original
 | Missing boundary table | City widgets remain in place. Their dataset starts from the maintained LGU registry instead of an unbuilt boundary table; `geometry_wkt` remains NULL. City choropleths cannot draw until a licensed, reviewed boundary source and loader exist. |
 | Percentages | Coverage measures use ratios for percentage formatting, without summing percentages or multiplying them by 100 twice. Coverage is completeness of the selected indicator subset, not readiness. |
 | Unsupported scores | Cross-indicator totals, average scores across unlike indicators, readiness tiers and geographic risk outputs remain unavailable. Individual indicator measurements remain available. No maximum of 70 or additive score is asserted. See the [analytics method](../architecture/analytics-method.md). |
-| Windows checkout | The filename remains `lgu_command_center.lvdash.json`; the dashboard display title can retain its colon. |
+| Windows checkout | The uploaded filename `Project AHON LGU Command Center for DRRM Plans.lvdash.json` contains no colon and is retained. Spaces in its README link are URL-encoded. |
 
 The maps and score widgets retain their original types and positions but may show no marks or values for the unavailable fields. This is intentional; preserving structure does not supply missing geometry or establish approved scoring methods. Original visual labels alone do not establish those metrics' validity.
 
@@ -27,7 +29,7 @@ The existing fiscal-year filter applies only to funding sources exposing `fiscal
 
 All ten dataset SELECT queries were submitted using the user-selected Databricks profile and its running SQL warehouse. Population, LGU registry and earthquake observations succeeded. Seven datasets failed because `ahon_dev.gold.fact_ldrrmf` and/or `ahon_dev.gold.fact_cmci_indicator` are absent. This is a deployment prerequisite, not a successful dashboard release. The CMCI indicator dimension also needs to be present with the matching selected indicator set.
 
-All ten queries also compiled and executed against typed empty source-contract fixtures in the same Databricks warehouse. This checks SQL syntax and column/type resolution against the documented inputs; it does not establish availability or correctness of the actual missing tables. Local tests check the original presentation fingerprint, dataset output-column contracts and NULL handling for unavailable geometry and metrics. Neither check establishes live rendering. The export has not been deployed, published or visually verified in Databricks by this change.
+After the renamed upload, all eleven repaired queries, including Baseline Comparison, compiled and executed against typed empty source-contract fixtures in the same Databricks warehouse. This checks SQL syntax and column/type resolution against the documented inputs; it does not establish availability or correctness of actual missing tables. Local tests check the reviewed six-page presentation fingerprint, dataset output-column contracts, selection-counter field references and NULL handling for unavailable geometry and metrics. Neither check establishes live rendering. The export has not been deployed, published or visually verified in Databricks by this change.
 
 Before importing or publishing:
 
