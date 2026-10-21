@@ -47,7 +47,7 @@ A check that cannot run (missing column, bad query) is `ERROR` and stops the job
 
 - **Gate file:** `src/sql/monitoring/<dataset>/<layer>_dq_gate.py`. `<dataset>` is the dataset name used in `src/sql/datasets/`.
 - **Rule name:** what must be true, in snake_case, e.g. `fiscal_year_valid`, `row_count_matches_bronze`, `psgc_code_in_dim_lgu`.
-- **`dq_rule_id`:** set by the gate as `<dataset>_<layer>_<rule name>`, e.g. `blgf_ldrrmf_annual_lgu_silver_overspent`. When one dataset has several tables in the same layer (CMCI), start the rule name with the table, e.g. `fact_cmci_indicator_score_valid`, so ids stay unique.
+- **`check_id`:** set by the gate as `<dataset>_<layer>_<rule name>`, e.g. `blgf_ldrrmf_annual_lgu_silver_overspent`. When one dataset has several tables in the same layer (CMCI), start the rule name with the table, e.g. `fact_cmci_indicator_score_valid`, so IDs stay unique.
 - **Rules that hold a value that changes with new data** (year range, expected row count) say so in a comment, and are updated in the same PR as the new data.
 
 ## Gate files by dataset
