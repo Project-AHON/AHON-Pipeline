@@ -1,0 +1,751 @@
+{
+  "datasets": [
+    {
+      "name": "9e49f5c3",
+      "displayName": "pipeline_runs",
+      "queryLines": [
+        "SELECT\r\n",
+        "  job_name, batch_id, job_run_id, started_at, ended_at,\r\n",
+        "  round(duration_seconds / 60, 1) AS duration_min,\r\n",
+        "  coalesce(result_state, 'RUNNING') AS result_state, termination_code,\r\n",
+        "  tasks_total, tasks_succeeded, tasks_failed, tasks_skipped, tasks_cancelled,\r\n",
+        "  dq_pass, dq_warn, dq_blocked, dq_error\r\n",
+        "FROM monitoring.run_log\r\n",
+        "WHERE job_name LIKE '%ahon_pipeline'"
+      ]
+    },
+    {
+      "name": "91aae6aa",
+      "displayName": "pipeline_tasks",
+      "queryLines": [
+        "SELECT\r\n",
+        "  job_run_id, batch_id, task_key, started_at, ended_at,\r\n",
+        "  round(duration_seconds / 60, 1) AS duration_min,\r\n",
+        "  coalesce(result_state, 'RUNNING') AS result_state, termination_code, attempts\r\n",
+        "FROM monitoring.task_run_log\r\n",
+        "WHERE job_name LIKE '%ahon_pipeline'"
+      ]
+    },
+    {
+      "name": "582aa39b",
+      "displayName": "pipeline_last_run",
+      "queryLines": [
+        "SELECT\r\n",
+        "  coalesce(result_state, 'RUNNING') AS last_status,\r\n",
+        "  ended_at                          AS last_run_at,\r\n",
+        "  round(duration_seconds / 60, 1)   AS last_duration_min,\r\n",
+        "  tasks_failed                      AS last_tasks_failed,\r\n",
+        "  round(timestampdiff(MINUTE, ended_at, current_timestamp()) / 60, 1) AS hours_since_last_run,\r\n",
+        "  date_format(ended_at, 'MMM d, yyyy h:mm a') AS last_run_date\r\n",
+        "FROM monitoring.run_log\r\n",
+        "WHERE job_name LIKE '%ahon_pipeline'\r\n",
+        "ORDER BY started_at DESC\r\n",
+        "LIMIT 1"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "7bb7b68b",
+      "displayName": "Runs",
+      "layout": [
+        {
+          "widget": {
+            "name": "pipeline-runs",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9e49f5c3",
+                  "fields": [
+                    {
+                      "name": "count(job_run_id)",
+                      "expression": "COUNT(`job_run_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block;\"><span style=\"font-size: 18px;\">Pipeline Runs</span></span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "<span style=\"text-align:center;display:block;\">Number of ahon\\_pipeline runs in this catalog, full and partial (--only) runs</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(job_run_id)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "b321a6a2",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9e49f5c3",
+                  "fields": [
+                    {
+                      "name": "avg(duration_min)",
+                      "expression": "AVG(`duration_min`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block\"><span style=\"font-size:18px\">Average duration (min)</span></span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "<span style=\"text-align:center;display:block\">Average time per run, from start to end, including time in queue</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg(duration_min)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "runs-by-status",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9e49f5c3",
+                  "fields": [
+                    {
+                      "name": "result_state",
+                      "expression": "`result_state`"
+                    },
+                    {
+                      "name": "count(job_run_id)",
+                      "expression": "COUNT(`job_run_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showDescription": true,
+                "showTitle": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block;\"><span style=\"font-size: 18px;\">Runs by Status</span></span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "<span style=\"text-align:center;display:block;\">How runs ended: SUCCEEDED, ERROR (a task failed), CANCELLED (stopped by a user) or RUNNING</span>",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "result_state",
+                  "displayName": "Result",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(job_run_id)",
+                  "displayName": "Job Runs Count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "run-duration-over-time",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9e49f5c3",
+                  "fields": [
+                    {
+                      "name": "started_at",
+                      "expression": "`started_at`"
+                    },
+                    {
+                      "name": "sum(duration_min)",
+                      "expression": "SUM(`duration_min`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block;\"><span style=\"font-size: 18px;\">Run Duration over time</span></span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "<span style=\"text-align:center;display:block;\">Minutes per run. Tall bars are full runs; short bars are usually partial runs with --only</span>",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "started_at",
+                  "displayName": "Date/Time Started",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(duration_min)",
+                  "displayName": "Total Duration (min)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 4,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "run-history",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9e49f5c3",
+                  "fields": [
+                    {
+                      "name": "started_at",
+                      "expression": "`started_at`"
+                    },
+                    {
+                      "name": "result_state",
+                      "expression": "`result_state`"
+                    },
+                    {
+                      "name": "duration_min",
+                      "expression": "`duration_min`"
+                    },
+                    {
+                      "name": "tasks_succeeded",
+                      "expression": "`tasks_succeeded`"
+                    },
+                    {
+                      "name": "tasks_failed",
+                      "expression": "`tasks_failed`"
+                    },
+                    {
+                      "name": "tasks_skipped",
+                      "expression": "`tasks_skipped`"
+                    },
+                    {
+                      "name": "tasks_cancelled",
+                      "expression": "`tasks_cancelled`"
+                    },
+                    {
+                      "name": "dq_warn",
+                      "expression": "`dq_warn`"
+                    },
+                    {
+                      "name": "dq_blocked",
+                      "expression": "`dq_blocked`"
+                    },
+                    {
+                      "name": "batch_id",
+                      "expression": "`batch_id`"
+                    },
+                    {
+                      "name": "job_run_id",
+                      "expression": "`job_run_id`"
+                    }
+                  ],
+                  "disaggregated": true,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "`started_at`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showDescription": true,
+                "showTitle": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block;\"><span style=\"font-size: 18px;\">Run History</span></span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "<span style=\"text-align:center;display:block;\">One row per run, newest first. Skipped tasks come from a DQ gate that blocked or from tasks not selected with --only. DQ counts are for the run’s batch\\_id; runs that share a batch\\_id show the same counts</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "started_at",
+                    "displayName": "Started At"
+                  },
+                  {
+                    "fieldName": "result_state",
+                    "displayName": "Result State"
+                  },
+                  {
+                    "fieldName": "duration_min",
+                    "displayName": "Duration (min)"
+                  },
+                  {
+                    "fieldName": "tasks_succeeded",
+                    "displayName": "Tasks Succeeded"
+                  },
+                  {
+                    "fieldName": "tasks_failed",
+                    "displayName": "Tasks Failed"
+                  },
+                  {
+                    "fieldName": "tasks_skipped",
+                    "displayName": "Tasks Skipped"
+                  },
+                  {
+                    "fieldName": "tasks_cancelled",
+                    "displayName": "Tasks Cancelled"
+                  },
+                  {
+                    "fieldName": "dq_warn",
+                    "displayName": "DQ Warn"
+                  },
+                  {
+                    "fieldName": "dq_blocked",
+                    "displayName": "DQ Blocked"
+                  },
+                  {
+                    "fieldName": "batch_id",
+                    "displayName": "Batch ID"
+                  },
+                  {
+                    "fieldName": "job_run_id",
+                    "displayName": "Job Run ID"
+                  }
+                ],
+                "rowOrder": [
+                  {
+                    "by": "column-reversed",
+                    "field": {
+                      "index": 0
+                    }
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 12,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "7d467e25",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "582aa39b",
+                  "fields": [
+                    {
+                      "name": "last_run_date",
+                      "expression": "`last_run_date`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block\"><span style=\"font-size:18px\">Last Run</span></span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "<span style=\"text-align:center;display:block\">When the latest ahon\\_pipeline run ended</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "last_run_date"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 6,
+            "height": 4
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "64390749",
+      "displayName": "Tasks",
+      "layout": [
+        {
+          "widget": {
+            "name": "run",
+            "queries": [
+              {
+                "name": "dashboards/01f1cd0b99371faa8eb0078a2bd98059/datasets/01f1cd0bacf015aa93109b2e9c65b560_job_run_id",
+                "query": {
+                  "datasetName": "91aae6aa",
+                  "fields": [
+                    {
+                      "name": "job_run_id",
+                      "expression": "`job_run_id`"
+                    },
+                    {
+                      "name": "job_run_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "Run",
+                  "fields": []
+                }
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "job_run_id",
+                    "queryName": "dashboards/01f1cd0b99371faa8eb0078a2bd98059/datasets/01f1cd0bacf015aa93109b2e9c65b560_job_run_id"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "task-duration",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "91aae6aa",
+                  "fields": [
+                    {
+                      "name": "result_state",
+                      "expression": "`result_state`"
+                    },
+                    {
+                      "name": "duration_min",
+                      "expression": "`duration_min`"
+                    },
+                    {
+                      "name": "task_key",
+                      "expression": "`task_key`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showDescription": true,
+                "showTitle": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block;\"><span style=\"font-size: 18px;\">Task Duration</span></span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "<span style=\"text-align:center;display:block;\">Minutes per task in the selected run, slowest first. Colors show how each task ended.</span>",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "duration_min",
+                  "displayName": "Duration (min)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "task_key",
+                  "displayName": "Task Key",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x-reversed"
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "result_state",
+                  "displayName": "Result",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "SKIPPED",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 9
+                        }
+                      },
+                      {
+                        "value": "SUCCEEDED",
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 3
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "task-results",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "91aae6aa",
+                  "fields": [
+                    {
+                      "name": "task_key",
+                      "expression": "`task_key`"
+                    },
+                    {
+                      "name": "result_state",
+                      "expression": "`result_state`"
+                    },
+                    {
+                      "name": "duration_min",
+                      "expression": "`duration_min`"
+                    },
+                    {
+                      "name": "attempts",
+                      "expression": "`attempts`"
+                    },
+                    {
+                      "name": "termination_code",
+                      "expression": "`termination_code`"
+                    },
+                    {
+                      "name": "started_at",
+                      "expression": "`started_at`"
+                    },
+                    {
+                      "name": "ended_at",
+                      "expression": "`ended_at`"
+                    }
+                  ],
+                  "disaggregated": true,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "`started_at`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": {
+                  "value": "<span style=\"text-align:center;display:block;\"><span style=\"font-size: 18px;\">Task Results</span></span>",
+                  "fields": []
+                },
+                "description": {
+                  "value": "<span style=\"text-align:center;display:block\">Every task in the selected run, in the order of newest first. Attempts above 1 mean the task was retried or repaired</span>",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "task_key"
+                  },
+                  {
+                    "fieldName": "result_state"
+                  },
+                  {
+                    "fieldName": "duration_min"
+                  },
+                  {
+                    "fieldName": "attempts"
+                  },
+                  {
+                    "fieldName": "termination_code"
+                  },
+                  {
+                    "fieldName": "started_at"
+                  },
+                  {
+                    "fieldName": "ended_at"
+                  }
+                ],
+                "rowOrder": [
+                  {
+                    "by": "column-reversed",
+                    "field": {
+                      "index": 5
+                    }
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
