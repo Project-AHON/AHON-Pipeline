@@ -4,11 +4,11 @@
       "name": "lgu_cmci",
       "displayName": "LGU CMCI Indicator Scores",
       "config": {
-        "source": "WITH fact_fix AS (\n  SELECT LPAD(CAST(f.psgc_code AS STRING), 10, '0') AS psgc_code,\n         CAST(f.year AS INT) AS year,\n         f.indicator_code,\n         f.raw_score\n  FROM ahon_dev_job_735696377477443.gold.fact_cmci f\n),\nlatest AS (\n  SELECT psgc_code, MAX(year) AS max_year\n  FROM fact_fix\n  GROUP BY psgc_code\n),\nlgus AS (\n  SELECT DISTINCT l.psgc_code, la.max_year\n  FROM latest la\n  JOIN (\n    SELECT DISTINCT psgc_code\n    FROM ahon_dev_job_735696377477443.gold.dim_lgu\n    WHERE geographic_level IN ('MUN', 'CITY')\n  ) l\n    ON la.psgc_code = l.psgc_code\n),\ngrid AS (\n  SELECT g.psgc_code, g.max_year, d.indicator_code\n  FROM lgus g\n  CROSS JOIN ahon_dev_job_735696377477443.gold.dim_cmci d\n),\nscored AS (\n  SELECT g.psgc_code, g.max_year, g.indicator_code,\n         f.raw_score\n  FROM grid g\n  LEFT JOIN fact_fix f\n    ON f.psgc_code = g.psgc_code\n   AND f.year = g.max_year\n   AND f.indicator_code = g.indicator_code\n)\nSELECT s.psgc_code,\n       l.area_name,\n       l.province_code,\n       rr.region_code,\n       reg.area_name AS region_name,\n       s.max_year AS year,\n       d.pillar_name,\n       d.indicator_code,\n       d.indicator_name,\n       s.raw_score,\n       TRY_CAST(s.raw_score AS DOUBLE) AS raw_score_num,\n       CASE WHEN s.raw_score IS NOT NULL THEN 100.0 ELSE 0.0 END AS coverage_pct\nFROM scored s\nJOIN ahon_dev_job_735696377477443.gold.dim_cmci d\n  ON s.indicator_code = d.indicator_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name, province_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) l\n  ON s.psgc_code = l.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, region_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) rr\n  ON s.psgc_code = rr.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) reg\n  ON rr.region_code = reg.psgc_code\n",
+        "source": "WITH fact_fix AS (\n  SELECT f.psgc_code AS psgc_code,\n         f.year AS year,\n         f.indicator_code,\n         f.raw_score\n  FROM ahon_dev.gold.fact_cmci_indicator f\n),\nlatest AS (\n  SELECT psgc_code, MAX(year) AS max_year\n  FROM fact_fix\n  GROUP BY psgc_code\n),\nlgus AS (\n  SELECT DISTINCT l.psgc_code, la.max_year\n  FROM latest la\n  JOIN (\n    SELECT DISTINCT psgc_code\n    FROM ahon_dev.gold.dim_lgu\n    WHERE geographic_level IN ('MUN', 'CITY')\n  ) l\n    ON la.psgc_code = l.psgc_code\n),\ngrid AS (\n  SELECT g.psgc_code, g.max_year, d.indicator_code\n  FROM lgus g\n  CROSS JOIN ahon_dev.gold.dim_cmci_indicator d\n),\nscored AS (\n  SELECT g.psgc_code, g.max_year, g.indicator_code,\n         f.raw_score\n  FROM grid g\n  LEFT JOIN fact_fix f\n    ON f.psgc_code = g.psgc_code\n   AND f.year = g.max_year\n   AND f.indicator_code = g.indicator_code\n)\nSELECT s.psgc_code,\n       l.area_name,\n       l.province_code,\n       rr.region_code,\n       reg.area_name AS region_name,\n       s.max_year AS year,\n       d.pillar_name,\n       d.indicator_code,\n       d.indicator_name,\n       s.raw_score,\n       TRY_CAST(s.raw_score AS DOUBLE) AS raw_score_num,\n       CASE WHEN s.raw_score IS NOT NULL THEN 100.0 ELSE 0.0 END AS coverage_pct\nFROM scored s\nJOIN ahon_dev.gold.dim_cmci_indicator d\n  ON s.indicator_code = d.indicator_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name, province_code\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) l\n  ON s.psgc_code = l.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, region_code\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) rr\n  ON s.psgc_code = rr.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) reg\n  ON rr.region_code = reg.psgc_code\n",
         "measures": [
           {
             "name": "avg_coverage_pct",
-            "expr": "AVG(coverage_pct)",
+            "expr": "AVG(coverage_pct) / 100.0",
             "comment": "Share of indicators with a recorded raw score (per-indicator basis)",
             "format": {
               "type": "percentage",
@@ -30,7 +30,7 @@
           },
           {
             "name": "resiliency_coverage",
-            "expr": "SUM(coverage_pct) FILTER (WHERE pillar_name = 'Resiliency')",
+            "expr": "AVG(coverage_pct) FILTER (WHERE pillar_name = 'Resiliency') / 100.0",
             "comment": "Share of Resiliency indicators with recorded data",
             "format": {
               "type": "percentage",
@@ -42,7 +42,7 @@
           },
           {
             "name": "infrastructure_coverage",
-            "expr": "SUM(coverage_pct) FILTER (WHERE pillar_name = 'Infrastructure')",
+            "expr": "AVG(coverage_pct) FILTER (WHERE pillar_name = 'Infrastructure') / 100.0",
             "comment": "Share of Infrastructure indicators with recorded data",
             "format": {
               "type": "percentage",
@@ -54,8 +54,8 @@
           },
           {
             "name": "resiliency_score",
-            "expr": "AVG(TRY_CAST(raw_score AS DOUBLE)) FILTER (WHERE pillar_name = 'Resiliency')",
-            "comment": "Average raw score across Resiliency indicators",
+            "expr": "AVG(CAST(NULL AS DOUBLE))",
+            "comment": "Unavailable until indicator scoring method is approved",
             "format": {
               "type": "number",
               "decimalPlaces": {
@@ -66,8 +66,8 @@
           },
           {
             "name": "infrastructure_score",
-            "expr": "AVG(TRY_CAST(raw_score AS DOUBLE)) FILTER (WHERE pillar_name = 'Infrastructure')",
-            "comment": "Average raw score across Infrastructure indicators",
+            "expr": "AVG(CAST(NULL AS DOUBLE))",
+            "comment": "Unavailable until indicator scoring method is approved",
             "format": {
               "type": "number",
               "decimalPlaces": {
@@ -95,8 +95,8 @@
           },
           {
             "name": "total_indicator_score",
-            "expr": "SUM(TRY_CAST(raw_score AS DOUBLE))",
-            "comment": "Total (sum) of raw indicator scores",
+            "expr": "AVG(CAST(NULL AS DOUBLE))",
+            "comment": "Unavailable until indicator scoring method is approved",
             "format": {
               "type": "number",
               "decimalPlaces": {
@@ -107,7 +107,7 @@
           }
         ],
         "version": "1.1",
-        "comment": "Latest-year CMCI at indicator grain — every indicator x every LGU from gold.fact_cmci/gold.dim_cmci, with zero-padded PSGC keys; unreported indicators appear with null raw_score",
+        "comment": "Latest-year CMCI at indicator grain — every indicator x every LGU from gold.fact_cmci_indicator/gold.dim_cmci_indicator, with maintained PSGC keys; unreported indicators appear with null raw_score",
         "dimensions": [
           {
             "name": "psgc_code",
@@ -144,12 +144,12 @@
           {
             "name": "indicator_code",
             "expr": "indicator_code",
-            "comment": "CMCI indicator code from gold.dim_cmci"
+            "comment": "CMCI indicator code from gold.dim_cmci_indicator"
           },
           {
             "name": "indicator_name",
             "expr": "indicator_name",
-            "comment": "CMCI indicator name from gold.dim_cmci"
+            "comment": "CMCI indicator name from gold.dim_cmci_indicator"
           },
           {
             "name": "raw_score",
@@ -168,7 +168,7 @@
       "name": "lgu_population",
       "displayName": "LGU Population",
       "config": {
-        "source": "SELECT d.psgc_code, d.area_name, d.geographic_level, d.region_code, d.province_code, d.population_year, d.population,\n       r.area_name AS region_name, p.area_name AS province_name\nFROM (\n  SELECT psgc_code, area_name, geographic_level, region_code, province_code, population_year, population\n  FROM (\n    SELECT *, ROW_NUMBER() OVER (PARTITION BY psgc_code ORDER BY population_year DESC) rn\n    FROM ahon_dev_job_735696377477443.gold.fact_population\n    WHERE population IS NOT NULL\n  ) x WHERE rn = 1\n) d\nLEFT JOIN (SELECT DISTINCT psgc_code, area_name FROM ahon_dev_job_735696377477443.gold.dim_lgu WHERE geographic_level = 'REG') r\n  ON d.region_code = r.psgc_code\nLEFT JOIN (SELECT DISTINCT psgc_code, area_name FROM ahon_dev_job_735696377477443.gold.dim_lgu WHERE geographic_level = 'PROV') p\n  ON d.province_code = p.psgc_code\n",
+        "source": "SELECT d.psgc_code, d.area_name, d.geographic_level, d.region_code, d.province_code, d.population_year, d.population,\n       r.area_name AS region_name, p.area_name AS province_name\nFROM (\n  SELECT psgc_code, area_name, geographic_level, region_code, province_code, population_year, population\n  FROM (\n    SELECT *, ROW_NUMBER() OVER (PARTITION BY psgc_code ORDER BY population_year DESC) rn\n    FROM ahon_dev.gold.fact_population\n    WHERE population IS NOT NULL\n  ) x WHERE rn = 1\n) d\nLEFT JOIN (SELECT DISTINCT psgc_code, area_name FROM ahon_dev.gold.dim_lgu WHERE geographic_level = 'REG') r\n  ON d.region_code = r.psgc_code\nLEFT JOIN (SELECT DISTINCT psgc_code, area_name FROM ahon_dev.gold.dim_lgu WHERE geographic_level = 'PROV') p\n  ON d.province_code = p.psgc_code\n",
         "measures": [
           {
             "name": "total_population",
@@ -227,7 +227,7 @@
       "name": "lgu_funding",
       "displayName": "LGU DRRM Funding",
       "config": {
-        "source": "SELECT COALESCE(l.psgc_code, h.psgc_code) AS psgc_code, COALESCE(g.area_name, f.lgu_name) AS lgu_name, f.lgu_type, f.region, f.province, f.fiscal_year, f.match_status,\n       l2.region_code, r.area_name AS region_name,\n       f.total_appropriation, f.total_expenditure, f.utilization_rate_total\nFROM ahon_dev_job_735696377477443.gold.fact_ldrrmf f\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, region_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY', 'PROV')\n) l ON f.psgc_code = l.psgc_code\nLEFT JOIN (\n  SELECT regexp_replace(regexp_replace(regexp_replace(upper(trim(CASE WHEN trim(area_name) LIKE '%Ã%' THEN decode(encode(area_name, 'ISO-8859-1'), 'UTF-8') ELSE area_name END)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') AS lgu_key,\n         psgc_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'CITY' AND province_code = psgc_code\n) h\n  ON l.psgc_code IS NULL\n AND regexp_replace(regexp_replace(regexp_replace(upper(trim(CASE WHEN trim(f.lgu_name) LIKE '%Ã%' THEN decode(encode(f.lgu_name, 'ISO-8859-1'), 'UTF-8') ELSE f.lgu_name END)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') = h.lgu_key\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, region_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY', 'PROV')\n) l2 ON COALESCE(l.psgc_code, h.psgc_code) = l2.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, CASE WHEN trim(area_name) LIKE '%Ã%' THEN decode(encode(area_name, 'ISO-8859-1'), 'UTF-8') ELSE area_name END AS area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) g ON COALESCE(l.psgc_code, h.psgc_code) = g.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) r ON l2.region_code = r.psgc_code\n",
+        "source": "SELECT f.psgc_code, l.area_name AS lgu_name, f.lgu_type, f.region,\n       f.province, f.fiscal_year, f.match_status,\n       l.region_code, r.area_name AS region_name,\n       f.total_appropriation, f.total_expenditure, f.utilization_rate_total\nFROM ahon_dev.gold.fact_ldrrmf f\nJOIN ahon_dev.gold.dim_lgu l\n  ON f.psgc_code = l.psgc_code AND f.source_period = l.source_period\n AND l.geographic_level IN ('CITY', 'MUN')\nLEFT JOIN ahon_dev.gold.dim_lgu r\n  ON l.region_code = r.psgc_code AND l.source_period = r.source_period\n AND r.geographic_level = 'REG'\nWHERE NOT f.has_dq_issues\n",
         "measures": [
           {
             "name": "total_appropriation",
@@ -345,7 +345,7 @@
       "name": "lgu_registry",
       "displayName": "LGU Registry",
       "config": {
-        "source": "SELECT d.psgc_code, d.area_name, d.geographic_level, d.region_code, d.province_code, d.municipality_code,\n       r.area_name AS region_name, p.area_name AS province_name\nFROM (\n  SELECT psgc_code, area_name, geographic_level, region_code, province_code, municipality_code\n  FROM (\n    SELECT *, ROW_NUMBER() OVER (PARTITION BY psgc_code ORDER BY source_period DESC) rn\n    FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  ) x WHERE rn = 1\n) d\nLEFT JOIN (SELECT DISTINCT psgc_code, area_name FROM ahon_dev_job_735696377477443.gold.dim_lgu WHERE geographic_level = 'REG') r\n  ON d.region_code = r.psgc_code\nLEFT JOIN (SELECT DISTINCT psgc_code, area_name FROM ahon_dev_job_735696377477443.gold.dim_lgu WHERE geographic_level = 'PROV') p\n  ON d.province_code = p.psgc_code\n",
+        "source": "SELECT d.psgc_code, d.area_name, d.geographic_level, d.region_code, d.province_code, d.municipality_code,\n       r.area_name AS region_name, p.area_name AS province_name\nFROM (\n  SELECT psgc_code, area_name, geographic_level, region_code, province_code, municipality_code\n  FROM (\n    SELECT *, ROW_NUMBER() OVER (PARTITION BY psgc_code ORDER BY source_period DESC) rn\n    FROM ahon_dev.gold.dim_lgu\n  ) x WHERE rn = 1\n) d\nLEFT JOIN (SELECT DISTINCT psgc_code, area_name FROM ahon_dev.gold.dim_lgu WHERE geographic_level = 'REG') r\n  ON d.region_code = r.psgc_code\nLEFT JOIN (SELECT DISTINCT psgc_code, area_name FROM ahon_dev.gold.dim_lgu WHERE geographic_level = 'PROV') p\n  ON d.province_code = p.psgc_code\n",
         "measures": [
           {
             "name": "lgu_count",
@@ -405,7 +405,7 @@
       "name": "lgu_region_map",
       "displayName": "LGU Region Readiness Map",
       "config": {
-        "source": "WITH funding AS (\n  SELECT l.region_code,\n         SUM(f.total_appropriation) AS appropriation,\n         AVG(f.utilization_rate_total) AS avg_utilization\n  FROM ahon_dev_job_735696377477443.gold.fact_ldrrmf f\n  LEFT JOIN (\n    SELECT DISTINCT psgc_code, region_code\n    FROM ahon_dev_job_735696377477443.gold.dim_lgu\n    WHERE geographic_level IN ('MUN', 'CITY', 'PROV')\n  ) l ON f.psgc_code = l.psgc_code\n  WHERE l.region_code IS NOT NULL\n  GROUP BY l.region_code\n),\npop AS (\n  SELECT region_code, SUM(population) AS region_population\n  FROM ahon_dev_job_735696377477443.gold.fact_population\n  WHERE population IS NOT NULL\n  GROUP BY region_code\n),\ncmci AS (\n  SELECT rr.region_code, AVG(g.coverage_pct) AS cmci_readiness\n  FROM (\n    SELECT psgc_code, pillar_name, coverage_pct\n    FROM (\n      SELECT LPAD(CAST(f.psgc_code AS STRING), 10, '0') AS psgc_code,\n             d.pillar_name,\n             ROUND(100.0 * COUNT(f.raw_score) / NULLIF(COUNT(d.indicator_code), 0), 1) AS coverage_pct,\n             ROW_NUMBER() OVER (PARTITION BY LPAD(CAST(f.psgc_code AS STRING), 10, '0'), d.pillar_name ORDER BY CAST(REPLACE(CAST(f.year AS STRING), '\"', '') AS INT) DESC) rn\n      FROM ahon_dev_job_735696377477443.gold.fact_cmci f\n      JOIN ahon_dev_job_735696377477443.gold.dim_cmci d\n        ON f.indicator_code = d.indicator_code\n      GROUP BY LPAD(CAST(f.psgc_code AS STRING), 10, '0'), d.pillar_name, CAST(REPLACE(CAST(f.year AS STRING), '\"', '') AS INT)\n    ) t WHERE rn = 1\n  ) g\n  LEFT JOIN (\n    SELECT DISTINCT psgc_code, region_code\n    FROM ahon_dev_job_735696377477443.gold.dim_lgu\n    WHERE geographic_level IN ('MUN', 'CITY')\n  ) rr ON g.psgc_code = rr.psgc_code\n  GROUP BY rr.region_code\n),\ncentroids(region_code, clat, clng) AS (\n  VALUES\n    ('0100000000', 16.6, 120.4), ('0200000000', 17.0, 121.8), ('0300000000', 15.2, 120.7),\n    ('0400000000', 14.1, 121.3), ('0500000000', 13.3, 123.4), ('0600000000', 10.7, 122.5),\n    ('0700000000', 9.9, 123.6), ('0800000000', 11.3, 125.0), ('0900000000', 7.8, 122.8),\n    ('1000000000', 8.3, 124.5), ('1100000000', 7.1, 125.6), ('1200000000', 6.5, 124.5),\n    ('1300000000', 14.6, 121.0), ('1400000000', 16.9, 120.9), ('1500000000', 7.0, 124.2),\n    ('1600000000', 8.8, 125.7), ('1700000000', 11.8, 120.7), ('1800000000', 10.2, 123.1),\n    ('1900000000', 7.0, 124.2)\n),\nquakes AS (\n  SELECT lat, lng, Magnitude\n  FROM (\n    SELECT TRY_CAST(REPLACE(Latitude, ' ', '') AS DOUBLE) AS lat,\n           TRY_CAST(REPLACE(Longitude, ' ', '') AS DOUBLE) AS lng,\n           TRY_CAST(REPLACE(CAST(Magnitude AS STRING), ' ', '') AS DOUBLE) AS Magnitude\n    FROM earthquake.philvolcs.phivolcs_earthquake_all_years\n  ) q\n  WHERE Magnitude >= 4.5\n    AND lat BETWEEN 4 AND 22\n    AND lng BETWEEN 115 AND 127\n),\nquake_exposure AS (\n  SELECT c.region_code, COUNT(1) AS quake_count, MAX(q.Magnitude) AS max_magnitude\n  FROM quakes q\n  JOIN centroids c\n    ON 6371 * 2 * ASIN(SQRT(\n         POWER(SIN(RADIANS(q.lat - c.clat) / 2), 2) +\n         COS(RADIANS(c.clat)) * COS(RADIANS(q.lat)) *\n         POWER(SIN(RADIANS(q.lng - c.clng) / 2), 2)\n       )) <= 200\n  GROUP BY c.region_code\n),\nmetrics AS (\n  SELECT f.region_code,\n         f.appropriation,\n         f.avg_utilization,\n         COALESCE(p.region_population, 0) AS region_population,\n         COALESCE(m.cmci_readiness, 0) AS cmci_readiness,\n         COALESCE(qe.quake_count, 0) AS quake_count,\n         COALESCE(qe.max_magnitude, 0) AS max_magnitude\n  FROM funding f\n  LEFT JOIN pop p ON f.region_code = p.region_code\n  LEFT JOIN cmci m ON f.region_code = m.region_code\n  LEFT JOIN quake_exposure qe ON f.region_code = qe.region_code\n),\nscored AS (\n  SELECT *,\n    (region_population - MIN(region_population) OVER ()) /\n      NULLIF(MAX(region_population) OVER () - MIN(region_population) OVER (), 0) AS pop_n,\n    1 - ((avg_utilization - MIN(avg_utilization) OVER ()) /\n      NULLIF(MAX(avg_utilization) OVER () - MIN(avg_utilization) OVER (), 0)) AS funding_gap_n,\n    1 - ((cmci_readiness - MIN(cmci_readiness) OVER ()) /\n      NULLIF(MAX(cmci_readiness) OVER () - MIN(cmci_readiness) OVER (), 0)) AS capacity_gap_n,\n    (quake_count - MIN(quake_count) OVER ()) /\n      NULLIF(MAX(quake_count) OVER () - MIN(quake_count) OVER (), 0) AS quake_n\n  FROM metrics\n),\nfinal AS (\n  SELECT *,\n    0.30 * COALESCE(pop_n, 0) +\n    0.25 * COALESCE(funding_gap_n, 0) +\n    0.25 * COALESCE(capacity_gap_n, 0) +\n    0.20 * COALESCE(quake_n, 0) AS risk_score,\n    NTILE(3) OVER (ORDER BY\n      0.30 * COALESCE(pop_n, 0) +\n      0.25 * COALESCE(funding_gap_n, 0) +\n      0.25 * COALESCE(capacity_gap_n, 0) +\n      0.20 * COALESCE(quake_n, 0) DESC) AS risk_rank\n  FROM scored\n)\nSELECT f.region_code,\n       reg.area_name AS region_name,\n       CASE f.region_code\n         WHEN '0100000000' THEN 16.6\n         WHEN '0200000000' THEN 17.0\n         WHEN '0300000000' THEN 15.2\n         WHEN '0400000000' THEN 14.1\n         WHEN '0500000000' THEN 13.3\n         WHEN '0600000000' THEN 10.7\n         WHEN '0700000000' THEN 9.9\n         WHEN '0800000000' THEN 11.3\n         WHEN '0900000000' THEN 7.8\n         WHEN '1000000000' THEN 8.3\n         WHEN '1100000000' THEN 7.1\n         WHEN '1200000000' THEN 6.5\n         WHEN '1300000000' THEN 14.6\n         WHEN '1400000000' THEN 16.9\n         WHEN '1500000000' THEN 7.0\n         WHEN '1600000000' THEN 8.8\n         WHEN '1700000000' THEN 11.8\n         WHEN '1800000000' THEN 10.2\n         WHEN '1900000000' THEN 7.0\n       END AS latitude,\n       CASE f.region_code\n         WHEN '0100000000' THEN 120.4\n         WHEN '0200000000' THEN 121.8\n         WHEN '0300000000' THEN 120.7\n         WHEN '0400000000' THEN 121.3\n         WHEN '0500000000' THEN 123.4\n         WHEN '0600000000' THEN 122.5\n         WHEN '0700000000' THEN 123.6\n         WHEN '0800000000' THEN 125.0\n         WHEN '0900000000' THEN 122.8\n         WHEN '1000000000' THEN 124.5\n         WHEN '1100000000' THEN 125.6\n         WHEN '1200000000' THEN 124.5\n         WHEN '1300000000' THEN 121.0\n         WHEN '1400000000' THEN 120.9\n         WHEN '1500000000' THEN 124.2\n         WHEN '1600000000' THEN 125.7\n         WHEN '1700000000' THEN 120.7\n         WHEN '1800000000' THEN 123.1\n         WHEN '1900000000' THEN 124.2\n       END AS longitude,\n       f.appropriation, f.avg_utilization, f.region_population,\n       f.cmci_readiness, f.quake_count, f.max_magnitude, f.risk_score,\n       CASE f.risk_rank\n         WHEN 1 THEN 'Priority 1 - High Risk, Low Preparedness'\n         WHEN 2 THEN 'Priority 2 - Moderate Risk'\n         ELSE 'Priority 3 - Lower Risk'\n       END AS risk_tier\nFROM final f\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) reg ON f.region_code = reg.psgc_code\n",
+        "source": "WITH indicator_rows AS (\nWITH fact_fix AS (\n  SELECT f.psgc_code AS psgc_code,\n         f.year AS year,\n         f.indicator_code,\n         f.raw_score\n  FROM ahon_dev.gold.fact_cmci_indicator f\n),\nlatest AS (\n  SELECT psgc_code, MAX(year) AS max_year\n  FROM fact_fix\n  GROUP BY psgc_code\n),\nlgus AS (\n  SELECT DISTINCT l.psgc_code, la.max_year\n  FROM latest la\n  JOIN (\n    SELECT DISTINCT psgc_code\n    FROM ahon_dev.gold.dim_lgu\n    WHERE geographic_level IN ('MUN', 'CITY')\n  ) l\n    ON la.psgc_code = l.psgc_code\n),\ngrid AS (\n  SELECT g.psgc_code, g.max_year, d.indicator_code\n  FROM lgus g\n  CROSS JOIN ahon_dev.gold.dim_cmci_indicator d\n),\nscored AS (\n  SELECT g.psgc_code, g.max_year, g.indicator_code,\n         f.raw_score\n  FROM grid g\n  LEFT JOIN fact_fix f\n    ON f.psgc_code = g.psgc_code\n   AND f.year = g.max_year\n   AND f.indicator_code = g.indicator_code\n)\nSELECT s.psgc_code,\n       l.area_name,\n       l.province_code,\n       rr.region_code,\n       reg.area_name AS region_name,\n       s.max_year AS year,\n       d.pillar_name,\n       d.indicator_code,\n       d.indicator_name,\n       s.raw_score,\n       TRY_CAST(s.raw_score AS DOUBLE) AS raw_score_num,\n       CASE WHEN s.raw_score IS NOT NULL THEN 100.0 ELSE 0.0 END AS coverage_pct\nFROM scored s\nJOIN ahon_dev.gold.dim_cmci_indicator d\n  ON s.indicator_code = d.indicator_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name, province_code\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) l\n  ON s.psgc_code = l.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, region_code\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) rr\n  ON s.psgc_code = rr.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) reg\n  ON rr.region_code = reg.psgc_code\n), funding AS (\n  SELECT l.region_code, SUM(f.total_appropriation) AS appropriation,\n         AVG(f.utilization_rate_total) AS avg_utilization\n  FROM ahon_dev.gold.fact_ldrrmf f\nJOIN ahon_dev.gold.dim_lgu l\n  ON f.psgc_code = l.psgc_code AND f.source_period = l.source_period\n AND l.geographic_level IN ('CITY', 'MUN')\nLEFT JOIN ahon_dev.gold.dim_lgu r\n  ON l.region_code = r.psgc_code AND l.source_period = r.source_period\n AND r.geographic_level = 'REG'\nWHERE NOT f.has_dq_issues\n  GROUP BY l.region_code\n), pop AS (\n  SELECT region_code, SUM(population) AS region_population\n  FROM ahon_dev.gold.fact_population\n  WHERE geographic_level IN ('CITY', 'MUN')\n  GROUP BY region_code\n), coverage AS (\n  SELECT region_code, AVG(coverage_pct) / 100.0 AS cmci_readiness\n  FROM indicator_rows GROUP BY region_code\n)\nSELECT reg.psgc_code AS region_code, reg.area_name AS region_name,\n       CAST(NULL AS DOUBLE) AS latitude, CAST(NULL AS DOUBLE) AS longitude,\n       f.appropriation, f.avg_utilization, p.region_population,\n       c.cmci_readiness, CAST(NULL AS BIGINT) AS quake_count,\n       CAST(NULL AS DOUBLE) AS max_magnitude,\n       CAST(NULL AS DOUBLE) AS risk_score,\n       'Unavailable - geographic and risk methods pending' AS risk_tier\nFROM ahon_dev.gold.dim_lgu reg\nLEFT JOIN funding f ON reg.psgc_code = f.region_code\nLEFT JOIN pop p ON reg.psgc_code = p.region_code\nLEFT JOIN coverage c ON reg.psgc_code = c.region_code\nWHERE reg.geographic_level = 'REG'\n",
         "measures": [
           {
             "name": "appropriation",
@@ -438,7 +438,7 @@
           {
             "name": "cmci_readiness",
             "expr": "AVG(cmci_readiness)",
-            "comment": "Average CMCI data coverage across pillars (capacity proxy)",
+            "comment": "CMCI selected-indicator data coverage, not measured readiness",
             "format": {
               "type": "percentage",
               "decimalPlaces": {
@@ -450,17 +450,17 @@
           {
             "name": "quake_count",
             "expr": "SUM(quake_count)",
-            "comment": "PHIVOLCS quakes M>=4.5 within 200km of region centroid"
+            "comment": "Unavailable pending approved geographic inputs or analytical methods"
           },
           {
             "name": "max_magnitude",
             "expr": "MAX(max_magnitude)",
-            "comment": "Strongest nearby PHIVOLCS quake"
+            "comment": "Unavailable pending approved geographic inputs or analytical methods"
           },
           {
             "name": "risk_score",
             "expr": "AVG(risk_score)",
-            "comment": "Composite risk index 0-1 (population 30%, funding gap 25%, CMCI gap 25%, seismicity 20%)",
+            "comment": "Unavailable pending approved geographic inputs or analytical methods",
             "format": {
               "type": "number",
               "decimalPlaces": {
@@ -471,7 +471,7 @@
           }
         ],
         "version": "1.1",
-        "comment": "Region composite DRRM risk index combining population exposure, LDRRM fund readiness, CMCI capacity coverage, and PHIVOLCS seismic activity near each region",
+        "comment": "Reported funding, population and CMCI data coverage; geographic risk outputs withheld",
         "dimensions": [
           {
             "name": "region_code",
@@ -508,16 +508,16 @@
       "name": "earthquake_events",
       "displayName": "PHIVOLCS Earthquake Epicenters",
       "config": {
-        "source": "WITH eq AS (\n  SELECT\n    TRY_CAST(REPLACE(CAST(`Latitude` AS STRING), '\"', '') AS DOUBLE) AS latitude,\n    TRY_CAST(REPLACE(CAST(`Longitude` AS STRING), '\"', '') AS DOUBLE) AS longitude,\n    TRY_CAST(REPLACE(CAST(`Magnitude` AS STRING), '\"', '') AS DOUBLE) AS magnitude,\n    TRY_CAST(REPLACE(CAST(`Depth` AS STRING), '\"', '') AS DOUBLE) AS depth_km,\n    TRY_CAST(REPLACE(CAST(`Year` AS STRING), '\"', '') AS INT) AS year,\n    REPLACE(CAST(`Location` AS STRING), '\"', '') AS location,\n    REPLACE(CAST(`Date-Time` AS STRING), '\"', '') AS event_time\n  FROM earthquake.philvolcs.phivolcs_earthquake_all_years\n  WHERE TRY_CAST(REPLACE(CAST(`Latitude` AS STRING), '\"', '') AS DOUBLE) IS NOT NULL\n    AND TRY_CAST(REPLACE(CAST(`Longitude` AS STRING), '\"', '') AS DOUBLE) IS NOT NULL\n    AND TRY_CAST(REPLACE(CAST(`Magnitude` AS STRING), '\"', '') AS DOUBLE) >= 4.5\n),\ncentroids(region_code, clat, clng) AS (\n  VALUES\n    ('0100000000', 16.6, 120.4), ('0200000000', 17.0, 121.8), ('0300000000', 15.2, 120.7),\n    ('0400000000', 14.1, 121.3), ('0500000000', 13.3, 123.4), ('0600000000', 10.7, 122.5),\n    ('0700000000', 9.9, 123.6), ('0800000000', 11.3, 125.0), ('0900000000', 7.8, 122.8),\n    ('1000000000', 8.3, 124.5), ('1100000000', 7.1, 125.6), ('1200000000', 6.5, 124.5),\n    ('1300000000', 14.6, 121.0), ('1400000000', 16.9, 120.9), ('1500000000', 7.0, 124.2),\n    ('1600000000', 8.8, 125.7), ('1700000000', 11.8, 120.7), ('1800000000', 10.2, 123.1),\n    ('1900000000', 7.0, 124.2)\n),\nattributed AS (\n  SELECT e.*, c.region_code,\n         ROW_NUMBER() OVER (\n           PARTITION BY e.latitude, e.longitude, e.magnitude, e.year, e.event_time\n           ORDER BY 6371 * 2 * ASIN(SQRT(\n             POWER(SIN(RADIANS(e.latitude - c.clat) / 2), 2) +\n             COS(RADIANS(c.clat)) * COS(RADIANS(e.latitude)) *\n             POWER(SIN(RADIANS(e.longitude - c.clng) / 2), 2)\n           ))\n         ) AS rn\n  FROM eq e\n  CROSS JOIN centroids c\n)\nSELECT a.latitude, a.longitude, a.magnitude, a.depth_km, a.year, a.location, a.event_time,\n       a.region_code,\n       reg.area_name AS region_name\nFROM attributed a\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) reg ON a.region_code = reg.psgc_code\nWHERE a.rn = 1\n",
+        "source": "SELECT latitude, longitude, magnitude, depth_km, source_year AS year,\n       `Location` AS location, event_time,\n       CAST(NULL AS STRING) AS region_code,\n       CAST(NULL AS STRING) AS region_name\nFROM ahon_dev.silver.philvolcs_earthquake_observation_clean\nWHERE NOT has_dq_issues AND magnitude >= 4.5\n",
         "measures": [
           {
             "name": "event_count",
             "expr": "COUNT(1)",
-            "comment": "Number of earthquake events"
+            "comment": "Number of valid source observations, not deduplicated events"
           }
         ],
         "version": "1.1",
-        "comment": "Record-level PHIVOLCS earthquake events (magnitude 4.5+) with epicenter coordinates and nearest-region attribution via the LGU registry",
+        "comment": "Valid PHIVOLCS observations M4.5+; no event deduplication or geographic assignment",
         "dimensions": [
           {
             "name": "latitude",
@@ -554,12 +554,12 @@
           {
             "name": "region_code",
             "expr": "region_code",
-            "comment": "Region of the nearest regional centroid (LGU registry linkage)"
+            "comment": "NULL: geographic assignment remains withheld"
           },
           {
             "name": "region_name",
             "expr": "region_name",
-            "comment": "Region name from the LGU registry"
+            "comment": "NULL: geographic assignment remains withheld"
           }
         ]
       }
@@ -568,7 +568,7 @@
       "name": "lgu_province_map",
       "displayName": "LGU Province Readiness Map",
       "config": {
-        "source": "SELECT prov.psgc_code AS province_code,\n       initcap(prov.area_name) AS province_name,\n       SUM(f.total_appropriation) AS appropriation,\n       AVG(f.utilization_rate_total) AS avg_utilization,\n       CASE\n         WHEN AVG(f.utilization_rate_total) < 0.5 THEN 'Priority 1 - Critical Readiness Gap'\n         WHEN AVG(f.utilization_rate_total) < 0.65 THEN 'Priority 2 - Moderate Readiness Gap'\n         ELSE 'Priority 3 - On Track'\n       END AS risk_tier\nFROM ahon_dev_job_735696377477443.gold.fact_ldrrmf f\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, province_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY', 'PROV')\n) l ON f.psgc_code = l.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'PROV'\n) prov ON l.province_code = prov.psgc_code\nWHERE prov.area_name IS NOT NULL\nGROUP BY prov.psgc_code, initcap(prov.area_name)\n",
+        "source": "SELECT p.psgc_code AS province_code, initcap(p.area_name) AS province_name,\n       SUM(f.total_appropriation) AS appropriation,\n       AVG(f.utilization_rate_total) AS avg_utilization,\n       CASE WHEN AVG(f.utilization_rate_total) IS NULL THEN 'No reported utilization'\n            WHEN AVG(f.utilization_rate_total) < 0.5 THEN 'Below 50% utilization'\n            WHEN AVG(f.utilization_rate_total) < 0.65 THEN '50% to below 65% utilization'\n            ELSE 'At least 65% utilization' END AS risk_tier\nFROM ahon_dev.gold.fact_ldrrmf f\nJOIN ahon_dev.gold.dim_lgu l\n  ON f.psgc_code = l.psgc_code AND f.source_period = l.source_period\n AND l.geographic_level IN ('CITY', 'MUN')\nJOIN ahon_dev.gold.dim_lgu p\n  ON l.province_code = p.psgc_code AND l.source_period = p.source_period\n AND p.geographic_level = 'PROV'\nWHERE NOT f.has_dq_issues\nGROUP BY p.psgc_code, initcap(p.area_name)\n",
         "measures": [
           {
             "name": "appropriation",
@@ -592,7 +592,7 @@
           }
         ],
         "version": "1.1",
-        "comment": "Province-level DRRM funding utilization and readiness tier for choropleth mapping, keyed to the LGU registry via province_code",
+        "comment": "City/municipality funding grouped by province; utilization bands are not preparedness tiers",
         "dimensions": [
           {
             "name": "province_code",
@@ -607,7 +607,7 @@
           {
             "name": "risk_tier",
             "expr": "risk_tier",
-            "comment": "DRRM readiness priority tier"
+            "comment": "Reported utilization band, not a preparedness or disaster-risk tier"
           }
         ]
       }
@@ -616,7 +616,7 @@
       "name": "lgu_city_map",
       "displayName": "City/Municipality DRRM Boundaries Map",
       "config": {
-        "source": "WITH funding_norm AS (\n  SELECT regexp_replace(regexp_replace(regexp_replace(upper(trim(CASE WHEN trim(lgu_name) LIKE '%Ã%' THEN decode(encode(lgu_name, 'ISO-8859-1'), 'UTF-8') ELSE lgu_name END)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') AS lgu_key,\n         regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(upper(trim(province)), '^CITY OF ', ''), ' CITY$', ''), '^METROPOLITAN ', ''), '^METRO ', ''), '^NCR$', 'MANILA') AS prov_key,\n         upper(trim(lgu_name)) AS lgu_name_raw,\n         total_appropriation, total_expenditure, utilization_rate_total\n  FROM ahon_dev_job_735696377477443.gold.fact_ldrrmf\n  WHERE lgu_name IS NOT NULL AND province IS NOT NULL\n),\nreg_mun AS (\n  SELECT psgc_code, province_code,\n         regexp_replace(regexp_replace(regexp_replace(upper(trim(CASE WHEN trim(area_name) LIKE '%Ã%' THEN decode(encode(area_name, 'ISO-8859-1'), 'UTF-8') ELSE area_name END)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') AS lgu_key\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n),\nreg_prov AS (\n  SELECT psgc_code,\n         regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(upper(trim(area_name)), '^CITY OF ', ''), ' CITY$', ''), '^METROPOLITAN ', ''), '^METRO ', ''), '^NCR$', 'MANILA') AS prov_key\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'PROV'\n  UNION ALL\n  SELECT DISTINCT province_code, 'MANILA'\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY') AND province_code LIKE '13%'\n),\nfunding AS (\n  SELECT lgu_key, prov_key,\n         MAX(lgu_name_raw) AS lgu_name_max,\n         SUM(total_appropriation) AS total_appropriation,\n         SUM(total_expenditure) AS total_expenditure,\n         AVG(utilization_rate_total) AS utilization_rate_total\n  FROM funding_norm\n  GROUP BY lgu_key, prov_key\n),\nfunding_psgc AS (\n  SELECT d.psgc_code,\n         SUM(f.total_appropriation) AS total_appropriation,\n         SUM(f.total_expenditure) AS total_expenditure,\n         AVG(f.utilization_rate_total) AS utilization_rate_total\n  FROM funding f\n  JOIN reg_mun d ON f.lgu_key = d.lgu_key\n  JOIN reg_prov pr ON d.province_code = pr.psgc_code AND f.prov_key = pr.prov_key\n  GROUP BY d.psgc_code\n),\nhuc_lgus AS (\n  SELECT DISTINCT regexp_replace(regexp_replace(regexp_replace(upper(trim(CASE WHEN trim(area_name) LIKE '%Ã%' THEN decode(encode(area_name, 'ISO-8859-1'), 'UTF-8') ELSE area_name END)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') AS lgu_key,\n         psgc_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'CITY' AND province_code = psgc_code\n),\nfunding_huc AS (\n  SELECT h.psgc_code,\n         SUM(f.total_appropriation) AS total_appropriation,\n         SUM(f.total_expenditure) AS total_expenditure,\n         AVG(f.utilization_rate_total) AS utilization_rate_total\n  FROM funding f\n  JOIN huc_lgus h\n    ON f.lgu_key = h.lgu_key\n   AND f.lgu_name_max RLIKE ' CITY$|^CITY OF '\n  GROUP BY h.psgc_code\n),\nfunding_psgc_loose AS (\n  SELECT d.psgc_code,\n         SUM(f.total_appropriation) AS total_appropriation,\n         SUM(f.total_expenditure) AS total_expenditure,\n         AVG(f.utilization_rate_total) AS utilization_rate_total\n  FROM funding f\n  JOIN reg_mun d ON f.lgu_key = d.lgu_key\n  WHERE NOT EXISTS (\n    SELECT 1 FROM reg_mun d2\n    JOIN reg_prov pr2 ON d2.province_code = pr2.psgc_code\n    WHERE d2.lgu_key = f.lgu_key AND f.prov_key = pr2.prov_key\n  )\n  AND d.province_code != d.psgc_code\n  AND NOT EXISTS (\n    SELECT 1 FROM huc_lgus hx\n    WHERE hx.lgu_key = f.lgu_key AND f.lgu_name_max RLIKE ' CITY$|^CITY OF '\n  )\n  GROUP BY d.psgc_code\n),\nlgumap AS (\n  SELECT DISTINCT regexp_replace(regexp_replace(regexp_replace(upper(trim(CASE WHEN trim(d.area_name) LIKE '%Ã%' THEN decode(encode(d.area_name, 'ISO-8859-1'), 'UTF-8') ELSE d.area_name END)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') AS name_key,\n         CASE\n           WHEN p.area_name IS NOT NULL THEN\n             regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(upper(trim(p.area_name)), '^CITY OF ', ''), ' CITY$', ''), '^METROPOLITAN ', ''), '^METRO ', ''), '^NCR$', 'MANILA')\n           WHEN d.province_code LIKE '13%' THEN 'MANILA'\n           WHEN d.province_code = d.psgc_code THEN regexp_replace(regexp_replace(regexp_replace(upper(trim(d.area_name)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N')\n         END AS province_key,\n         (d.geographic_level = 'CITY' AND d.province_code = d.psgc_code) AS is_huc,\n         d.psgc_code\n  FROM (\n    SELECT DISTINCT psgc_code, area_name, province_code, geographic_level\n    FROM ahon_dev_job_735696377477443.gold.dim_lgu\n    WHERE geographic_level IN ('MUN', 'CITY')\n  ) d\n  LEFT JOIN (\n    SELECT DISTINCT psgc_code, area_name\n    FROM ahon_dev_job_735696377477443.gold.dim_lgu\n    WHERE geographic_level = 'PROV'\n  ) p ON d.province_code = p.psgc_code\n),\npop AS (\n  SELECT psgc_code, population\n  FROM (\n    SELECT psgc_code, population,\n           ROW_NUMBER() OVER (PARTITION BY psgc_code ORDER BY population_year DESC) rn\n    FROM ahon_dev_job_735696377477443.gold.fact_population\n    WHERE population IS NOT NULL\n  ) x WHERE rn = 1\n),\ncmci AS (\n  SELECT psgc_code, pillar_name, coverage_pct, avg_score\n  FROM (\n    SELECT LPAD(CAST(f.psgc_code AS STRING), 10, '0') AS psgc_code,\n           d.pillar_name,\n           ROUND(100.0 * COUNT(f.raw_score) / NULLIF(COUNT(d.indicator_code), 0), 1) AS coverage_pct,\n           AVG(TRY_CAST(f.raw_score AS DOUBLE)) AS avg_score,\n           ROW_NUMBER() OVER (PARTITION BY LPAD(CAST(f.psgc_code AS STRING), 10, '0'), d.pillar_name ORDER BY CAST(REPLACE(CAST(f.year AS STRING), '\"', '') AS INT) DESC) rn\n    FROM ahon_dev_job_735696377477443.gold.fact_cmci f\n    JOIN ahon_dev_job_735696377477443.gold.dim_cmci d\n      ON f.indicator_code = d.indicator_code\n    GROUP BY LPAD(CAST(f.psgc_code AS STRING), 10, '0'), d.pillar_name, CAST(REPLACE(CAST(f.year AS STRING), '\"', '') AS INT)\n  ) g WHERE rn = 1\n),\ncmci_pivot AS (\n  SELECT psgc_code,\n         AVG(coverage_pct) FILTER (WHERE pillar_name = 'Resiliency') / 100.0 AS cmci_resiliency,\n         AVG(coverage_pct) FILTER (WHERE pillar_name = 'Government Efficiency') / 100.0 AS cmci_gov_efficiency,\n         AVG(coverage_pct) FILTER (WHERE pillar_name = 'Infrastructure') / 100.0 AS cmci_infrastructure,\n         AVG(coverage_pct) / 100.0 AS cmci_readiness,\n         AVG(avg_score) FILTER (WHERE pillar_name = 'Resiliency') AS cmci_res_score,\n         AVG(avg_score) FILTER (WHERE pillar_name = 'Government Efficiency') AS cmci_gov_score,\n         AVG(avg_score) FILTER (WHERE pillar_name = 'Infrastructure') AS cmci_infra_score,\n         AVG(avg_score) AS cmci_overall_score\n  FROM cmci\n  GROUP BY psgc_code\n),\ncmci_sum AS (\n  SELECT psgc_code, SUM(raw_score) AS cmci_total_score\n  FROM (\n    SELECT LPAD(CAST(f.psgc_code AS STRING), 10, '0') AS psgc_code,\n           f.indicator_code,\n           TRY_CAST(f.raw_score AS DOUBLE) AS raw_score,\n           ROW_NUMBER() OVER (\n             PARTITION BY LPAD(CAST(f.psgc_code AS STRING), 10, '0'), f.indicator_code\n             ORDER BY CAST(REPLACE(CAST(f.year AS STRING), '\"', '') AS INT) DESC\n           ) rn\n    FROM ahon_dev_job_735696377477443.gold.fact_cmci f\n    WHERE f.raw_score IS NOT NULL\n  ) x WHERE rn = 1\n  GROUP BY psgc_code\n),\ncmci_tier AS (\n  SELECT psgc_code,\n         NTILE(4) OVER (ORDER BY cmci_total_score DESC) AS tier_q\n  FROM cmci_sum\n),\nquakes AS (\n  SELECT TRY_CAST(REPLACE(Latitude, ' ', '') AS DOUBLE) AS lat,\n         TRY_CAST(REPLACE(Longitude, ' ', '') AS DOUBLE) AS lng,\n         TRY_CAST(REPLACE(CAST(Magnitude AS STRING), ' ', '') AS DOUBLE) AS Magnitude\n  FROM earthquake.philvolcs.phivolcs_earthquake_all_years\n),\nquake_exposure AS (\n  SELECT b.NAME_2, b.PROVINCE, COUNT(1) AS quake_count, MAX(q.Magnitude) AS max_magnitude\n  FROM quakes q\n  JOIN (\n    SELECT NAME_2, PROVINCE, centroid_lat, centroid_lng\n    FROM ahon_dev_job_735696377477443.reference.ph_adm2_boundaries\n    WHERE centroid_lat IS NOT NULL AND centroid_lng IS NOT NULL\n    GROUP BY NAME_2, PROVINCE, centroid_lat, centroid_lng\n  ) b\n    ON 6371 * 2 * ASIN(SQRT(\n         POWER(SIN(RADIANS(q.lat - b.centroid_lat) / 2), 2) +\n         COS(RADIANS(b.centroid_lat)) * COS(RADIANS(q.lat)) *\n         POWER(SIN(RADIANS(q.lng - b.centroid_lng) / 2), 2)\n       )) <= 200\n  WHERE q.Magnitude >= 4.5\n    AND q.lat BETWEEN 4 AND 22\n    AND q.lng BETWEEN 115 AND 127\n  GROUP BY b.NAME_2, b.PROVINCE\n)\nSELECT b.NAME_2 AS lgu_name,\n       initcap(trim(b.PROVINCE)) AS province,\n       b.REGION AS region,\n       b.ENGTYPE_2 AS lgu_type,\n       COALESCE(f.total_appropriation, fp.total_appropriation, fh.total_appropriation, fpl.total_appropriation) AS total_appropriation,\n       COALESCE(f.total_expenditure, fp.total_expenditure, fh.total_expenditure, fpl.total_expenditure) AS total_expenditure,\n       COALESCE(f.utilization_rate_total, fp.utilization_rate_total, fh.utilization_rate_total, fpl.utilization_rate_total) AS utilization_rate_total,\n       p.population AS city_population,\n       cp.cmci_resiliency,\n       cp.cmci_gov_efficiency,\n       cp.cmci_infrastructure,\n       cp.cmci_readiness,\n       cp.cmci_res_score,\n       cp.cmci_gov_score,\n       cp.cmci_infra_score,\n       cp.cmci_overall_score,\n       ct.cmci_total_score,\n       CASE \n         WHEN ct.cmci_total_score IS NULL THEN 'No Data'\n         WHEN t.tier_q = 1 THEN 'Tier 1 - High Readiness (Top Quartile)'\n         WHEN t.tier_q = 2 THEN 'Tier 2 - Moderate-High Readiness'\n         WHEN t.tier_q = 3 THEN 'Tier 3 - Moderate Readiness'\n         ELSE 'Tier 4 - Low Readiness (Bottom Quartile)'\n       END AS cmci_readiness_tier,\n       qe.quake_count,\n       qe.max_magnitude,\n       l.psgc_code AS psgc_code,\n       b.geometry_wkt\nFROM ahon_dev_job_735696377477443.reference.ph_adm2_boundaries b\nLEFT JOIN funding f\n  ON regexp_replace(regexp_replace(regexp_replace(upper(trim(b.NAME_2)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') = f.lgu_key\n AND regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(upper(trim(b.PROVINCE)), '^CITY OF ', ''), ' CITY$', ''), '^METROPOLITAN ', ''), '^METRO ', ''), '^NCR$', 'MANILA') = f.prov_key\nLEFT JOIN lgumap l\n  ON regexp_replace(regexp_replace(regexp_replace(upper(trim(b.NAME_2)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') = l.name_key\n AND (regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(upper(trim(b.PROVINCE)), '^CITY OF ', ''), ' CITY$', ''), '^METROPOLITAN ', ''), '^METRO ', ''), '^NCR$', 'MANILA') = l.province_key\n      OR (l.is_huc AND upper(trim(b.NAME_2)) RLIKE ' CITY$|^CITY OF '))\nLEFT JOIN funding_psgc fp\n  ON l.psgc_code = fp.psgc_code\nLEFT JOIN funding_psgc_loose fpl\n  ON l.psgc_code = fpl.psgc_code\nLEFT JOIN funding_huc fh\n  ON l.psgc_code = fh.psgc_code\nLEFT JOIN pop p ON l.psgc_code = p.psgc_code\nLEFT JOIN cmci_pivot cp ON l.psgc_code = cp.psgc_code\nLEFT JOIN cmci_sum ct ON l.psgc_code = ct.psgc_code\nLEFT JOIN cmci_tier t ON l.psgc_code = t.psgc_code\nLEFT JOIN quake_exposure qe\n  ON b.NAME_2 = qe.NAME_2\n AND b.PROVINCE = qe.PROVINCE\n",
+        "source": "WITH indicator_rows AS (\nWITH fact_fix AS (\n  SELECT f.psgc_code AS psgc_code,\n         f.year AS year,\n         f.indicator_code,\n         f.raw_score\n  FROM ahon_dev.gold.fact_cmci_indicator f\n),\nlatest AS (\n  SELECT psgc_code, MAX(year) AS max_year\n  FROM fact_fix\n  GROUP BY psgc_code\n),\nlgus AS (\n  SELECT DISTINCT l.psgc_code, la.max_year\n  FROM latest la\n  JOIN (\n    SELECT DISTINCT psgc_code\n    FROM ahon_dev.gold.dim_lgu\n    WHERE geographic_level IN ('MUN', 'CITY')\n  ) l\n    ON la.psgc_code = l.psgc_code\n),\ngrid AS (\n  SELECT g.psgc_code, g.max_year, d.indicator_code\n  FROM lgus g\n  CROSS JOIN ahon_dev.gold.dim_cmci_indicator d\n),\nscored AS (\n  SELECT g.psgc_code, g.max_year, g.indicator_code,\n         f.raw_score\n  FROM grid g\n  LEFT JOIN fact_fix f\n    ON f.psgc_code = g.psgc_code\n   AND f.year = g.max_year\n   AND f.indicator_code = g.indicator_code\n)\nSELECT s.psgc_code,\n       l.area_name,\n       l.province_code,\n       rr.region_code,\n       reg.area_name AS region_name,\n       s.max_year AS year,\n       d.pillar_name,\n       d.indicator_code,\n       d.indicator_name,\n       s.raw_score,\n       TRY_CAST(s.raw_score AS DOUBLE) AS raw_score_num,\n       CASE WHEN s.raw_score IS NOT NULL THEN 100.0 ELSE 0.0 END AS coverage_pct\nFROM scored s\nJOIN ahon_dev.gold.dim_cmci_indicator d\n  ON s.indicator_code = d.indicator_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name, province_code\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) l\n  ON s.psgc_code = l.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, region_code\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) rr\n  ON s.psgc_code = rr.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) reg\n  ON rr.region_code = reg.psgc_code\n), coverage AS (\n  SELECT psgc_code,\n         AVG(coverage_pct) FILTER (WHERE pillar_name = 'Resiliency') / 100.0 AS cmci_resiliency,\n         AVG(coverage_pct) FILTER (WHERE pillar_name = 'Government Efficiency') / 100.0 AS cmci_gov_efficiency,\n         AVG(coverage_pct) FILTER (WHERE pillar_name = 'Infrastructure') / 100.0 AS cmci_infrastructure,\n         AVG(coverage_pct) / 100.0 AS cmci_readiness\n  FROM indicator_rows GROUP BY psgc_code\n), funding AS (\n  SELECT psgc_code, source_period, SUM(total_appropriation) AS total_appropriation,\n         SUM(total_expenditure) AS total_expenditure,\n         AVG(utilization_rate_total) AS utilization_rate_total\n  FROM ahon_dev.gold.fact_ldrrmf WHERE NOT has_dq_issues\n  GROUP BY psgc_code, source_period\n)\nSELECT l.area_name AS lgu_name, p.area_name AS province, r.area_name AS region,\n       l.geographic_level AS lgu_type, f.total_appropriation, f.total_expenditure,\n       f.utilization_rate_total, pop.population AS city_population,\n       c.cmci_resiliency, c.cmci_gov_efficiency, c.cmci_infrastructure, c.cmci_readiness,\n       CAST(NULL AS DOUBLE) AS cmci_res_score,\n       CAST(NULL AS DOUBLE) AS cmci_gov_score,\n       CAST(NULL AS DOUBLE) AS cmci_infra_score,\n       CAST(NULL AS DOUBLE) AS cmci_overall_score,\n       CAST(NULL AS DOUBLE) AS cmci_total_score,\n       'Unavailable - scoring method pending' AS cmci_readiness_tier,\n       CAST(NULL AS BIGINT) AS quake_count,\n       CAST(NULL AS DOUBLE) AS max_magnitude,\n       l.psgc_code, CAST(NULL AS STRING) AS geometry_wkt\nFROM ahon_dev.gold.dim_lgu l\nLEFT JOIN ahon_dev.gold.dim_lgu p\n  ON l.province_code = p.psgc_code AND l.source_period = p.source_period\n AND p.geographic_level = 'PROV'\nLEFT JOIN ahon_dev.gold.dim_lgu r\n  ON l.region_code = r.psgc_code AND l.source_period = r.source_period\n AND r.geographic_level = 'REG'\nLEFT JOIN funding f ON l.psgc_code = f.psgc_code AND l.source_period = f.source_period\nLEFT JOIN ahon_dev.gold.fact_population pop\n  ON l.psgc_code = pop.psgc_code AND l.source_period = pop.source_period\nLEFT JOIN coverage c ON l.psgc_code = c.psgc_code\nWHERE l.geographic_level IN ('CITY', 'MUN')\n",
         "measures": [
           {
             "name": "total_appropriation",
@@ -671,8 +671,8 @@
           },
           {
             "name": "cmci_resiliency",
-            "expr": "AVG(cmci_resiliency) * 100.0",
-            "comment": "Resiliency pillar data coverage (preparedness proxy)",
+            "expr": "AVG(cmci_resiliency)",
+            "comment": "CMCI selected-indicator data coverage, not measured readiness",
             "format": {
               "type": "percentage",
               "decimalPlaces": {
@@ -683,8 +683,8 @@
           },
           {
             "name": "cmci_gov_efficiency",
-            "expr": "AVG(cmci_gov_efficiency) * 100.0",
-            "comment": "Government Efficiency pillar data coverage",
+            "expr": "AVG(cmci_gov_efficiency)",
+            "comment": "CMCI selected-indicator data coverage, not measured readiness",
             "format": {
               "type": "percentage",
               "decimalPlaces": {
@@ -695,8 +695,8 @@
           },
           {
             "name": "cmci_infrastructure",
-            "expr": "AVG(cmci_infrastructure) * 100.0",
-            "comment": "Infrastructure pillar data coverage",
+            "expr": "AVG(cmci_infrastructure)",
+            "comment": "CMCI selected-indicator data coverage, not measured readiness",
             "format": {
               "type": "percentage",
               "decimalPlaces": {
@@ -707,8 +707,8 @@
           },
           {
             "name": "cmci_readiness",
-            "expr": "AVG(cmci_readiness) * 100.0",
-            "comment": "Average CMCI data coverage across all pillars (capacity proxy)",
+            "expr": "AVG(cmci_readiness)",
+            "comment": "CMCI selected-indicator data coverage, not measured readiness",
             "format": {
               "type": "percentage",
               "decimalPlaces": {
@@ -720,7 +720,7 @@
           {
             "name": "cmci_res_score",
             "expr": "AVG(cmci_res_score)",
-            "comment": "Average raw CMCI indicator score, Resiliency pillar (capacity)",
+            "comment": "Unavailable pending approved geographic inputs or analytical methods",
             "format": {
               "type": "number",
               "decimalPlaces": {
@@ -732,7 +732,7 @@
           {
             "name": "cmci_gov_score",
             "expr": "AVG(cmci_gov_score)",
-            "comment": "Average raw CMCI indicator score, Government Efficiency pillar (capacity)",
+            "comment": "Unavailable pending approved geographic inputs or analytical methods",
             "format": {
               "type": "number",
               "decimalPlaces": {
@@ -744,7 +744,7 @@
           {
             "name": "cmci_infra_score",
             "expr": "AVG(cmci_infra_score)",
-            "comment": "Average raw CMCI indicator score, Infrastructure pillar (capacity)",
+            "comment": "Unavailable pending approved geographic inputs or analytical methods",
             "format": {
               "type": "number",
               "decimalPlaces": {
@@ -756,7 +756,7 @@
           {
             "name": "cmci_overall_score",
             "expr": "AVG(cmci_overall_score)",
-            "comment": "Average raw CMCI indicator score across all pillars (overall capacity)",
+            "comment": "Unavailable pending approved geographic inputs or analytical methods",
             "format": {
               "type": "number",
               "decimalPlaces": {
@@ -768,17 +768,17 @@
           {
             "name": "quake_count",
             "expr": "MAX(quake_count)",
-            "comment": "PHIVOLCS seismic events M>=4.5 within 200km of the LGU centroid"
+            "comment": "Unavailable pending approved geographic inputs or analytical methods"
           },
           {
             "name": "max_magnitude",
             "expr": "MAX(max_magnitude)",
-            "comment": "Strongest nearby PHIVOLCS seismic event"
+            "comment": "Unavailable pending approved geographic inputs or analytical methods"
           },
           {
             "name": "cmci_total_score",
             "expr": "AVG(cmci_total_score)",
-            "comment": "Sum of all 35 CMCI indicator raw scores (max 70) - total CMCI readiness score",
+            "comment": "Unavailable pending approved geographic inputs or analytical methods",
             "format": {
               "type": "number",
               "decimalPlaces": {
@@ -794,7 +794,7 @@
           }
         ],
         "version": "1.1",
-        "comment": "City/municipality boundary polygons with DRRM funding, population, CMCI capacity pillars and seismic hazard exposure",
+        "comment": "Original city widgets retained; geometry, earthquake assignment and composite scores unavailable pending approved inputs/methods",
         "dimensions": [
           {
             "name": "lgu_name",
@@ -834,7 +834,7 @@
           {
             "name": "cmci_readiness_tier",
             "expr": "cmci_readiness_tier",
-            "comment": "4-tier CMCI readiness ranking based on total CMCI score (sum of 35 indicators, max 70): Tier 1 High (56-70), Tier 2 Moderate-High (42-55), Tier 3 Moderate (28-41), Tier 4 Low (below 28)"
+            "comment": "Unavailable pending approved geographic inputs or analytical methods"
           }
         ]
       }
@@ -844,8 +844,8 @@
       "displayName": "LGU CMCI Indicator Scores By LGU",
       "config": {
         "version": "1.1",
-        "source": "WITH fact_fix AS (\n  SELECT LPAD(CAST(f.psgc_code AS STRING), 10, '0') AS psgc_code,\n         CAST(f.year AS INT) AS year,\n         f.indicator_code,\n         TRY_CAST(f.raw_score AS DOUBLE) AS raw_score\n  FROM ahon_dev_job_735696377477443.gold.fact_cmci f\n),\nlatest AS (\n  SELECT psgc_code, MAX(year) AS max_year\n  FROM fact_fix\n  GROUP BY psgc_code\n),\nwide AS (\n  SELECT f.psgc_code,\n         MAX(CASE WHEN f.indicator_code = 'job' THEN f.raw_score END) AS score_job,\n         MAX(CASE WHEN f.indicator_code = 'leg' THEN f.raw_score END) AS score_leg,\n         MAX(CASE WHEN f.indicator_code = 'les' THEN f.raw_score END) AS score_les,\n         MAX(CASE WHEN f.indicator_code = 'sle' THEN f.raw_score END) AS score_sle,\n         MAX(CASE WHEN f.indicator_code = 'bpls' THEN f.raw_score END) AS score_bpls,\n         MAX(CASE WHEN f.indicator_code = 'bre' THEN f.raw_score END) AS score_bre,\n         MAX(CASE WHEN f.indicator_code = 'chs' THEN f.raw_score END) AS score_chs,\n         MAX(CASE WHEN f.indicator_code = 'cnd' THEN f.raw_score END) AS score_cnd,\n         MAX(CASE WHEN f.indicator_code = 'css' THEN f.raw_score END) AS score_css,\n         MAX(CASE WHEN f.indicator_code = 'lgua' THEN f.raw_score END) AS score_lgua,\n         MAX(CASE WHEN f.indicator_code = 'pao' THEN f.raw_score END) AS score_pao,\n         MAX(CASE WHEN f.indicator_code = 'pipu' THEN f.raw_score END) AS score_pipu,\n         MAX(CASE WHEN f.indicator_code = 'rat' THEN f.raw_score END) AS score_rat,\n         MAX(CASE WHEN f.indicator_code = 'sp' THEN f.raw_score END) AS score_sp,\n         MAX(CASE WHEN f.indicator_code = 'abu' THEN f.raw_score END) AS score_abu,\n         MAX(CASE WHEN f.indicator_code = 'acc' THEN f.raw_score END) AS score_acc,\n         MAX(CASE WHEN f.indicator_code = 'atm' THEN f.raw_score END) AS score_atm,\n         MAX(CASE WHEN f.indicator_code = 'dtp' THEN f.raw_score END) AS score_dtp,\n         MAX(CASE WHEN f.indicator_code = 'edu' THEN f.raw_score END) AS score_edu,\n         MAX(CASE WHEN f.indicator_code = 'hea' THEN f.raw_score END) AS score_hea,\n         MAX(CASE WHEN f.indicator_code = 'ict' THEN f.raw_score END) AS score_ict,\n         MAX(CASE WHEN f.indicator_code = 'inv' THEN f.raw_score END) AS score_inv,\n         MAX(CASE WHEN f.indicator_code = 'road' THEN f.raw_score END) AS score_road,\n         MAX(CASE WHEN f.indicator_code = 'trans' THEN f.raw_score END) AS score_trans,\n         MAX(CASE WHEN f.indicator_code = 'intc' THEN f.raw_score END) AS score_intc,\n         MAX(CASE WHEN f.indicator_code = 'add' THEN f.raw_score END) AS score_add,\n         MAX(CASE WHEN f.indicator_code = 'drrmp' THEN f.raw_score END) AS score_drrmp,\n         MAX(CASE WHEN f.indicator_code = 'drrp' THEN f.raw_score END) AS score_drrp,\n         MAX(CASE WHEN f.indicator_code = 'ei' THEN f.raw_score END) AS score_ei,\n         MAX(CASE WHEN f.indicator_code = 'ep' THEN f.raw_score END) AS score_ep,\n         MAX(CASE WHEN f.indicator_code = 'ews' THEN f.raw_score END) AS score_ews,\n         MAX(CASE WHEN f.indicator_code = 'lra' THEN f.raw_score END) AS score_lra,\n         MAX(CASE WHEN f.indicator_code = 'lup' THEN f.raw_score END) AS score_lup,\n         MAX(CASE WHEN f.indicator_code = 'ss' THEN f.raw_score END) AS score_ss,\n         MAX(CASE WHEN f.indicator_code = 'util' THEN f.raw_score END) AS score_util\n  FROM fact_fix f\n  JOIN latest la\n    ON f.psgc_code = la.psgc_code\n   AND f.year = la.max_year\n  GROUP BY f.psgc_code\n)\nSELECT w.psgc_code,\n       la.max_year AS year,\n       l.area_name,\n       p.area_name AS province_name,\n       r.area_name AS region_name,\n       w.score_job, w.score_leg, w.score_les, w.score_sle,\n       w.score_bpls, w.score_bre, w.score_chs, w.score_cnd, w.score_css,\n       w.score_lgua, w.score_pao, w.score_pipu, w.score_rat, w.score_sp,\n       w.score_abu, w.score_acc, w.score_atm, w.score_dtp, w.score_edu,\n       w.score_hea, w.score_ict, w.score_inv, w.score_road, w.score_trans,\n       w.score_intc, w.score_add, w.score_drrmp, w.score_drrp, w.score_ei,\n       w.score_ep, w.score_ews, w.score_lra, w.score_lup, w.score_ss, w.score_util\nFROM wide w\nJOIN latest la ON w.psgc_code = la.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name, province_code, region_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) l ON w.psgc_code = l.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'PROV'\n) p ON l.province_code = p.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) r ON l.region_code = r.psgc_code\n",
-        "comment": "Wide CMCI matrix from gold.fact_cmci/gold.dim_cmci — one row per LGU (latest year, zero-padded PSGC) with all 35 indicator raw scores as columns",
+        "source": "WITH fact_fix AS (\n  SELECT f.psgc_code AS psgc_code,\n         f.year AS year,\n         f.indicator_code,\n         f.raw_score AS raw_score\n  FROM ahon_dev.gold.fact_cmci_indicator f\n),\nlatest AS (\n  SELECT psgc_code, MAX(year) AS max_year\n  FROM fact_fix\n  GROUP BY psgc_code\n),\nwide AS (\n  SELECT f.psgc_code,\n         MAX(CASE WHEN f.indicator_code = 'job' THEN f.raw_score END) AS score_job,\n         MAX(CASE WHEN f.indicator_code = 'leg' THEN f.raw_score END) AS score_leg,\n         MAX(CASE WHEN f.indicator_code = 'les' THEN f.raw_score END) AS score_les,\n         MAX(CASE WHEN f.indicator_code = 'sle' THEN f.raw_score END) AS score_sle,\n         MAX(CASE WHEN f.indicator_code = 'bpls' THEN f.raw_score END) AS score_bpls,\n         MAX(CASE WHEN f.indicator_code = 'bre' THEN f.raw_score END) AS score_bre,\n         MAX(CASE WHEN f.indicator_code = 'chs' THEN f.raw_score END) AS score_chs,\n         MAX(CASE WHEN f.indicator_code = 'cnd' THEN f.raw_score END) AS score_cnd,\n         MAX(CASE WHEN f.indicator_code = 'css' THEN f.raw_score END) AS score_css,\n         MAX(CASE WHEN f.indicator_code = 'lgua' THEN f.raw_score END) AS score_lgua,\n         MAX(CASE WHEN f.indicator_code = 'pao' THEN f.raw_score END) AS score_pao,\n         MAX(CASE WHEN f.indicator_code = 'pipu' THEN f.raw_score END) AS score_pipu,\n         MAX(CASE WHEN f.indicator_code = 'rat' THEN f.raw_score END) AS score_rat,\n         MAX(CASE WHEN f.indicator_code = 'sp' THEN f.raw_score END) AS score_sp,\n         MAX(CASE WHEN f.indicator_code = 'abu' THEN f.raw_score END) AS score_abu,\n         MAX(CASE WHEN f.indicator_code = 'acc' THEN f.raw_score END) AS score_acc,\n         MAX(CASE WHEN f.indicator_code = 'atm' THEN f.raw_score END) AS score_atm,\n         MAX(CASE WHEN f.indicator_code = 'dtp' THEN f.raw_score END) AS score_dtp,\n         MAX(CASE WHEN f.indicator_code = 'edu' THEN f.raw_score END) AS score_edu,\n         MAX(CASE WHEN f.indicator_code = 'hea' THEN f.raw_score END) AS score_hea,\n         MAX(CASE WHEN f.indicator_code = 'ict' THEN f.raw_score END) AS score_ict,\n         MAX(CASE WHEN f.indicator_code = 'inv' THEN f.raw_score END) AS score_inv,\n         MAX(CASE WHEN f.indicator_code = 'road' THEN f.raw_score END) AS score_road,\n         MAX(CASE WHEN f.indicator_code = 'trans' THEN f.raw_score END) AS score_trans,\n         MAX(CASE WHEN f.indicator_code = 'intc' THEN f.raw_score END) AS score_intc,\n         MAX(CASE WHEN f.indicator_code = 'add' THEN f.raw_score END) AS score_add,\n         MAX(CASE WHEN f.indicator_code = 'drrmp' THEN f.raw_score END) AS score_drrmp,\n         MAX(CASE WHEN f.indicator_code = 'drrp' THEN f.raw_score END) AS score_drrp,\n         MAX(CASE WHEN f.indicator_code = 'ei' THEN f.raw_score END) AS score_ei,\n         MAX(CASE WHEN f.indicator_code = 'ep' THEN f.raw_score END) AS score_ep,\n         MAX(CASE WHEN f.indicator_code = 'ews' THEN f.raw_score END) AS score_ews,\n         MAX(CASE WHEN f.indicator_code = 'lra' THEN f.raw_score END) AS score_lra,\n         MAX(CASE WHEN f.indicator_code = 'lup' THEN f.raw_score END) AS score_lup,\n         MAX(CASE WHEN f.indicator_code = 'ss' THEN f.raw_score END) AS score_ss,\n         MAX(CASE WHEN f.indicator_code = 'util' THEN f.raw_score END) AS score_util\n  FROM fact_fix f\n  JOIN latest la\n    ON f.psgc_code = la.psgc_code\n   AND f.year = la.max_year\n  GROUP BY f.psgc_code\n)\nSELECT w.psgc_code,\n       la.max_year AS year,\n       l.area_name,\n       p.area_name AS province_name,\n       r.area_name AS region_name,\n       w.score_job, w.score_leg, w.score_les, w.score_sle,\n       w.score_bpls, w.score_bre, w.score_chs, w.score_cnd, w.score_css,\n       w.score_lgua, w.score_pao, w.score_pipu, w.score_rat, w.score_sp,\n       w.score_abu, w.score_acc, w.score_atm, w.score_dtp, w.score_edu,\n       w.score_hea, w.score_ict, w.score_inv, w.score_road, w.score_trans,\n       w.score_intc, w.score_add, w.score_drrmp, w.score_drrp, w.score_ei,\n       w.score_ep, w.score_ews, w.score_lra, w.score_lup, w.score_ss, w.score_util\nFROM wide w\nJOIN latest la ON w.psgc_code = la.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name, province_code, region_code\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) l ON w.psgc_code = l.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level = 'PROV'\n) p ON l.province_code = p.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) r ON l.region_code = r.psgc_code\n",
+        "comment": "Wide CMCI matrix from gold.fact_cmci_indicator/gold.dim_cmci_indicator — one row per LGU (latest year, maintained PSGC) with all 35 indicator raw scores as columns",
         "dimensions": [
           {
             "name": "psgc_code",
@@ -1052,7 +1052,7 @@
       "name": "lgu_funding_yoy",
       "displayName": "LGU Funding YoY",
       "config": {
-        "source": "SELECT COALESCE(l.psgc_code, h.psgc_code) AS psgc_code, COALESCE(g.area_name, f.lgu_name) AS lgu_name, f.fiscal_year,\n       l2.region_code, r.area_name AS region_name,\n       f.total_appropriation, f.total_expenditure, f.utilization_rate_total\nFROM ahon_dev_job_735696377477443.gold.fact_ldrrmf f\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, region_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY', 'PROV')\n) l ON f.psgc_code = l.psgc_code\nLEFT JOIN (\n  SELECT regexp_replace(regexp_replace(regexp_replace(upper(trim(CASE WHEN trim(area_name) LIKE '%Ã%' THEN decode(encode(area_name, 'ISO-8859-1'), 'UTF-8') ELSE area_name END)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') AS lgu_key,\n         psgc_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'CITY' AND province_code = psgc_code\n) h\n  ON l.psgc_code IS NULL\n AND regexp_replace(regexp_replace(regexp_replace(upper(trim(f.lgu_name)), '^CITY OF ', ''), ' CITY$', ''), 'Ñ', 'N') = h.lgu_key\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, region_code\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY', 'PROV')\n) l2 ON COALESCE(l.psgc_code, h.psgc_code) = l2.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, CASE WHEN trim(area_name) LIKE '%Ã%' THEN decode(encode(area_name, 'ISO-8859-1'), 'UTF-8') ELSE area_name END AS area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level IN ('MUN', 'CITY')\n) g ON COALESCE(l.psgc_code, h.psgc_code) = g.psgc_code\nLEFT JOIN (\n  SELECT DISTINCT psgc_code, area_name\n  FROM ahon_dev_job_735696377477443.gold.dim_lgu\n  WHERE geographic_level = 'REG'\n) r ON l2.region_code = r.psgc_code\n",
+        "source": "SELECT f.psgc_code, l.area_name AS lgu_name, f.fiscal_year,\n       l.region_code, r.area_name AS region_name,\n       f.total_appropriation, f.total_expenditure, f.utilization_rate_total\nFROM ahon_dev.gold.fact_ldrrmf f\nJOIN ahon_dev.gold.dim_lgu l\n  ON f.psgc_code = l.psgc_code AND f.source_period = l.source_period\n AND l.geographic_level IN ('CITY', 'MUN')\nLEFT JOIN ahon_dev.gold.dim_lgu r\n  ON l.region_code = r.psgc_code AND l.source_period = r.source_period\n AND r.geographic_level = 'REG'\nWHERE NOT f.has_dq_issues\n",
         "measures": [
           {
             "name": "appropriation",

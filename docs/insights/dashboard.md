@@ -1,6 +1,6 @@
 # Dashboard status and import prerequisites
 
-The export is `resources/dashboard/lgu_command_center.lvdash.json`. Its original five pages, 41 widgets, ten dataset identities, relationship graph, theme, positions, chart types, filter queries and output-column names are preserved from PR #105 commit `27888d6694938ab916824ef56809a04fc3089c63`. Explanatory text and chart labels identify unavailable inputs and unapproved metrics. This replaces the unwanted four-page table redesign.
+The export is `resources/dashboard/lgu_command_center.lvdash.json`. Its original five pages, 41 widgets, ten dataset identities, relationship graph, theme, positions, chart types, filter queries and output-column names are preserved from PR #105 commit `27888d6694938ab916824ef56809a04fc3089c63`. The CI repair after upload `af96a16` changes dataset configurations only; all uploaded pages, visible titles, text, relationships and theme remain unchanged. Some original labels still refer to readiness or unsupported totals; correct those labels before publication. This replaces the unwanted four-page table redesign.
 
 ## Review fixes without a layout redesign
 
@@ -15,7 +15,7 @@ The export is `resources/dashboard/lgu_command_center.lvdash.json`. Its original
 | Unsupported scores | Cross-indicator totals, average scores across unlike indicators, readiness tiers and geographic risk outputs remain unavailable. Individual indicator measurements remain available. No maximum of 70 or additive score is asserted. See the [analytics method](../architecture/analytics-method.md). |
 | Windows checkout | The filename remains `lgu_command_center.lvdash.json`; the dashboard display title can retain its colon. |
 
-The maps and score widgets retain their original types and positions but may show no marks or values for the unavailable fields. This is intentional and labelled; preserving structure does not supply missing geometry or establish approved scoring methods.
+The maps and score widgets retain their original types and positions but may show no marks or values for the unavailable fields. This is intentional; preserving structure does not supply missing geometry or establish approved scoring methods. Original visual labels alone do not establish those metrics' validity.
 
 ## Periods and filters
 
@@ -34,5 +34,5 @@ Before importing or publishing:
 1. Preserve an export of the current Databricks draft and identify the intended deployed catalog.
 2. Build or verify all referenced tables in that catalog using the maintained pipeline. Do not substitute arbitrary tables to suppress errors.
 3. Execute every dataset query against the intended warehouse and inspect missingness, reporting periods and scope.
-4. Import into a separate draft and check all pages, charts, filters, relationship behavior, NULL geometry and unavailable-score labels. Original home navigation contains links to its original dashboard ID; update them to the new draft's page URLs if importing under a new ID.
+4. Import into a separate draft and check all pages, charts, filters, relationship behavior, NULL geometry and unavailable-score handling. Add clear unavailable/coverage labels before publication. Original home navigation contains links to its original dashboard ID; update them to the new draft's page URLs if importing under a new ID.
 5. Publish only after query and visual checks pass. Repository changes alone do not restore or update an existing Databricks dashboard.
