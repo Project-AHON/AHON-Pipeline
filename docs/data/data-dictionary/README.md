@@ -58,7 +58,7 @@ PSA Population comes in `bronze.psa_psgc` (`populations_json`); it has no bronze
 | [fact_ldrrmf](fact_ldrrmf.md) | `gold.fact_ldrrmf` | gold |
 | [funding_components](funding_components.md) | `platinum.funding_components` | platinum (view) |
 
-Monitoring outputs are documented in [DQ results](dq_result.md) and [pipeline runs](../../operations/pipeline-runs.md).
+Monitoring outputs are documented in [DQ result](dq_result.md) and [pipeline runs](../../operations/pipeline-runs.md).
 
 ## How to add a page
 
