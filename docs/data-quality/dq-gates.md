@@ -1,6 +1,6 @@
 # Data quality gates
 
-How the pipeline checks data between layers with Great Expectations, and where each dataset's gate lives. The design is in [decision 0018](../decisions/0018-dq-gates-with-great-expectations.md); the results table is described in [dq-results](dq-result.md).
+The pipeline runs 12 gates in `resources/jobs/ahon_job.yml`. Each gate checks its just-built layer, writes results, and blocks dependent tasks on BLOCKED or ERROR. WARNs do not stop a run. A post-build gate cannot roll back its build or earlier committed statements.
 
 The gates are being built. Today the job runs checks inside each dataset build (see the [data quality overview](README.md)). The standalone gate files are not tasks in `ahon_pipeline`; some have been tested manually in notebooks, while others remain drafted or placeholders.
 
@@ -138,12 +138,8 @@ run_dq_gate(
 )
 ```
 
-Expectations used so far: `ExpectTableRowCountToEqual`, `ExpectColumnValuesToNotBeNull`, `ExpectColumnValuesToBeBetween`, `ExpectColumnValuesToBeInSet`, `ExpectColumnValuesToNotBeInSet`, `ExpectColumnValuesToBeUnique`, `ExpectCompoundColumnsToBeUnique`, `ExpectColumnPairValuesToBeEqual`, `ExpectColumnPairValuesAToBeGreaterThanB`. Full list: <https://greatexpectations.io/expectations/>.
+Population entry points are separate files under `src/sql/monitoring/psa_population/`. Each population gate receives the configured census year via the runner's widgets. Census components have no dependency on OpenSTAT extraction, builds or gates. Placeholder gates for unbuilt tables remain inactive.
 
-## Tips from the LDRRMF pilot
+The shared helper uses a MERGE keyed by run_id, check_id and table_name. Row-count checks persist the distance outside their bounds; other failed aggregate contracts persist at least one failure. PASS metrics are zero. Tests exercise the actual GX engine with a recording writer; full Spark/Delta execution and source-run evidence remain separate validation steps.
 
-- On serverless, GX's Spark data source needs `persist=False` (handled in `dq_gate.py`).
-- GX counts failures per column. A rule over several columns (e.g. "no amount is negative") uses one helper column (`F.least(...)`), so a row counts once.
-- Cross-table checks: left-join the other table first and check the joined column. GX skips NULLs, so make the helper column NULL for rows another rule already covers.
-- `run_dq_gate()` returns every failing row's key columns to the driver (`result_format` COMPLETE). That is fine for tables of thousands of rows; use a smaller result format for very large tables.
-- In a notebook, run one gate per cell: Databricks shows only one results table per cell.
+See [results](dq-result.md), [finding recovery](handling-rejects.md), and [decision 0020](../decisions/0020-one-dq-results-table.md).

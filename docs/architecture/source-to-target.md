@@ -81,3 +81,7 @@ This branch runs in `ahon_pipeline` but are outside the primary LGU analytical p
 | PSA OpenSTAT population | `gold.fact_population_total` | `gold/build_fact_population_total.py` | `population_total_gold` |
 
 OpenSTAT does not supply `gold.fact_population` or `platinum.population_components`.
+
+## Gate entry points
+
+Population census gates use src/sql/monitoring/psa_population/silver_dq_gate.py and gold_dq_gate.py. OpenSTAT gates use the separate openstat_silver_dq_gate.py and openstat_gold_dq_gate.py files. Gate tasks and dependency contracts are documented in [DQ gates](../data-quality/dq-gates.md).

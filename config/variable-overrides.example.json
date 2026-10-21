@@ -1,6 +1,7 @@
 {
   "run_as": null,
   "catalog": null,
+  "warehouse_id": null,
   "source_volume": null,
   "source_period": null,
   "census_year": null,

@@ -42,7 +42,7 @@ def test_every_task_has_packaged_executable_assets_and_bounded_retries():
             ast.parse(path.read_text(encoding="utf-8"))
             if "--file" in args:
                 assert (ROOT / args[args.index("--file") + 1]).is_file()
-    assert count == 29
+    assert count == 42
 
 
 def test_batch_jobs_use_standard_compute_without_duplicate_execution():
@@ -68,7 +68,8 @@ def test_population_sources_keep_their_own_silver_and_gold_files():
         args = tasks[key]["spark_python_task"]["parameters"]
         entry = args[args.index("--file" if "--file" in args else "--entry-point") + 1]
         assert entry == writer
-        assert {dep["task_key"] for dep in tasks[key]["depends_on"]} == {source, "dim_lgu"}
+        assert {dep["task_key"] for dep in tasks[key]["depends_on"]} == {source, "dim_lgu", "dq_psgc_gold",
+                    "dq_population_silver" if key == "population_gold" else "dq_population_openstat_silver"}
     assert (ROOT / "src/sql/gold/fact_population_candidate.sql").is_file()
 
 
@@ -77,9 +78,9 @@ def test_independent_sources_are_not_blocked_by_cmci_or_earthquake():
     dependencies = {t["task_key"]: {d["task_key"] for d in t.get("depends_on", [])} for t in graph["tasks"]}
     for name in ["psgc_extract", "population_extract", "ldrrmf_extract", "earthquake_extract"]:
         assert dependencies[name] == {"setup"}
-    assert dependencies["ldrrmf_gold"] == {"ldrrmf_silver", "dim_lgu"}
-    assert dependencies["population_gold"] == {"psgc_population_silver", "dim_lgu"}
-    assert dependencies["earthquake_silver"] == {"earthquake_bronze", "psgc_silver"}
+    assert dependencies["ldrrmf_gold"] == {"ldrrmf_silver", "dim_lgu", "dq_ldrrmf_silver", "dq_psgc_gold"}
+    assert dependencies["population_gold"] == {"psgc_population_silver", "dim_lgu", "dq_population_silver", "dq_psgc_gold"}
+    assert dependencies["earthquake_silver"] == {"earthquake_bronze", "psgc_silver", "dq_psgc_silver"}
     assert not any("earthquake_gold" == task for task in dependencies)
 
 
@@ -134,3 +135,38 @@ def test_gx_is_installed_in_every_task_environment_and_fixtures_are_dev_only():
     config = yaml.safe_load((ROOT / 'databricks.yml').read_text())
     assert config['run_as'] == '${var.run_as}'
     assert config['variables']['run_as']['type'] == 'complex'
+
+
+def test_census_components_have_no_auxiliary_population_ancestors():
+    graph = next(job for _, name, job in jobs() if name == "ahon_pipeline")
+    tasks = {task["task_key"]: task for task in graph["tasks"]}
+
+    def ancestors(key):
+        found = set()
+        for dep in tasks[key].get("depends_on", []):
+            found.add(dep["task_key"])
+            found.update(ancestors(dep["task_key"]))
+        return found
+
+    canonical = ancestors("population_components")
+    assert "dq_population_silver" in canonical and "dq_population_gold" in canonical
+    assert canonical.isdisjoint({"population_extract", "population_bronze", "population_silver",
+                                 "population_total_gold", "dq_population_openstat_silver",
+                                 "dq_population_openstat_gold"})
+    for name in ["dq_population_gold", "dq_population_openstat_silver", "dq_population_openstat_gold"]:
+        params = tasks[name]["spark_python_task"]["parameters"]
+        assert params[params.index("--census-year") + 1] == "${var.census_year}"
+
+
+def test_tasks_that_read_a_checked_table_wait_for_its_gate():
+    graph = next(job for _, name, job in jobs() if name == "ahon_pipeline")
+    dependencies = {t["task_key"]: {d["task_key"] for d in t.get("depends_on", [])} for t in graph["tasks"]}
+    # A gate depends on the build(s) whose table it checks
+    gates = {key: builds for key, builds in dependencies.items() if key.startswith("dq_")}
+    assert len(gates) == 12
+    for task, needs in dependencies.items():
+        if task.startswith("dq_"):
+            continue
+        for gate, builds in gates.items():
+            if needs & builds:
+                assert gate in needs, f"{task} reads {sorted(needs & builds)} but does not wait for {gate}"

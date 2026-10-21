@@ -1,8 +1,8 @@
 """
-DQ gate, silver to gold: philvolcs_earthquake (decision 0012). NOT WRITTEN YET.
+DQ gate, silver to gold: philvolcs_earthquake. NOT WRITTEN YET.
 
 The gold earthquake table is not built. run_earthquake.py --stage gold calls
-src/sql/gold/build_fact_earthquake_event.sql, which is not in main, and ADR 0009
+src/sql/gold/build_fact_earthquake_event.sql, which is not in main, and
 keeps gold BLOCKED until the event grain, keys, correction/dedup policy and the
 geographic meaning of the PSGC candidates are approved. Write this gate when the
 build exists, from the columns that build actually creates.
