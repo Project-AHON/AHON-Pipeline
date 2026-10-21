@@ -18,30 +18,28 @@ Do not record tokens or secret values. No new cloud run is claimed by this docum
 
 ## Current verification record
 
-The run below is a **development run** of the current code. It is recorded until the production run (target `prod`, catalog `ahon`, CMCI in full mode) has finished and been checked; that record will replace this one and add the same-batch replay.
-
 | Field | Evidence |
 | --- | --- |
 | Verification date | 2026-10-21 |
-| Commit SHA | `62fa65b1f1edbb42bfbd4d097dd0ce0b5adfcfc9` (main after #120). No tracked file was modified; one untracked, non-code file (`verify-bundle.json`) was present at deploy and was uploaded with the bundle files |
-| Bundle target | Development settings (`catalog = ahon_dev_crystal`, `cmci_run_mode = test`) |
+| Commit SHA | `62fa65b1f1edbb42bfbd4d097dd0ce0b5adfcfc9` (main after #120), clean working tree |
+| Bundle target | `prod` (`cmci_run_mode = full`) |
 | Databricks workspace | The team workspace |
 | Job name | `ahon_pipeline` (job 532457890464535) |
-| Job run | 512035323666586, started 2026-10-21 07:48:56 UTC, ended 08:19:55 UTC (31 minutes), `SUCCEEDED` |
-| Catalog | `ahon_dev_crystal` |
-| Batch ID | `prod-verify-001` |
-| Command executed | `databricks bundle run ahon_pipeline -t <target> --profile <profile> --params "batch_id=prod-verify-001"` |
+| Job run | 109329846879869, started 2026-10-21 10:19:37 UTC, ended 10:51:59 UTC (32 minutes), `SUCCEEDED` |
+| Catalog | `ahon` |
+| Batch ID | `prod-verify-003` |
+| Command executed | `databricks bundle run ahon_pipeline -t prod --profile <profile> --params "batch_id=prod-verify-003" --no-wait` |
 | Tasks | 41 of 41 succeeded; 0 failed, 0 skipped, 0 blocked (`monitoring.run_log`) |
-| Source periods | PSGC: snapshots Q2_2024 (selected), April_2024, Q4_2023, Q2_2021. Census population: 2024. BLGF LDRRMF: FY2018 to FY2024 (7 fiscal years). PHIVOLCS: 2024-01. CMCI: 2014 to 2024, test mode (5 LGUs) |
+| Source periods | PSGC: snapshots Q2_2024 (selected), April_2024, Q4_2023, Q2_2021. Census population: 2024. BLGF LDRRMF: FY2018 to FY2024 (7 fiscal years). PHIVOLCS: 2024-01 to 2026-09 (33 months). CMCI: 2014 to 2024, full mode (1,634 LGUs) |
 | Pinned source revision | Hugging Face `Jess-Christine/Project-AHON` at `9273d4b4d5af6d2a14e52451c45ac70a6e3012f5` |
-| DQ outcomes | 329 PASS, 24 WARN, 0 BLOCKED, 0 ERROR (`run_id = 'prod-verify-001'`) |
-| Same-batch replay | Not run for this record; see the production record |
-| Evidence type | Live sources, development catalog |
+| DQ outcomes | 324 PASS, 28 WARN, 0 BLOCKED, 0 ERROR (`run_id = 'prod-verify-003'`) |
+| Same-batch replay | Run <REPLAY_RUN_ID>, same command and batch, no redeploy: <REPLAY_RESULT> |
+| Evidence type | Live sources, production catalog |
 | Verified by | Crystal |
 
 ### Row counts
 
-Counts read after the run with the evidence notebook (row count per table, plus a fingerprint for the replay comparison). Bronze keeps every delivery, so a source loaded in two batches shows twice its rows in bronze; silver keeps one current row per business key.
+Counts read after the run with the evidence notebook (row count per table, plus a fingerprint for the replay comparison). Bronze keeps every delivery, so a source loaded in two batches shows twice its rows in bronze; silver keeps one current row per business key. PSGC, OpenSTAT and LDRRMF were also loaded into bronze by the failed attempt `prod-verify-002` (see below), so bronze holds two deliveries of each.
 
 | Dataset | Bronze | Silver | Rejected | Gold / reference | Platinum | Explained by |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -49,12 +47,10 @@ Counts read after the run with the evidence notebook (row count per table, plus 
 | PSA Population (census) | | 4,781 (`psgc_city_population_clean`), 16 not accepted | | `fact_population` 1,642 (one per city and municipality) | `population_components` 1,642 | 1,642 = the CITY and MUN rows in `dim_lgu`; 19 Sulu towns have no 2024 count (`MISSING`) |
 | PSA OpenSTAT | 3,488 | 1,744 (`psa_population_clean`) | 0 | `fact_population_total` 1,744 | | Two deliveries of 1,744 in bronze |
 | BLGF LDRRMF | 22,868 | 11,434 | 0 | `fact_ldrrmf` 11,434; `blgf_ldrrmf_lgu_map` 2,055 | `funding_components` 10,880 | Two deliveries of 11,434 in bronze. Platinum keeps city and municipality reports only (554 fewer) |
-| PHIVOLCS earthquakes | 1,896 | 1,896 | 0 | | `earthquake_observation_summary` 1 (one month) | Earthquake bronze rows are identified by file and row number, so an identical file does not add rows |
-| CMCI | 2 (HTML batches) | 1,925 | 0 | `fact_cmci_indicator` 1,925; `dim_cmci_indicator` 35; `cmci_lgu_map` 5 | `cmci_pillar_coverage` 275 | Test mode: 5 LGUs x 35 indicators x 11 years; 5 x 5 pillars x 11 years |
+| PHIVOLCS earthquakes | 59,861 | 59,861 | 54 (`philvolcs_earthquake_reject`) | | `earthquake_observation_summary` 33 (one per month) | Silver keeps every bronze row and flags invalid ones; the 54 flagged invalid rows are also copied to the reject table (`reject_matches_flagged` passed) |
+| CMCI | 328 (HTML batches) | 629,090 | 0 | `fact_cmci_indicator` 629,090; `dim_cmci_indicator` 35; `cmci_lgu_map` 1,634 | `cmci_pillar_coverage` 89,870 | 1,634 LGUs x 11 years = 17,974 LGU-years; x 35 indicators = 629,090; x 5 pillars = 89,870 |
 
-The development catalog also still holds `bronze.osm_critical_infrastructures` and `silver.osm_critical_infrastructures_clean` (55,482 rows each) from runs before OSM was removed. This run did not build them.
-
-The volume and reconciliation rules in the gates (24 rules, for example `row_count_matches_silver`, `total_appropriation_is_sum_of_parts`) all passed, except `psa_psgc_silver_rows_per_period_match_bronze` (below).
+The volume and reconciliation rules in the gates (33 rules, for example `row_count_matches_silver`, `total_appropriation_is_sum_of_parts`) all passed, except `psa_psgc_silver_rows_per_period_match_bronze` (below).
 
 ### Warnings
 
@@ -73,21 +69,26 @@ The volume and reconciliation rules in the gates (24 rules, for example `row_cou
 | `gold.fact_ldrrmf` | `dim_lgu_has_ldrrmf_latest_year` | 43 | 1,724 | Cities and municipalities without FY2024 LDRRMF: the unmatched cities above and the 8 new BARMM towns |
 | `gold.fact_ldrrmf` | `lgu_type_matches_psgc_level` | 4 | 11,199 | Baliuag, a town that became a city |
 | `gold.fact_ldrrmf` | `utilization_rate_not_negative` | 2 | 11,434 | Negative expenditure in the source |
-| `silver.philvolcs_earthquake_observation_clean` | `candidate_coverage` | 1,896 | 1,896 | The locality parser does not handle the source's spacing and degree sign; fix pending |
-| `silver.philvolcs_earthquake_observation_clean` | `in_ph_bounds` | 22 | 1,896 | Coordinates outside the Philippine bounding box (offshore events); kept |
-| `silver.cmci_indicator_clean`, `gold.fact_cmci_indicator` | `raw_score_present` | 312 | 1,925 | Source shows `-` or blank |
-| `platinum.cmci_pillar_coverage` | `coverage_complete` | 84 | 275 | Pillars with too few indicators (`INSUFFICIENT_DATA`) |
+| `silver.philvolcs_earthquake_observation_clean` | `candidate_coverage` | 59,861 | 59,861 | The locality parser does not handle the source's spacing and degree sign; fix pending |
+| `silver.philvolcs_earthquake_observation_clean` | `in_ph_bounds` | 698 | 59,861 | Coordinates outside the Philippine bounding box (offshore events); kept |
+| `silver.philvolcs_earthquake_observation_clean` | `event_signature_unique` | 87 | 59,861 | The same event signature appears more than once in the source (for example rows 1267 and 1268 of 2024-08). Kept; cause not yet checked |
+| `silver.philvolcs_earthquake_observation_clean` | `event_time_parsed` | 33 | 59,861 | Date-time text that could not be parsed (for example rows 1604 to 1608 of 2024-03). Flagged; cause not yet checked |
+| `silver.philvolcs_earthquake_observation_clean` | `event_values_finite` | 24 | 59,861 | Coordinates, depth or magnitude not numeric. Flagged; cause not yet checked |
+| `silver.philvolcs_earthquake_reject` | `invalid_observations` | 54 | | Rows flagged invalid by the checks above, copied to the reject table |
+| `silver.cmci_indicator_clean`, `gold.fact_cmci_indicator` | `raw_score_present` | 132,797 | 629,090 | Source shows `-` or blank |
+| `platinum.cmci_pillar_coverage` | `coverage_complete` | 30,503 | 89,870 | Pillars with too few indicators (`INSUFFICIENT_DATA`) |
 
 ### Limitations
 
-- Development catalog and CMCI test mode (5 LGUs); CMCI counts are not full coverage.
-- No same-batch replay in this record.
-- One untracked, non-code file was uploaded with the deployment.
-- Earthquake silver rows keep the lineage of the first batch that delivered them, so their source paths name an earlier batch.
+- PHIVOLCS covers 2024-01 to 2026-09 only. The planned range from 2019-01 failed at extract (see below); the fix is tracked separately.
+- The earthquake locality parser and the LDRRMF map regression are known and not fixed in this commit (see the warnings).
+- The DQ outcomes above are the rows for `prod-verify-003`; a same-batch replay rewrites the same rows.
 
-### Earlier run not used as evidence
+### Earlier runs not used as evidence
 
-Run 526096692147624 (2026-10-20, batch `crystal-run-001`) succeeded, and its DQ results were recovered from Delta history (version 927 of `monitoring.dq_result`: 328 PASS, 23 WARN). It is not used because it was deployed from a working tree with uncommitted changes, so the code that ran cannot be tied to a commit.
+- Run 448657024603341 (2026-10-21, target `prod`, batch `prod-verify-002`, PHIVOLCS from 2019-01) failed at `earthquake_extract`: the 2019-06 PHIVOLCS page has six extra empty columns, and the extract expects exactly six. Tasks that did not depend on the earthquake extract ran and loaded PSGC, OpenSTAT and LDRRMF into bronze. The range was narrowed to start at 2024-01 for the run above.
+- Run 512035323666586 (2026-10-21, batch `prod-verify-001`) succeeded on the same commit, but wrote to the development catalog with CMCI in test mode because the development and production override files had been swapped. It was the previous record of this page.
+- Run 526096692147624 (2026-10-20, batch `crystal-run-001`) succeeded, and its DQ results were recovered from Delta history (version 927 of `monitoring.dq_result`: 328 PASS, 23 WARN). It is not used because it was deployed from a working tree with uncommitted changes, so the code that ran cannot be tied to a commit.
 
 ## Verification record template
 
