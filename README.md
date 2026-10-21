@@ -6,7 +6,7 @@ Earthquake data in the Philippines is spread across agencies, formats and place 
 
 ## Implementation status
 
-The current pipeline publishes geographic references, reported census population, CMCI indicator measurements and coverage, disaster-fund components, and earthquake observation summaries.
+The current pipeline publishes geographic references, reported census population, CMCI indicator measurements and coverage, disaster-fund components, and earthquake observation summaries. Every run records its data quality results, which the AHON Data Quality Monitoring dashboard shows. The AHON Pipeline Runs dashboard shows each job run and its tasks.
 
 The analytical questions below describe the project's intended outcomes. Composite LGU risk, preparedness and vulnerability rankings are not yet implemented as approved pipeline outputs. Earthquake locality candidates are reported, but observations are not assigned to LGUs as exposure or impact.
 
@@ -47,6 +47,12 @@ flowchart LR
 
 AHON is a batch pipeline on Databricks. Each source is downloaded into a folder of raw files, then refined in four layers: **bronze** keeps the data as received, **silver** cleans and types source data, preserves quality findings, and attaches reviewed PSGC identities where supported. Earthquake observations retain locality candidates with geographic assignment withheld; unmatched funding reports retain a NULL PSGC code. **Gold** builds the tables used for analysis, and **platinum** prepares the views the dashboard reads. Build checks record quality results. Earlier successful writes are not rolled back when a later check fails.
 
+### Data quality
+
+The pipeline runs 12 layer-gate tasks after their corresponding builds. Census and OpenSTAT population have independent silver and gold gates. Blocking results stop dependent tasks; warning results remain visible. Gate and build checks share `monitoring.dq_result`. Earlier writes are not rolled back.
+
+The AHON Data Quality Monitoring dashboard (`resources/dashboards/ahon_data_quality.lvdash.json`) is deployed with the bundle and shows what passed, what is broken and whether anything stopped the run. See [data quality](docs/data-quality/README.md). The AHON Pipeline Runs dashboard (`resources/dashboards/ahon_pipeline_runs.lvdash.json`) shows when each job ran, how long it took, and which tasks succeeded, failed or were skipped. See [pipeline runs](docs/operations/pipeline-runs.md).
+
 New to the acronyms? See the [glossary](docs/architecture/glossary.md).
 
 Layer-by-layer diagram: [architecture overview](docs/architecture/overview.md), [data model](docs/architecture/data-model.md), [data quality](docs/data-quality/README.md).
@@ -57,7 +63,7 @@ New to the repository? Read in this order:
 
 1. This README, and the [glossary](docs/architecture/glossary.md) for acronyms.
 2. [Architecture overview](docs/architecture/overview.md): how data moves through the layers.
-3. [Setup](docs/getting-started/setup.md): tools, Databricks access, settings and your first run.
+3. [Setup](docs/getting-started/setup.md): tools, Databricks access, settings, your own PSGC token from PSA, and your first run.
 4. [Runbook](docs/operations/runbook.md): running one dataset, rerunning and fixing a failed run.
 5. [CONTRIBUTING](CONTRIBUTING.md): branches, pull requests and CI checks.
 
@@ -69,7 +75,7 @@ databricks bundle deploy -t dev --profile <profile>
 databricks bundle run ahon_pipeline -t dev --profile <profile>
 ```
 
-Credentials (Databricks login, PSA token) and your bundle settings stay on your machine or in Databricks secrets, never in the repository.
+Before the first run you need your own PSGC API token from PSA ([how to request and store it](docs/getting-started/setup.md#4-get-and-store-your-psgc-token)). Credentials (Databricks login, PSA token) and your bundle settings stay on your machine or in Databricks secrets, never in the repository.
 
 ## Documentation
 
@@ -79,9 +85,10 @@ Credentials (Databricks login, PSA token) and your bundle settings stay on your 
 | [docs/project](docs/project/) | Problem statement, assumptions and limitations, ownership |
 | [docs/data](docs/data/) | Sources, a data profile per source, and a data dictionary page per table |
 | [docs/architecture](docs/architecture/) | Overview, data model, source to target, analytics method, naming standard |
-| [docs/data-quality](docs/data-quality/) | How checks work, the DQ gates and the results table |
-| [docs/operations](docs/operations/) | Runbook: running, rerunning and recovering the pipeline |
+| [docs/data-quality](docs/data-quality/) | How checks work, the DQ gates, the results table and the DQ dashboard |
+| [docs/operations](docs/operations/) | Runbook (running, rerunning and recovering the pipeline) and pipeline run records |
 | [docs/getting-started](docs/getting-started/) | Setup for new team members |
+| [docs/insights](docs/insights/) | Dashboard status and verified findings |
 | [docs/decisions](docs/decisions/) | Decision records, one per decision |
 | [docs/archive](docs/archive/) | Older pages kept for reference |
 
@@ -100,10 +107,11 @@ AHON-Pipeline/
 │   └── pull_request_template.md # PR template
 ├── resources/
 │   ├── jobs/                    # ahon_pipeline, catalog_setup, data_quality (dev only)
+│   ├── dashboards/              # AHON Data Quality Monitoring and AHON Pipeline Runs dashboards
 │   └── cmci_indicators.csv      # the selected CMCI indicators
 ├── src/
 │   └── sql/                     # all pipeline code, SQL and Python together
-│       ├── 00_setup/            # catalog, schemas, volume and monitoring tables
+│       ├── 00_setup/            # catalog, schemas, volume, monitoring table and DQ dashboard views
 │       ├── datasets/            # one folder per source dataset
 │       │   └── <dataset>/
 │       │       ├── extract/     # pulls data from the source and writes raw files
@@ -111,7 +119,7 @@ AHON-Pipeline/
 │       │       └── silver/      # cleans into silver.<dataset>_clean (+ _reject)
 │       ├── gold/                # dimensions and facts, combining datasets
 │       ├── platinum/            # analysis views built from gold
-│       ├── monitoring/          # DQ gates per dataset
+│       ├── monitoring/          # DQ gates per dataset and the run log views
 │       └── common/              # shared Python: runners, quality checks, DQ gate
 ├── notebooks/
 │   └── exploration/             # experiments only; jobs never run these
@@ -123,7 +131,7 @@ AHON-Pipeline/
 
 - **Code:** each dataset has its own folder under `src/sql/datasets/`, named after the dataset, with `bronze/` and `silver/` folders (and `extract/` when it pulls from the source). Code that is shared or combines datasets goes in the shared folders (`gold/`, `platinum/`, `common/`).
 - **Source files:** file-based sources are uploaded to the team's Hugging Face dataset repository and copied unchanged into the `<catalog>.reference.<source_volume>` volume by the dataset's `extract/` code, in one folder per dataset and batch. Bronze code reads from the volume only ([decision 0004](docs/decisions/0004-source-file-landing-hugging-face.md)).
-- **Jobs:** tasks are defined in `resources/jobs/`. Jobs run `.sql` and `.py` files from `src/sql/`, never notebooks.
+- **Jobs and dashboards:** tasks are defined in `resources/jobs/`, dashboards in `resources/dashboards/`. Jobs run `.sql` and `.py` files from `src/sql/`, never notebooks.
 - **Setup scripts:** files in `src/sql/00_setup/` have number prefixes because they run in order.
 - **Tests:** in `tests/`, in the same layout as `src/sql/`.
 - **Docs:** add or update the table's [data dictionary](docs/data/data-dictionary/README.md) page in the same PR that adds or changes the table. Record design choices in `docs/decisions/`.
@@ -135,7 +143,3 @@ Names follow the [naming standard](docs/architecture/naming-standard.md).
 Yanna, Maki, Jessy, Crystal and Crizza. Who owns which dataset: [ownership](docs/project/ownership.md).
 
 How to contribute: [CONTRIBUTING](CONTRIBUTING.md).
-
-## Layer gates
-
-The pipeline runs 12 layer-gate tasks after their corresponding builds. Census and OpenSTAT population have independent Silver and Gold gates. Blocking results stop dependent tasks; warning results remain visible. Gate and build checks share `monitoring.dq_result`. Earlier writes are not rolled back.

@@ -1,6 +1,6 @@
 # Pipeline runs and evidence
 
-Databricks Jobs is the source of task execution state. The `run_log_views` task makes it queryable in the catalog through two views, `monitoring.run_log` and `monitoring.task_run_log` (see [Run log views](#run-log-views)). `monitoring.dq_result` stores individual check results.
+Databricks Jobs is the source of task execution state. The `run_log_views` task makes it queryable in the catalog through two views, `monitoring.run_log` and `monitoring.task_run_log`, and the AHON Pipeline Runs dashboard shows them (see [Run log views](#run-log-views)). `monitoring.dq_result` stores individual check results.
 
 ## Evidence to retain
 
@@ -75,22 +75,22 @@ A successful task is not evidence that every branch ran. Check skipped, failed a
 
 | Column | Type | Description | Notes |
 | --- | --- | --- | --- |
-| `job_name` | string | Deployed job name | Dev targets add a prefix, e.g. `[dev crystal_manas] ahon_pipeline` |
+| `job_name` | string | Deployed job name | Dev targets add a prefix, for example `[dev crystal_manas] ahon_pipeline` |
 | `batch_id` | string | The `batch_id` job parameter; the `run_id` in `dq_result` | The job run id when left at its default `{{job.run_id}}` |
 | `job_run_id` | bigint | Databricks job run id | |
-| `trigger_type` | string | How the run started | e.g. `ONETIME` |
-| `run_type` | string | Run type | e.g. `JOB_RUN` |
+| `trigger_type` | string | How the run started | For example `ONETIME` |
+| `run_type` | string | Run type | For example `JOB_RUN` |
 | `started_at` | timestamp (UTC) | Run start | |
 | `ended_at` | timestamp (UTC) | Run end | |
 | `duration_seconds` | bigint | `ended_at` minus `started_at` | Includes time in queue |
-| `result_state` | string | Final state of the run | `SUCCEEDED`, `ERROR`, `CANCELLED`; null while running |
-| `termination_code` | string | Why the run ended | e.g. `SUCCESS`, `RUN_EXECUTION_ERROR`, `USER_CANCELLED` |
+| `result_state` | string | Final state of the run | `SUCCEEDED`, `ERROR`, `CANCELLED`; NULL while running |
+| `termination_code` | string | Why the run ended | For example `SUCCESS`, `RUN_EXECUTION_ERROR`, `USER_CANCELLED` |
 | `tasks_total` | bigint | Tasks in the run | |
 | `tasks_succeeded` | bigint | Tasks with state `SUCCEEDED` | |
 | `tasks_failed` | bigint | Tasks with state `FAILED`, `ERROR` or `TIMED_OUT` | |
-| `tasks_skipped` | bigint | Tasks with state `SKIPPED` | After a gate BLOCKs, or not selected with `--only` |
+| `tasks_skipped` | bigint | Tasks with state `SKIPPED` | After a gate blocks, or not selected with `--only` |
 | `tasks_cancelled` | bigint | Tasks with state `CANCELLED` | |
-| `dq_pass`, `dq_warn`, `dq_blocked`, `dq_error` | bigint | `dq_result` rows for this `batch_id` by disposition | Includes execution markers |
+| `dq_pass`, `dq_warn`, `dq_blocked`, `dq_error` | bigint | `dq_result` rows for this `batch_id`, by disposition | Includes execution markers |
 
 **`monitoring.task_run_log`**: one row per task per job run. Key: `job_run_id`, `task_key`.
 
@@ -100,16 +100,20 @@ A successful task is not evidence that every branch ran. Check skipped, failed a
 | `task_key` | string | Task name in the job | |
 | `started_at`, `ended_at` | timestamp (UTC) | First and last time slice of the task | |
 | `duration_seconds` | bigint | `ended_at` minus `started_at` | |
-| `result_state` | string | Final state of the task | `SUCCEEDED`, `FAILED`, `SKIPPED`, `CANCELLED`; null while running |
+| `result_state` | string | Final state of the task | `SUCCEEDED`, `FAILED`, `SKIPPED`, `CANCELLED`; NULL while running |
 | `termination_code` | string | Why the task ended | |
 | `attempts` | bigint | Task runs for this task key | More than 1 after a retry or repair |
 
 Things to know:
 
-- The job's `run_as` user needs SELECT on `system.lakeflow`.
-- System tables lag a few minutes, so a new run can be missing or show a null state for a while.
+- The job's `run_as` identity needs `SELECT` on `system.lakeflow`.
+- System tables lag a few minutes, so a new run can be missing or show a NULL state for a while.
 - Runs that reuse a `batch_id` share one set of DQ counts, because `dq_result` keeps one row per `run_id`, check and table. Leave `batch_id` at its default to get counts per run.
 - Rows written per table per run are not recorded.
+
+## Pipeline runs dashboard
+
+The AHON Pipeline Runs dashboard (`resources/dashboards/ahon_pipeline_runs.lvdash.json`) reads the two views. The **Runs** page shows the number of runs, average duration, when the last run ended, runs by status, duration over time and the run history. The **Tasks** page shows, for one selected run, each task's duration and final state. Times are in UTC. Like the data quality dashboard, it is defined in `databricks.yml`, and `bundle deploy` creates it with the bundle's `catalog` and `warehouse_id`. Edit the JSON, not the dashboard in the workspace: a deploy overwrites changes made there.
 
 ## DQ evidence
 
