@@ -2,7 +2,7 @@
 
 How the pipeline checks data between layers with Great Expectations, and where each dataset's gate lives. The design is in [decision 0018](../decisions/0018-dq-gates-with-great-expectations.md); the results table is described in [dq-results](dq-result.md).
 
-The gates are being built. Today the job runs the checks inside each build (see the [data quality overview](README.md)); the gate files below run in a notebook and are not yet tasks in `ahon_pipeline`.
+The gates are being built. Today the job runs checks inside each dataset build (see the [data quality overview](README.md)). The standalone gate files are not tasks in `ahon_pipeline`; some have been tested manually in notebooks, while others remain drafted or placeholders.
 
 ## Where the checks run
 
@@ -90,7 +90,7 @@ Legacy monitoring scripts remain in the repository. Their presence does not mean
 ## Gate file template
 
 ```python
-# %pip install great_expectations==1.23.1
+# %pip install great_expectations==1.24.0
 """
 DQ gate, <from layer> to <layer>: <dataset> (decision 0018).
 

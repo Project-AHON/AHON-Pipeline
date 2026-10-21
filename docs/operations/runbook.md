@@ -1,313 +1,463 @@
 # Runbook
 
-How to run, rerun and recover the AHON pipeline. Before the first run, finish [setup](../getting-started/setup.md): Databricks CLI profile, bundle variable overrides, PSGC token secret and the reviewed CMCI mapping file.
+How to run, rerun, and recover the AHON pipeline.
 
-The pipeline is the job `ahon_pipeline` in `resources/jobs/ahon_job.yml`. Which script builds which table is in [source to target](../architecture/source-to-target.md).
+Before the first run, finish [setup](../getting-started/setup.md): Databricks CLI profile, bundle variable overrides, PSGC token secret, and the reviewed CMCI mapping file.
+
+The pipeline is the job `ahon_pipeline` in `resources/jobs/ahon_job.yml`. Which script builds which table is documented in [source to target](../architecture/source-to-target.md).
 
 ## What is what
 
 | Thing | What it is |
 | --- | --- |
-| Profile | A saved login to your Databricks workspace on your computer. You pick its name. |
-| Overrides file | A private JSON file with your own settings (catalog name, your email, URLs). The job has blanks and this file fills them. It stays on your computer and is never committed. |
-| PSGC token | A password for the PSA PSGC API. It is stored inside Databricks as a secret, never in a file, Git or chat. |
-| Bundle | The job definitions in the repo. `deploy` copies them to your workspace, `run` starts a job. |
+| Profile | A saved login to your Databricks workspace on your computer. You choose its name. |
+| Overrides file | A private JSON file with your settings, such as the catalog name, email, and URLs. It stays on your computer and is never committed. |
+| PSGC token | A credential for the PSA PSGC API. It is stored in Databricks as a secret, never in a file, Git, or chat. |
+| Bundle | The job definitions in the repository. `deploy` copies them to your workspace, while `run` starts a job. |
 
-## Step 1: Log in to Databricks (once)
+## Step 1: Log in to Databricks once
+
+Run from PowerShell:
 
 ```powershell
 databricks auth login --host https://<your-workspace>.cloud.databricks.com --profile <your-profile-name>
 databricks auth profiles
 ```
 
-Your profile should show `Valid: YES`. If it says NO, run the login line again.
+Your profile should show `Valid: YES`. If it shows `Valid: NO`, run the login command again.
 
-## Step 2: Create your overrides file (once)
+## Step 2: Create your private overrides file
+
+The authoritative configuration template is:
+
+`config/variable-overrides.example.json`
+
+Do not copy configuration values from archived documentation, previous job runs, another developer's overrides file, or an older version of this runbook.
+
+From the repository root, where `databricks.yml` is located, run:
 
 ```powershell
 New-Item -ItemType Directory -Path .databricks/bundle/dev -Force | Out-Null
+
+Copy-Item `
+  config/variable-overrides.example.json `
+  .databricks/bundle/dev/variable-overrides.json
+```
+
+Open the copied file in Notepad:
+
+```powershell
 notepad .databricks/bundle/dev/variable-overrides.json
 ```
 
-Notepad asks to create the file. Paste the template below, change the **three marked values**, save.
+Complete every required value according to [setup](../getting-started/setup.md).
 
-```json
-{
-  "run_as": { "user_name": "<your Databricks login email>" },
-  "catalog": "ahon_dev_<yourname>",
-  "source_volume": "source",
-  "source_period": "Q2_2024",
-  "census_year": 2024,
-  "hf_repo": "Jess-Christine/Project-AHON",
-  "hf_revision": "9273d4b4d5af6d2a14e52451c45ac70a6e3012f5",
-  "psgc_secret_scope": "ahon-dev-yourname",
-  "psgc_secret_key": "psgc-api-token",
-  "cmci_mapping_file": "/Volumes/ahon_dev_<yourname>/reference/source/<reviewed-Q2_2024-mapping-filename>.csv",
-  "cmci_start_year": 2014,
-  "cmci_end_year": 2024,
-  "start_month": "2024-01",
-  "end_month": "2024-01",
-  "workspace_root": "/Workspace/Users/<your Databricks login email>/ahon-<yourname>-dev",
-  "environment_version": "6",
-  "job_timeout_seconds": 14400,
-  "task_timeout_seconds": 3600,
-  "task_retries": 1,
-  "retry_interval_millis": 30000,
-  "max_concurrent_runs": 1,
-  "psgc_api_base_url": "https://classification.psa.gov.ph/psgc",
-  "psgc_expected_rows": "{\"Q2_2024\":43762,\"April_2024\":43761,\"Q4_2023\":43758,\"Q2_2021\":43798}",
-  "population_api_url": "https://openstat.psa.gov.ph/PXWeb/api/v1/en/DB/1A/PO_2024/0241A6DPUP1.px",
-  "population_source_file": "0241A6DPUP1.csv",
-  "population_expected_profile": "[1,18,118,1607]",
-  "ldrrmf_expected_rows": "{\"2018\":1513,\"2019\":1566,\"2020\":1612,\"2021\":1637,\"2022\":1683,\"2023\":1707,\"2024\":1716}",
-  "ldrrmf_file_pattern": "FY{year}-LDRRMF-by-LGU.xlsx",
-  "ldrrmf_folder": "data/ldrrmf",
-  "ldrrmf_start_year": 2018,
-  "ldrrmf_end_year": 2024,
-  "cmci_portal_url": "https://cmci.dti.gov.ph/data-portal.php",
-  "cmci_process_url": "https://cmci.dti.gov.ph/data-portal-process.php",
-  "cmci_test_limit": 5,
-  "cmci_request_batch_size": 10,
-  "cmci_request_delay": 1,
-  "cmci_http_retries": 3,
-  "cmci_http_backoff": 2,
-  "cmci_metric_version": "selected_35_v1",
-  "osm_folder": "data/critical-infrastructures",
-  "osm_shapefile_stems": "[\"schools\",\"hospitals\",\"police_station\",\"fire_station\"]",
-  "request_timeout": 60,
-  "earthquake_archive_url_template": "https://earthquake.phivolcs.dost.gov.ph/EQLatest-Monthly/{year}/{year}_{month_name}.html",
-  "earthquake_latest_url": "https://earthquake.phivolcs.dost.gov.ph/",
-  "cmci_run_mode": "test",
-  "source_timezone": "Asia/Manila",
-  "cmci_user_agent": "AHON-Pipeline"
-}
-```
+At minimum, confirm these developer-specific settings:
 
-The values to change:
-1. `run_as`: your Databricks login email.
-2. `catalog`: your own catalog name, for example `ahon_dev_maria`. Use a name nobody else uses.
-3. `workspace_root`: your email and name again, so your files stay separate from everyone else's.
-4. `psgc_secret_scope`: replace `yourname` in `ahon-dev-yourname` with your own unique identifier. Use the exact same scope name in Step 3's commands and this setting.
+- `run_as.user_name`: your Databricks login email
+- `catalog`: your unique development catalog
+- `workspace_root`: your isolated Databricks workspace path
+- `psgc_secret_scope`: your developer-specific secret scope
+- `cmci_mapping_file`: the exact volume path of the approved reviewed Q2_2024 CMCI mapping CSV
 
-Notes:
-- Keep the commas and quotes exactly as shown. A stray comma gives a JSON error.
-- Use the reviewed Q2_2024 CMCI mapping CSV shipped in the repository; do not leave `cmci_mapping_file` empty. Upload that file using the repository's existing source-file upload procedure, then replace the example volume path in `cmci_mapping_file` with the exact path returned by that procedure under your `<catalog>.reference.<source_volume>` volume. Keep the reviewed file unchanged; do not create a new mapping or substitute an unreviewed one.
-- The values come from the team's earlier dev job. If something fails on a URL or `hf_revision`, ask the dataset owner whether it is still current.
-- Check the file has every key (prints only names, never values):
+The repository includes the approved reviewed mapping at:
+
+`src/sql/datasets/cmci/silver/cmci_reviewed_mapping_Q2_2024.csv`
+
+Upload this file using the procedure in [setup](../getting-started/setup.md). Then set `cmci_mapping_file` to its exact uploaded volume path.
+
+Do not create a new mapping, modify the reviewed file, or substitute an unreviewed mapping.
+
+Keep `.databricks/bundle/dev/variable-overrides.json` private. Never commit it or paste its contents into an issue, pull request, log, screenshot, or chat.
+
+### Check the required configuration keys
+
+This check prints key names only. It does not print configuration values:
 
 ```powershell
-$settings = Get-Content .databricks/bundle/dev/variable-overrides.json -Raw | ConvertFrom-Json
-$required = (Get-Content config/variable-overrides.example.json -Raw | ConvertFrom-Json).PSObject.Properties.Name
-$missing = @($required | Where-Object { $_ -notin $settings.PSObject.Properties.Name -or $null -eq $settings.$_ })
-"Keys expected: $($required.Count); missing or null: $($missing.Count)"
+$settings = Get-Content `
+  .databricks/bundle/dev/variable-overrides.json `
+  -Raw | ConvertFrom-Json
+
+$required = (
+  Get-Content config/variable-overrides.example.json -Raw |
+  ConvertFrom-Json
+).PSObject.Properties.Name
+
+$missing = @(
+  $required | Where-Object {
+    $_ -notin $settings.PSObject.Properties.Name -or
+    $null -eq $settings.$_ -or
+    (
+      $settings.$_ -is [string] -and
+      [string]::IsNullOrWhiteSpace($settings.$_)
+    )
+  }
+)
+
+"Keys expected: $($required.Count)"
+"Missing, null, or blank: $($missing.Count)"
 $missing
 ```
 
-## Step 3: Request and save your PSGC token in Databricks (once)
+Expected result:
+
+```text
+Missing, null, or blank: 0
+```
+
+If keys are missing, update your private overrides file. Do not add undocumented keys only because they appeared in an older runbook or another developer's configuration.
+
+## Step 3: Request and save your PSGC token in Databricks once
 
 ### 3a. Request a token from the Philippine Statistics Authority
 
 1. Open the official [PSA Statistical Classification Systems API page](https://psa.gov.ph/classifications-api).
-2. Open the [PSA API Access Guide](https://psa.gov.ph/classifications-api/access-guide) and follow its **Request Your API Token** instructions to submit the request form.
-3. Check your email for the token issued by PSA. If you already have a valid token, you can use it instead.
+2. Open the [PSA API Access Guide](https://psa.gov.ph/classifications-api/access-guide).
+3. Follow the **Request Your API Token** instructions.
+4. Check your email for the token issued by PSA. If you already have a valid token, you can use it instead.
 
-PSA tokens must be kept secure and must not be shared, sold, lent, committed to Git, or pasted into chat. Each developer should follow PSA's current token-request and usage requirements. See the [PSA API terms and conditions](https://psa.gov.ph/classifications-api/terms-and-conditions).
+PSA tokens must not be shared, sold, lent, committed to Git, or pasted into chat.
 
-### 3b. Store the token in your own Databricks secret scope
+Each developer must follow PSA's current token-request and usage requirements. See the [PSA API terms and conditions](https://psa.gov.ph/classifications-api/terms-and-conditions).
 
-Use a **developer-specific scope** so personal PSA tokens do not overwrite one another in a shared workspace. For example, use `ahon-dev-maria` for a developer whose chosen identifier is `maria`. Replace `ahon-dev-maria` in the commands below with your own unique scope name, then set `psgc_secret_scope` in `variable-overrides.json` to that exact same value. A different Databricks CLI profile does not create a separate secret namespace within the same workspace.
+### 3b. Store the token in your Databricks secret scope
 
-Run these commands. **The second command asks you to paste your token at a hidden prompt** (you will not see the characters). Paste it without quotes and press Enter.
+Use a developer-specific scope so personal PSA tokens do not overwrite one another in a shared workspace.
+
+For example, use `ahon-dev-maria` for a developer whose identifier is `maria`.
+
+Replace `ahon-dev-maria` below with your own unique scope name. Set `psgc_secret_scope` in `variable-overrides.json` to that exact same name.
+
+A different Databricks CLI profile does not create a separate secret namespace within the same workspace.
+
+Run:
 
 ```powershell
 databricks secrets create-scope ahon-dev-maria --profile <your-profile-name>
 databricks secrets put-secret ahon-dev-maria psgc-api-token --profile <your-profile-name>
 ```
 
-Check that the key exists (this shows the key name, never the value):
+The second command asks you to paste your token at a hidden prompt. You will not see the characters. Paste the token without quotes and press Enter.
+
+Check that the key exists:
 
 ```powershell
 databricks secrets list-secrets ahon-dev-maria --profile <your-profile-name>
 ```
 
-You should see `psgc-api-token`. If `create-scope` says the scope already exists, do not create it again; continue only if the scope is yours and you intend to use it. During initial setup, add your token with `put-secret` once. **Important:** `put-secret` overwrites the value of an existing key. Run it again only when you intentionally rotate or replace your own token, and never use another developer's scope for your personal token.
+You should see `psgc-api-token`.
 
-The token goes only at that hidden prompt. Never put it in the overrides file, a command line, Git or chat. Do not include the token in screenshots or logs.
+If `create-scope` says the scope already exists, do not create it again. Continue only if the scope belongs to you and you intend to use it.
+
+**Important:** `put-secret` overwrites an existing value. Run it again only when intentionally rotating or replacing your own token. Never use another developer's scope for your personal token.
+
+The token belongs only at the hidden prompt. Never put it in the overrides file, command arguments, Git, chat, screenshots, or logs.
 
 ## Step 4: Check the setup and deploy
 
-Before the first run, finish setup: Databricks CLI profile, bundle variable overrides, PSGC token secret and the reviewed CMCI mapping file. The pipeline is the job `ahon_pipeline` in `resources/jobs/ahon_job.yml`. Which script builds which table is in `../architecture/source-to-target.md`.
+Confirm that you have completed:
 
-Run:
+- Databricks CLI authentication
+- Bundle variable overrides
+- PSGC token secret
+- `cmci_mapping_file` set to the planned volume path
+
+For a new workspace, deploy and run `catalog_setup` first, then upload the reviewed CMCI mapping using the procedure in [setup](../getting-started/setup.md). Do not run a CMCI task until the uploaded file exists at the configured path.
+
+Run strict validation:
 
 ```powershell
-databricks bundle validate -t dev --profile <your-profile-name>
+databricks bundle validate --strict -t dev --profile <your-profile-name>
+```
+
+Do not remove `--strict` to bypass an unexpected warning. Review and resolve the warning.
+
+After validation passes, deploy:
+
+```powershell
 databricks bundle deploy -t dev --profile <your-profile-name>
 ```
 
-Validate may print one warning about `.local/**`. That is harmless. Deploy uploads the repo files and creates three jobs in your workspace. It can take a few minutes, longer if the repo is in OneDrive.
+Deployment uploads the repository files and creates the configured jobs in your workspace. It may take several minutes, especially if the repository is stored in OneDrive.
 
 ## Before every run
 
-1. Pull the branch you are running and deploy that same checkout. A workspace job does not update when local files change.
+1. Pull the branch you intend to run.
+2. Validate and deploy that same checkout:
 
    ```powershell
    databricks bundle validate --strict -t dev --profile <your-profile-name>
    databricks bundle deploy -t dev --profile <your-profile-name>
    ```
 
-2. Check that the catalog in your overrides file is the one you mean to write to.
-3. Optional local check, without cloud compute:
+3. Confirm that the catalog in your overrides file is the catalog you intend to update.
+4. Optionally run the local job-contract test:
 
    ```powershell
-   python -m pytest tests/common/test_job_contract.py -q
+   python -m pytest tests/common/testjobcontract.py -q
    ```
 
-   This confirms every task's files, dependencies and settings.
+This local test does not use Databricks cloud compute. It confirms that the job tasks reference valid files, dependencies, and settings.
+
+A workspace job does not update automatically when local files change. Deploy the current checkout before running the job.
 
 ## Run
 
-One job, `ahon_pipeline`, does everything: it creates the catalog and tables, then builds each dataset. Use any new batch name.
+The `ahon_pipeline` job creates the catalog and tables, then builds each dataset.
+
+Use a new batch ID for a new source delivery or corrected source load.
 
 ### Common run commands
 
-| What | Command |
-| --- | --- |
-| Whole pipeline | `databricks bundle run ahon_pipeline -t dev --profile <your-profile-name>` |
-| One dataset, with everything it needs | `databricks bundle run ahon_pipeline -t dev --profile <your-profile-name> --only +<task>` |
-| Several branches | `--only +ldrrmf_gold,+population_gold` |
-| A different catalog or batch | add `--params "catalog=<catalog>,batch_id=<batch_id>"` |
+#### Whole pipeline
 
-`+<task>` includes every upstream task. The batch ID defaults to the job run ID. There is no schedule; runs are started by hand. Keep one run at a time (`max_concurrent_runs` = 1).
+```powershell
+databricks bundle run ahon_pipeline -t dev --profile <your-profile-name>
+```
 
-**Do not run the whole job without `--only` until the reviewed Q2_2024 CMCI mapping CSV has been uploaded using the existing procedure and `cmci_mapping_file` points to it**, because the CMCI tasks will fail.
+#### One dataset with all required upstream tasks
+
+```powershell
+databricks bundle run ahon_pipeline -t dev --profile <your-profile-name> --only +<task>
+```
+
+#### Several branches
+
+```powershell
+databricks bundle run ahon_pipeline -t dev --profile <your-profile-name> --only "+ldrrmf_gold,+population_gold"
+```
+
+#### Different catalog or batch
+
+Add:
+
+```powershell
+--params "catalog=<catalog>,batch_id=<batch_id>"
+```
+
+`+<task>` includes every required upstream task.
+
+The batch ID defaults to the job run ID. There is no schedule; runs are started manually.
+
+Keep one run at a time because `max_concurrent_runs` is set to `1`.
+
+> **Do not run the whole pipeline until the reviewed Q2_2024 CMCI mapping CSV has been uploaded and `cmci_mapping_file` points to its exact volume path. Otherwise, the CMCI tasks will fail.**
 
 ### Everything except CMCI
 
 ```powershell
 $batch = "<yourname>-run-001"
-databricks bundle run ahon_pipeline -t dev --profile <your-profile-name> --params "batch_id=$batch" --only "+population_components,+population_total_gold,+funding_components,+earthquake_components"
+
+databricks bundle run ahon_pipeline `
+  -t dev `
+  --profile <your-profile-name> `
+  --params "batch_id=$batch" `
+  --only "+population_components,+population_total_gold,+funding_components,+earthquake_components"
 ```
 
-### PSGC only (a good first test, shorter)
+### PSGC through `dim_lgu`
+
+This is the recommended first test:
 
 ```powershell
 $batch = "<yourname>-run-001"
-databricks bundle run ahon_pipeline -t dev --profile <your-profile-name> --params "batch_id=$batch" --only +psgc_silver
+
+databricks bundle run ahon_pipeline `
+  -t dev `
+  --profile <your-profile-name> `
+  --params "batch_id=$batch" `
+  --only +dim_lgu
 ```
 
-The command follows the run and ends with a summary. Tables appear in your catalog (Databricks > Catalog > your catalog).
+The command follows the run and ends with a summary.
+
+Tables appear under:
+
+`Databricks > Catalog > your catalog`
 
 ## Run order and dependencies
 
-Run order inside the job: `setup` first, then PSGC (`psgc_extract` → `psgc_bronze` → `psgc_silver` → `dim_lgu`). Dependencies vary: population, funding and CMCI use their configured PSGC references; earthquakes use PSGC Silver. Independent extracts depend only on `setup`, so one failed source does not block another.
+The job begins with `setup`.
+
+The main PSGC sequence is:
+
+```text
+psgc_extract
+→ psgc_bronze
+→ psgc_silver
+→ dim_lgu
+```
+
+Dependencies vary by dataset:
+
+- Population, funding, and CMCI use their configured PSGC references.
+- Earthquake processing uses PSGC Silver.
+- Independent extracts depend only on `setup`.
+- One failed source does not necessarily block an unrelated source branch.
 
 ## By dataset
 
 ### Setup
 
-- **Task:** `setup` (also the separate job `catalog_setup`)
-- **Does:** creates the catalog if permitted, the schemas, the `reference.source` volume and `monitoring.dq_result`. It never rebuilds existing tables.
+- **Task:** `setup`
+- **Separate job:** `catalog_setup`
+- **Does:** Creates the catalog if permitted, the schemas, the `reference.source` volume, and `monitoring.dq_result`.
+- **Does not:** Rebuild existing tables.
 
 ### PSGC
 
 - **Run:** `--only +dim_lgu`
-- **Needs:** the PSA token secret (`psgc_secret_scope`, `psgc_secret_key`), `psgc_api_base_url`, `psgc_expected_rows`, `source_period`.
-- **Historical baseline:** `Q2_2024` was profiled with 43,760 dimension rows, including 1,642 `CITY`/`MUN` rows. Verify the selected snapshot and approved counts for the current run; these numbers are not current runtime evidence.
-- **If it fails:**
-  - HTTP or empty-result error: inspect the actual response for transport failures, rate limiting, outages, permissions or invalid credentials. Rotate a token only when authentication evidence supports it; the job's `run_as` identity needs READ on the scope.
-  - "expected N, found M": PSA changed the snapshot. Review the new count before updating `psgc_expected_rows`.
-  - `invalid_psgc_code`: see `silver.psa_psgc_code_reject`.
+- **Needs:** `psgc_secret_scope`, `psgc_secret_key`, `psgc_api_base_url`, `psgc_expected_rows`, and `source_period`.
+- **Historical baseline:** `Q2_2024` was profiled with 43,760 dimension rows, including 1,642 `CITY` or `MUN` rows.
+
+These historical counts are not current runtime evidence. Verify the selected snapshot and approved counts for the current run.
+
+**If it fails:**
+
+- HTTP or empty-result error: inspect the response for transport failures, rate limiting, outages, permissions, or invalid credentials. Rotate a token only when authentication evidence supports it. The job's `run_as` identity needs `READ` access to the scope.
+- `expected N, found M`: PSA may have changed the snapshot. Review the new count before updating `psgc_expected_rows`.
+- `invalid_psgc_code`: inspect `silver.psa_psgc_code_reject`.
 
 ### PSA Population
 
 - **Run:** `--only +population_components`
-- **Needs:** PSGC, `census_year`.
-- **Check:** `gold.fact_population` has one row per city and municipality for the census year. For 2024, 19 Sulu municipalities are `MISSING`; that is expected.
-- **If it fails:** `city_population_schema_requires_migration` means the catalog still has the old barangay-level table. Use a fresh catalog.
+- **Needs:** PSGC and `census_year`.
+- **Check:** `gold.fact_population` has one row per city and municipality for the census year.
+- **Known 2024 condition:** The 19 Sulu municipalities are expected to have `MISSING` status.
+- **If it fails:** `city_population_schema_requires_migration` means the catalog contains the old barangay-level table. Use a fresh development catalog or an approved migration.
 
 ### PHIVOLCS earthquakes
 
 - **Run:** `--only +earthquake_components`
-- **Needs:** `start_month`, `end_month` (or `auto` for last month), the archive URL template and latest URL, `source_timezone`, and PSGC silver.
-- **Check:** reconcile requested months against the completed landing manifest and source accounting. A month with no observations need not produce a grouped Silver-derived summary row.
-- **If it fails:** "expected exactly one six-column event table" means the PHIVOLCS page layout changed or the month is not published yet. No file is published, so rerun once the page is available.
+- **Needs:** `start_month`, `end_month` or `auto`, the archive URL template, latest URL, `source_timezone`, and PSGC Silver.
+- **Check:** Reconcile the requested months against the completed landing manifest and source accounting.
+
+A month with no observations does not necessarily produce a grouped Silver-derived summary row.
+
+**If it fails:** `expected exactly one six-column event table` means the PHIVOLCS page layout may have changed or the requested month has not been published. Rerun after the page becomes available.
 
 ### CMCI
 
 - **Run:** `--only +cmci_platinum`
-- **Needs:** the reviewed Q2_2024 mapping CSV shipped in the repository, uploaded with the existing source-file upload procedure to the `<catalog>.reference.<source_volume>` volume, and `cmci_mapping_file` set to that uploaded file's path. The CSV columns are `psgc_code,cmci_name,source_period,reviewed,reviewer,evidence`; retain the reviewed file unchanged. Also configure `cmci_start_year`, `cmci_end_year`, `cmci_run_mode` and the `cmci_*` request settings, and ensure `dim_lgu` is available. Use `cmci_run_mode = test` until a full run is intended.
-- **Check:** `platinum.cmci_pillar_coverage` has rows for the requested years; `silver.cmci_reject` is empty or explained.
-- **If it fails:**
-  - Mapping errors: codes must be unique, names one-to-one, `reviewed` true, and `source_period` equal to `dim_lgu`.
-  - Indicator dimension mismatch: `resources/cmci_indicators.csv` changed. Use a fresh catalog, or review the change and its `cmci_metric_version` first.
+- **Mapping source:** `src/sql/datasets/cmci/silver/cmci_reviewed_mapping_Q2_2024.csv`
+- **Needs:** The reviewed Q2_2024 mapping uploaded to the `<catalog>.reference.<source_volume>` volume, with `cmci_mapping_file` set to its exact volume path.
+- **Also needs:** `cmci_start_year`, `cmci_end_year`, `cmci_run_mode`, the required `cmci_*` request settings, and an available `dim_lgu`.
+
+The mapping columns are:
+
+```text
+psgc_code
+cmci_name
+source_period
+reviewed
+reviewer
+evidence
+```
+
+Keep the reviewed mapping unchanged.
+
+Use `cmci_run_mode = test` until a full run is intentionally required.
+
+**Check:**
+
+- `platinum.cmci_pillar_coverage` contains rows for the requested years.
+- `silver.cmci_reject` is empty or every rejected row is explained.
+
+**If it fails:**
+
+- Mapping errors: confirm that PSGC codes are unique, CMCI names map one-to-one, `reviewed` is true, and `source_period` matches the snapshot used by `dim_lgu`.
+- Indicator dimension mismatch: `resources/cmci_indicators.csv` may have changed. Use a fresh development catalog or review the change and `cmci_metric_version` before proceeding.
 
 ### BLGF LDRRMF
 
 - **Run:** `--only +funding_components`
-- **Needs:** `hf_repo` and a pinned full-commit `hf_revision`, `ldrrmf_folder`, `ldrrmf_file_pattern`, `ldrrmf_expected_rows`, `ldrrmf_start_year`, `ldrrmf_end_year`, and PSGC.
-- **Historical baseline:** 11,434 source reports were profiled for FY2018–FY2024. Check the selected run's actual source accounting and match summary; unresolved matches require explanation, not a fixed assumption of five unmatched rows.
-- **If it fails:**
-  - `reference_map_coverage`: bronze has an LGU name the map has not seen. Rerun `ldrrmf_mapping`, review new `needs_review` or `ambiguous` rows, and add an override with a reason if needed.
-  - `component_totals` or `missing_amounts`: see `silver.blgf_ldrrmf_annual_lgu_reject`.
-  - `unique_matched_lgu_year`: two BLGF spellings map to one PSGC code in the same year. Fix with an override.
+- **Needs:** `hf_repo`, a pinned full-commit `hf_revision`, `ldrrmf_folder`, `ldrrmf_file_pattern`, `ldrrmf_expected_rows`, `ldrrmf_start_year`, `ldrrmf_end_year`, and PSGC.
+- **Historical baseline:** 11,434 source reports were profiled for FY2018 through FY2024.
+
+Check the current run's source accounting and match summary. Unresolved matches require explanation instead of relying on a fixed expected number.
+
+**If it fails:**
+
+- `reference_map_coverage`: Bronze contains an LGU name not covered by the mapping. Rerun `ldrrmf_mapping`, review new `needs_review` or `ambiguous` rows, and add a documented override when required.
+- `component_totals` or `missing_amounts`: inspect `silver.blgf_ldrrmf_annual_lgu_reject`.
+- `unique_matched_lgu_year`: two BLGF spellings map to the same PSGC code in the same year. Resolve the conflict with a reviewed override.
 
 ### PSA OpenSTAT population
 
 - **Run:** `--only +population_total_gold`
-- **Inputs:** `population_api_url`, `population_source_file`, `population_expected_profile`, `census_year` and `source_period`.
-- **Outputs:** `bronze.psa_population`, `silver.psa_population_clean`, `silver.psa_population_reject` and `gold.fact_population_total`.
-- This branch does not supply canonical census population components.
+- **Inputs:** `population_api_url`, `population_source_file`, `population_expected_profile`, `census_year`, and `source_period`.
+- **Outputs:** `bronze.psa_population`, `silver.psa_population_clean`, `silver.psa_population_reject`, and `gold.fact_population_total`.
+
+This branch does not provide the canonical census population components.
 
 ## Rerun and replay
 
-- **Retry a failed run:** rerun with the same `batch_id`. Completed files are reused. Lineage and timestamp preservation follow each writer's documented update conditions; there is no universal timestamp-stability guarantee. Keep extraction settings unchanged for a completed batch: the manifest does not bind every requested configuration value.
-- **Load a correction from the source:** run with a new `batch_id`. Updates follow each writer's business/observation keys and change conditions. Review replay evidence for the affected branch before claiming older-delivery protection.
-- **Rerun one branch only:** use `--only +<task>` with the same `batch_id`.
+- **Retry a failed run:** Rerun with the same `batch_id`. Completed landing files are reused.
+- **Load a corrected source:** Use a new `batch_id`.
+- **Rerun one branch:** Use the same `batch_id` with `--only +<task>`.
 
-Nothing is deleted by a rerun. A row that disappears from the source stays in the tables.
+Lineage and timestamp preservation depend on each writer's documented update conditions. There is no universal timestamp-stability guarantee.
+
+Keep extraction settings unchanged for a completed batch because the manifest does not bind every requested configuration value.
+
+A rerun does not delete rows. If a row disappears from the source, it may remain in the target unless the writer explicitly implements deletion behavior.
 
 ## Recover from a blocked check
 
-A blocking check stops the task and dependent tasks are skipped. Checks evaluated before a write prevent that write; earlier successful statements and upstream commits may remain. Inspect actual task state and target history before recovery.
+A blocking data-quality check stops the current task and skips dependent tasks.
 
-1. Open the failed task's output; it names the check (`check_id`) and the table.
-2. Look up the result in `monitoring.dq_result` for that `run_id`.
-3. Look at the rows behind it: the dataset's `_reject` table, or rows with `has_dq_issues`.
-4. Fix the cause: a reviewed mapping or override, a configuration value, or a corrected source in a new batch.
+Checks evaluated before a write prevent that write. Earlier successful statements and upstream commits may remain.
+
+1. Open the failed task's output and identify the `check_id` and table.
+2. Find the result in `monitoring.dq_result` for the related `run_id`.
+3. Inspect the dataset's rejection table or rows where `has_dq_issues` is true.
+4. Fix the mapping, override, configuration, or source issue.
 5. Rerun the affected branch with `--only +<task>`.
 
-Before treating a gold table as current, check the latest `monitoring.dq_result` rows for its task. See `../data-quality/README.md` for what each rule does.
+Before treating a Gold table as current, inspect the latest `monitoring.dq_result` rows for its task.
+
+See ../data-quality/README.md for the purpose of each rule.
 
 ## When something goes wrong
 
 | What you see | Meaning and fix |
 | --- | --- |
-| `Valid: NO` on your profile | Run the login line from Step 1 again. |
-| `Error: Scope ahon-dev-<your-identifier> does not exist!` | Check that you created your developer-specific scope in Step 3 and that `psgc_secret_scope` in `variable-overrides.json` matches it exactly. |
-| `Fill required inputs` or a JSON error | Re-run the check in Step 2 and look at the key it names. |
-| `Warnings are not allowed in strict mode` | Run validate without `--strict`. |
-| Deploy seems stuck | Wait a few minutes. The first upload is large. |
-| A task fails | Open the run in Databricks (Jobs > your job > the run) and read the failed task's error. Send the task name and the last error line to the team. |
-| A CMCI task fails | Confirm the reviewed Q2_2024 mapping CSV was uploaded using the existing procedure and `cmci_mapping_file` points to its path in the reference volume; then inspect the task error. Use `--only` as above. |
+| `Valid: NO` | Run the login command from Step 1 again. |
+| Secret scope does not exist | Confirm that you created your developer-specific scope and that `psgc_secret_scope` matches it exactly. |
+| Missing required input or JSON error | Rerun the required-key check from Step 2 and correct the key it identifies. |
+| Strict validation warning | Review and fix the warning. Do not remove `--strict` only to bypass it. |
+| Deployment appears stuck | Wait several minutes. The first bundle upload can take longer, especially in OneDrive. |
+| Pipeline task fails | Open the failed Databricks task and inspect its final error. |
+| CMCI task fails | Confirm that the reviewed mapping was uploaded and `cmci_mapping_file` points to its exact reference-volume path. |
+
+When requesting help for a failed task, provide:
+
+- Task name
+- Batch ID
+- Final error line
+- Relevant table or `check_id`
+
+Do not include tokens, private configuration values, or workspace identifiers.
 
 ## Do not
 
-- Edit or delete files in a completed batch folder. A checksum mismatch blocks reads; keep the batch for investigation and land a new one.
-- Drop or alter tables to get past a schema check. Use a fresh development catalog or a reviewed migration.
-- Point live ingestion at an `ahon_integration_*` catalog; those hold test fixtures for the `data_quality` job.
-- Put tokens or workspace IDs in the repository, command arguments or chat.
+- Edit or delete files in a completed batch folder. Keep the batch for investigation and land a new batch.
+- Drop or alter tables merely to bypass a schema check. Use a fresh development catalog or an approved migration.
+- Point live ingestion at an `ahon_integration_*` catalog. Those catalogs contain fixtures for the `data_quality` job.
+- Put tokens, private configuration values, or workspace identifiers in the repository, command arguments, screenshots, logs, or chat.
 
 ## Test job
 
-`data_quality` (development only) runs the real transformations on synthetic fixtures in a fresh `ahon_integration_*` catalog:
+The development-only `data_quality` job runs the real transformations against synthetic fixtures in a fresh `ahon_integration_*` catalog:
 
 ```powershell
-databricks bundle run data_quality -t dev --profile <your-profile-name> --params "catalog=ahon_integration_<name>"
+databricks bundle run data_quality `
+  -t dev `
+  --profile <your-profile-name> `
+  --params "catalog=ahon_integration_<name>"
 ```
 
-It has no automatic retries; use a fresh catalog after a failure. It tests the code, not the real sources.
+The test job has no automatic retries. Use a fresh integration catalog after a failure.
 
-
-
-It has no automatic retries; use a fresh catalog after a failure. It tests the code, not the real sources.
+It tests the transformation code and data-quality behavior, not the availability or current contents of the real external sources.
