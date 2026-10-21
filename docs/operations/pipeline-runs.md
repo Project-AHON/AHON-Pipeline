@@ -33,7 +33,7 @@ Do not record tokens or secret values. No new cloud run is claimed by this docum
 | Source periods | PSGC: snapshots Q2_2024 (selected), April_2024, Q4_2023, Q2_2021. Census population: 2024. BLGF LDRRMF: FY2018 to FY2024 (7 fiscal years). PHIVOLCS: 2024-01 to 2026-09 (33 months). CMCI: 2014 to 2024, full mode (1,634 LGUs) |
 | Pinned source revision | Hugging Face `Jess-Christine/Project-AHON` at `9273d4b4d5af6d2a14e52451c45ac70a6e3012f5` |
 | DQ outcomes | 324 PASS, 28 WARN, 0 BLOCKED, 0 ERROR (`run_id = 'prod-verify-003'`) |
-| Same-batch replay | Run <REPLAY_RUN_ID>, same command and batch, no redeploy: <REPLAY_RESULT> |
+| Same-batch replay | Run 319466650296701, same command and batch, no redeploy: started 11:14:50 UTC, ended 11:45:39 UTC (31 minutes), `SUCCEEDED`, 41 of 41 tasks. All 28 tables in bronze, silver, reference, gold and platinum have the same row count and fingerprint as after the first run |
 | Evidence type | Live sources, production catalog |
 | Verified by | Crystal |
 
