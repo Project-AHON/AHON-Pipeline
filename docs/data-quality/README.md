@@ -2,7 +2,7 @@
 
 ## How checks work
 
-Builders and layer gates persist checks in `monitoring.dq_result`. The pipeline has 40 tasks, including 12 gates and `dashboard_views`, which creates the data quality dashboard views; setup and development verification are separate jobs. Gate tasks follow their corresponding builds. Census and OpenSTAT population gates run independently.
+Builders and layer gates persist checks in `monitoring.dq_result`. The pipeline has 41 tasks, including 12 gates, `dashboard_views`, which creates the data quality dashboard views, and `run_log_views`, which creates the [pipeline run views](../operations/pipeline-runs.md#run-log-views); setup and development verification are separate jobs. Gate tasks follow their corresponding builds. Census and OpenSTAT population gates run independently.
 
 An ERROR-severity rule that fails records BLOCKED and stops dependents. WARN findings retain evidence without stopping the task. A gate execution exception records ERROR when GX returns an exception result, and stops the task. Earlier successful writes are not rolled back.
 

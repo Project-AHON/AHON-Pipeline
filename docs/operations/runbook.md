@@ -150,6 +150,13 @@ Dependencies vary by dataset:
 - **Does:** Creates the catalog if permitted, the schemas, the `reference.source` volume, and `monitoring.dq_result`.
 - **Does not:** Rebuild existing tables.
 
+### Monitoring views
+
+- **Tasks:** `dashboard_views` and `run_log_views`, both after `setup`
+- **Does:** Creates the views the two monitoring dashboards read: `monitoring.dq_check_result` and `monitoring.dq_check_status` ([data quality](../data-quality/README.md#dashboard)), and `monitoring.run_log` and `monitoring.task_run_log` ([pipeline runs](pipeline-runs.md#run-log-views)).
+- **Needs:** `run_log_views` needs `SELECT` on `system.lakeflow` for the job's `run_as` identity.
+- **Run:** `--only "dashboard_views,run_log_views"`
+
 ### PSGC
 
 - **Run:** `--only +dim_lgu`

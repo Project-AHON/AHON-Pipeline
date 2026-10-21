@@ -79,7 +79,7 @@ Names follow the [naming standard](naming-standard.md).
 
 ## Serving
 
-The available Gold and Platinum components support the developing dashboard. Supported LGU joins use `psgc_code` through `dim_lgu`; earthquake summaries have no assigned LGU key. The main bundle contains no dashboard resource or publication schedule. [Analytics method](analytics-method.md) distinguishes proposed scores from implemented outputs; see [dashboard status](../insights/dashboard.md).
+The available Gold and Platinum components support the developing dashboard. Supported LGU joins use `psgc_code` through `dim_lgu`; earthquake summaries have no assigned LGU key. The bundle deploys two monitoring dashboards, AHON Data Quality Monitoring and AHON Pipeline Runs; the AHON dashboard itself is not in the bundle and has no publication schedule. [Analytics method](analytics-method.md) distinguishes proposed scores from implemented outputs; see [dashboard status](../insights/dashboard.md).
 
 ## Orchestration
 

@@ -6,7 +6,7 @@ Earthquake data in the Philippines is spread across agencies, formats and place 
 
 ## Implementation status
 
-The current pipeline publishes geographic references, reported census population, CMCI indicator measurements and coverage, disaster-fund components, and earthquake observation summaries. Every run records its data quality results, which the AHON Data Quality Monitoring dashboard shows.
+The current pipeline publishes geographic references, reported census population, CMCI indicator measurements and coverage, disaster-fund components, and earthquake observation summaries. Every run records its data quality results, which the AHON Data Quality Monitoring dashboard shows. The AHON Pipeline Runs dashboard shows each job run and its tasks.
 
 The analytical questions below describe the project's intended outcomes. Composite LGU risk, preparedness and vulnerability rankings are not yet implemented as approved pipeline outputs. Earthquake locality candidates are reported, but observations are not assigned to LGUs as exposure or impact.
 
@@ -51,7 +51,7 @@ AHON is a batch pipeline on Databricks. Each source is downloaded into a folder 
 
 The pipeline runs 12 layer-gate tasks after their corresponding builds. Census and OpenSTAT population have independent silver and gold gates. Blocking results stop dependent tasks; warning results remain visible. Gate and build checks share `monitoring.dq_result`. Earlier writes are not rolled back.
 
-The AHON Data Quality Monitoring dashboard (`resources/dashboards/ahon_data_quality.lvdash.json`) is deployed with the bundle and shows what passed, what is broken and whether anything stopped the run. See [data quality](docs/data-quality/README.md).
+The AHON Data Quality Monitoring dashboard (`resources/dashboards/ahon_data_quality.lvdash.json`) is deployed with the bundle and shows what passed, what is broken and whether anything stopped the run. See [data quality](docs/data-quality/README.md). The AHON Pipeline Runs dashboard (`resources/dashboards/ahon_pipeline_runs.lvdash.json`) shows when each job ran, how long it took, and which tasks succeeded, failed or were skipped. See [pipeline runs](docs/operations/pipeline-runs.md).
 
 New to the acronyms? See the [glossary](docs/architecture/glossary.md).
 
@@ -107,7 +107,7 @@ AHON-Pipeline/
 │   └── pull_request_template.md # PR template
 ├── resources/
 │   ├── jobs/                    # ahon_pipeline, catalog_setup, data_quality (dev only)
-│   ├── dashboards/              # AHON Data Quality Monitoring dashboard
+│   ├── dashboards/              # AHON Data Quality Monitoring and AHON Pipeline Runs dashboards
 │   └── cmci_indicators.csv      # the selected CMCI indicators
 ├── src/
 │   └── sql/                     # all pipeline code, SQL and Python together
@@ -119,7 +119,7 @@ AHON-Pipeline/
 │       │       └── silver/      # cleans into silver.<dataset>_clean (+ _reject)
 │       ├── gold/                # dimensions and facts, combining datasets
 │       ├── platinum/            # analysis views built from gold
-│       ├── monitoring/          # DQ gates per dataset
+│       ├── monitoring/          # DQ gates per dataset and the run log views
 │       └── common/              # shared Python: runners, quality checks, DQ gate
 ├── notebooks/
 │   └── exploration/             # experiments only; jobs never run these

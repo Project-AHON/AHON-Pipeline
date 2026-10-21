@@ -78,7 +78,7 @@ If you already have a private overrides file, copy it to this path and review ev
 | Settings | What to supply |
 | --- | --- |
 | `catalog`, `workspace_root`, `source_volume` | Your development catalog, such as `ahon_dev_<name>`; a workspace folder for the bundle files and state; and the raw-file volume name, normally `source` |
-| `warehouse_id` | The ID of a SQL warehouse you can use. The data quality dashboard runs its queries on it. Find it under **SQL Warehouses**, on the warehouse's **Overview** tab, or with `databricks warehouses list --profile <your-profile>` |
+| `warehouse_id` | The ID of a SQL warehouse you can use. The data quality and pipeline runs dashboards run their queries on it. Find it under **SQL Warehouses**, on the warehouse's **Overview** tab, or with `databricks warehouses list --profile <your-profile>` |
 | `run_as` | One identity: `{"user_name":"<user>"}` or `{"service_principal_name":"<application-id>"}` |
 | `environment_version`, `job_timeout_seconds`, `task_timeout_seconds`, `task_retries`, `retry_interval_millis`, `max_concurrent_runs` | Settings supported by your workspace. Use `max_concurrent_runs` = 1 and a small number of retries |
 | `source_period`, `census_year` | The PSGC snapshot, such as `Q2_2024`, and the population census year, such as 2024 |

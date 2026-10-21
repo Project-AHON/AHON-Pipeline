@@ -127,3 +127,9 @@ resources:
       warehouse_id: ${var.warehouse_id}
       dataset_catalog: ${var.catalog}
       embed_credentials: false
+    ahon_pipeline_runs:
+      display_name: AHON Pipeline Runs
+      file_path: ./resources/dashboards/ahon_pipeline_runs.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}
+      embed_credentials: false
