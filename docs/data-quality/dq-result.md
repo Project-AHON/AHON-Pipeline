@@ -57,23 +57,28 @@ ORDER BY rule_type, disposition;
 
 ## Known warnings
 
-From the full run on `ahon_dev_crystal` (batch `crystal-run-001`, 2026-10-20, from the PR #109 branch before it merged; CMCI in test mode, 5 LGUs). No check was BLOCKED. These WARNs are expected until the cause is fixed; a new WARN, or a count that grows, needs a look.
+From the production run on `ahon` (batch `prod-verify-003`, 2026-10-21, commit `62fa65b`; CMCI in full mode; PHIVOLCS 2024-01 to 2026-09). See [Pipeline runs](../operations/pipeline-runs.md). No check was BLOCKED. These WARNs are expected until the cause is fixed; a new WARN, or a count that grows, needs a look.
 
 | Dataset | Check | Rows | Cause |
 | --- | --- | --- | --- |
 | PSGC | broken `ñ` in `area_name` (silver; gold `dim_lgu`) | 1,824 (gold 456) | Encoding in the PSA source (`Ã±`). The LDRRMF matcher repairs it when matching |
 | PSGC | `region_found` (silver) | 30,648 | `Q2_2021` only: PSA's old 9-digit codes padded to 10 digits give wrong regions. Not used downstream (`dim_lgu` is `Q2_2024`) |
 | PSGC | rows in `psa_psgc_reject` | 12 | 2 each in Q2_2024, April_2024 and Q4_2023, 6 in Q2_2021 |
+| PSGC | `rows_per_period_match_bronze` (silver) | 4 periods | The gate counts every bronze delivery, so it warns once bronze holds a second batch. Fix pending: compare the current batch only |
 | PSA Population | non-accepted records (census silver) | 16 | Source records outside the accepted levels |
 | PSA Population | `population` NULL (census gold) | 19 | Sulu municipalities with no 2024 count (`MISSING`) |
 | PSA OpenSTAT | rows not mapped to PSGC (gold) | 44 | OpenSTAT names with no PSGC match; this chain is not used downstream |
-| BLGF LDRRMF | `psgc_matched` (silver) | 235 | 5 old Maguindanao province rows, plus 230 that the LGU map marks `needs_review` since #94 (NCR, HUCs, cityhood changes). Fix pending |
-| BLGF LDRRMF | `overspent`, `zero_appropriation`, `negative_amount` (silver) | 388, 187, 3 | As reported by BLGF; kept and flagged with `has_dq_issues` |
+| BLGF LDRRMF | `psgc_matched` (silver, gold) | 235 | 5 old Maguindanao province rows, plus 230 that the LGU map marks `needs_review` since #94 (NCR, HUCs, cityhood changes). Fix pending |
+| BLGF LDRRMF | `overspent`, `zero_appropriation`, `negative_amount` (silver) | 388, 187, 3 (407 rows flagged) | As reported by BLGF; kept and flagged with `has_dq_issues` |
 | BLGF LDRRMF | negative utilization; `lgu_type` vs PSGC level (gold) | 2; 4 | Negative amounts in the source; Baliuag's cityhood |
-| PHIVOLCS earthquakes | `in_ph_bounds` (silver) | 22 | Coordinates outside the Philippine bounding box; cause to check |
-| PHIVOLCS earthquakes | `candidate_coverage` (silver) | 1,896 | The locality parser does not handle the source's spacing and degree sign; fix pending |
-| CMCI | `raw_score_present` (silver, gold) | 312 | Source shows `-` or blank |
-| CMCI | `coverage_complete` (platinum) | 84 | Pillars with `INSUFFICIENT_DATA` |
+| BLGF LDRRMF | `dim_lgu_has_ldrrmf_latest_year` (gold) | 43 | Cities and municipalities without FY2024 LDRRMF: the unmatched cities above and the 8 new BARMM towns |
+| PHIVOLCS earthquakes | `in_ph_bounds` (silver) | 698 | Coordinates outside the Philippine bounding box; cause to check |
+| PHIVOLCS earthquakes | `candidate_coverage` (silver) | 59,861 | The locality parser does not handle the source's spacing and degree sign; fix pending |
+| PHIVOLCS earthquakes | `event_signature_unique` (silver) | 87 | The same event appears more than once in the source; cause to check |
+| PHIVOLCS earthquakes | `event_time_parsed`, `event_values_finite` (silver) | 33, 24 | Date-time or numeric values that could not be read; cause to check |
+| PHIVOLCS earthquakes | rows in `philvolcs_earthquake_reject` | 54 | Rows flagged invalid by the checks above |
+| CMCI | `raw_score_present` (silver, gold) | 132,797 | Source shows `-` or blank |
+| CMCI | `coverage_complete` (platinum) | 30,503 | Pillars with `INSUFFICIENT_DATA` |
 
 ## Not used any more
 
