@@ -18,23 +18,76 @@ Do not record tokens or secret values. No new cloud run is claimed by this docum
 
 ## Current verification record
 
-No complete live-source pipeline run has been verified for the current commit.
+The run below is a **development run** of the current code. It is recorded until the production run (target `prod`, catalog `ahon`, CMCI in full mode) has finished and been checked; that record will replace this one and add the same-batch replay.
 
 | Field | Evidence |
 | --- | --- |
-| Commit SHA | Not yet recorded |
-| Bundle target | Not yet recorded |
-| Databricks job run | Not yet recorded |
-| Catalog | Not yet recorded |
-| Batch ID | Not yet recorded |
-| Tasks verified | Not yet recorded |
-| Source periods | Not yet recorded |
-| Expected versus actual rows | Not yet recorded |
-| DQ outcomes | Not yet recorded |
-| Same-batch replay | Not yet verified |
-| Evidence type | None recorded for the current commit |
+| Verification date | 2026-10-21 |
+| Commit SHA | `62fa65b1f1edbb42bfbd4d097dd0ce0b5adfcfc9` (main after #120). No tracked file was modified; one untracked, non-code file (`verify-bundle.json`) was present at deploy and was uploaded with the bundle files |
+| Bundle target | Development settings (`catalog = ahon_dev_crystal`, `cmci_run_mode = test`) |
+| Databricks workspace | The team workspace |
+| Job name | `ahon_pipeline` (job 532457890464535) |
+| Job run | 512035323666586, started 2026-10-21 07:48:56 UTC, ended 08:19:55 UTC (31 minutes), `SUCCEEDED` |
+| Catalog | `ahon_dev_crystal` |
+| Batch ID | `prod-verify-001` |
+| Command executed | `databricks bundle run ahon_pipeline -t <target> --profile <profile> --params "batch_id=prod-verify-001"` |
+| Tasks | 41 of 41 succeeded; 0 failed, 0 skipped, 0 blocked (`monitoring.run_log`) |
+| Source periods | PSGC: snapshots Q2_2024 (selected), April_2024, Q4_2023, Q2_2021. Census population: 2024. BLGF LDRRMF: FY2018 to FY2024 (7 fiscal years). PHIVOLCS: 2024-01. CMCI: 2014 to 2024, test mode (5 LGUs) |
+| Pinned source revision | Hugging Face `Jess-Christine/Project-AHON` at `9273d4b4d5af6d2a14e52451c45ac70a6e3012f5` |
+| DQ outcomes | 329 PASS, 24 WARN, 0 BLOCKED, 0 ERROR (`run_id = 'prod-verify-001'`) |
+| Same-batch replay | Not run for this record; see the production record |
+| Evidence type | Live sources, development catalog |
+| Verified by | Crystal |
 
-Until these fields are completed from a single reproducible run, the repository must not claim that the full live-source pipeline is verified, reproducible, or ready for handoff.
+### Row counts
+
+Counts read after the run with the evidence notebook (row count per table, plus a fingerprint for the replay comparison). Bronze keeps every delivery, so a source loaded in two batches shows twice its rows in bronze; silver keeps one current row per business key.
+
+| Dataset | Bronze | Silver | Rejected | Gold / reference | Platinum | Explained by |
+| --- | --- | --- | --- | --- | --- | --- |
+| PSGC | 350,158 | 175,067 (`psa_psgc_clean`, 4 snapshots) | 12 (`psa_psgc_reject`) | `dim_lgu` 43,760 (Q2_2024 only) | | Bronze holds two deliveries of 175,079 rows each (175,067 + 12) |
+| PSA Population (census) | | 4,781 (`psgc_city_population_clean`), 16 not accepted | | `fact_population` 1,642 (one per city and municipality) | `population_components` 1,642 | 1,642 = the CITY and MUN rows in `dim_lgu`; 19 Sulu towns have no 2024 count (`MISSING`) |
+| PSA OpenSTAT | 3,488 | 1,744 (`psa_population_clean`) | 0 | `fact_population_total` 1,744 | | Two deliveries of 1,744 in bronze |
+| BLGF LDRRMF | 22,868 | 11,434 | 0 | `fact_ldrrmf` 11,434; `blgf_ldrrmf_lgu_map` 2,055 | `funding_components` 10,880 | Two deliveries of 11,434 in bronze. Platinum keeps city and municipality reports only (554 fewer) |
+| PHIVOLCS earthquakes | 1,896 | 1,896 | 0 | | `earthquake_observation_summary` 1 (one month) | Earthquake bronze rows are identified by file and row number, so an identical file does not add rows |
+| CMCI | 2 (HTML batches) | 1,925 | 0 | `fact_cmci_indicator` 1,925; `dim_cmci_indicator` 35; `cmci_lgu_map` 5 | `cmci_pillar_coverage` 275 | Test mode: 5 LGUs x 35 indicators x 11 years; 5 x 5 pillars x 11 years |
+
+The development catalog also still holds `bronze.osm_critical_infrastructures` and `silver.osm_critical_infrastructures_clean` (55,482 rows each) from runs before OSM was removed. This run did not build them.
+
+The volume and reconciliation rules in the gates (24 rules, for example `row_count_matches_silver`, `total_appropriation_is_sum_of_parts`) all passed, except `psa_psgc_silver_rows_per_period_match_bronze` (below).
+
+### Warnings
+
+| Table | Check | Failed | Checked | Explanation |
+| --- | --- | --- | --- | --- |
+| `silver.psa_psgc_clean` | `area_name_no_broken_enye` | 1,824 | 175,067 | `ñ` stored as `Ã±` in the PSA source. Gold: 456 of 43,760 in `dim_lgu` |
+| `silver.psa_psgc_clean` | `region_found` | 30,648 | 175,067 | Q2_2021 codes use PSA's older format; padding to 10 digits gives wrong regions. Q2_2021 is not used downstream |
+| `silver.psa_psgc_clean` | `rows_per_period_match_bronze` | 4 | 4 periods | Gate counts every bronze delivery, so a second batch doubles bronze. Follow-up: compare only the current batch |
+| `silver.psa_psgc_reject` | `invalid_geographic_fields` | 12 | | Source rows with invalid geographic fields, kept in the reject table |
+| `silver.psgc_city_population_clean` | `records_accepted` | 16 | 4,781 | Special Geographic Area codes (`19999…`) not accepted |
+| `gold.fact_population` | `population_available`, `missing_city_population` | 19 | 1,642 | Sulu municipalities with no 2024 census count |
+| `gold.fact_population_total` | `city_rows_mapped_to_psgc` | 44 | 1,744 | OpenSTAT names with `ñ` and other spellings not matched; this chain is not used downstream |
+| `silver.blgf_ldrrmf_annual_lgu_clean` | `psgc_matched`, `unmatched_funding_geography` | 235 | 11,434 | 5 old Maguindanao province rows, and 230 LGU-years the LDRRMF map marks `needs_review` (NCR and highly urbanized cities, cityhood changes). Fix pending |
+| `silver.blgf_ldrrmf_annual_lgu_clean` | `overspent`, `zero_appropriation`, `negative_amount`, `funding_flagged_rows` | 388, 187, 3; 407 rows flagged | 11,434 | As reported by BLGF; kept and flagged with `has_dq_issues` |
+| `gold.fact_ldrrmf` | `psgc_matched` | 235 | 11,434 | Same as silver |
+| `gold.fact_ldrrmf` | `dim_lgu_has_ldrrmf_latest_year` | 43 | 1,724 | Cities and municipalities without FY2024 LDRRMF: the unmatched cities above and the 8 new BARMM towns |
+| `gold.fact_ldrrmf` | `lgu_type_matches_psgc_level` | 4 | 11,199 | Baliuag, a town that became a city |
+| `gold.fact_ldrrmf` | `utilization_rate_not_negative` | 2 | 11,434 | Negative expenditure in the source |
+| `silver.philvolcs_earthquake_observation_clean` | `candidate_coverage` | 1,896 | 1,896 | The locality parser does not handle the source's spacing and degree sign; fix pending |
+| `silver.philvolcs_earthquake_observation_clean` | `in_ph_bounds` | 22 | 1,896 | Coordinates outside the Philippine bounding box (offshore events); kept |
+| `silver.cmci_indicator_clean`, `gold.fact_cmci_indicator` | `raw_score_present` | 312 | 1,925 | Source shows `-` or blank |
+| `platinum.cmci_pillar_coverage` | `coverage_complete` | 84 | 275 | Pillars with too few indicators (`INSUFFICIENT_DATA`) |
+
+### Limitations
+
+- Development catalog and CMCI test mode (5 LGUs); CMCI counts are not full coverage.
+- No same-batch replay in this record.
+- One untracked, non-code file was uploaded with the deployment.
+- Earthquake silver rows keep the lineage of the first batch that delivered them, so their source paths name an earlier batch.
+
+### Earlier run not used as evidence
+
+Run 526096692147624 (2026-10-20, batch `crystal-run-001`) succeeded, and its DQ results were recovered from Delta history (version 927 of `monitoring.dq_result`: 328 PASS, 23 WARN). It is not used because it was deployed from a working tree with uncommitted changes, so the code that ran cannot be tied to a commit.
 
 ## Verification record template
 
